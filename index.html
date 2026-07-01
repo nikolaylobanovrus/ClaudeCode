@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Задачник — Task Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app__header">
+      <div class="brand">
+        <div class="brand__logo">✓</div>
+        <div>
+          <h1 class="brand__title">Задачник</h1>
+          <p class="brand__subtitle">Простой менеджер задач</p>
+        </div>
+      </div>
+      <button id="themeToggle" class="icon-btn" title="Переключить тему" aria-label="Переключить тему">🌙</button>
+    </header>
+
+    <section class="stats" id="stats">
+      <div class="stat">
+        <span class="stat__value" id="statTotal">0</span>
+        <span class="stat__label">Всего</span>
+      </div>
+      <div class="stat">
+        <span class="stat__value" id="statActive">0</span>
+        <span class="stat__label">Активные</span>
+      </div>
+      <div class="stat">
+        <span class="stat__value" id="statDone">0</span>
+        <span class="stat__label">Выполнено</span>
+      </div>
+    </section>
+
+    <form id="taskForm" class="add-form" autocomplete="off">
+      <input
+        id="taskInput"
+        class="add-form__input"
+        type="text"
+        placeholder="Что нужно сделать?"
+        maxlength="200"
+        required
+      />
+      <select id="priorityInput" class="add-form__priority" title="Приоритет">
+        <option value="low">Низкий</option>
+        <option value="medium" selected>Средний</option>
+        <option value="high">Высокий</option>
+      </select>
+      <button type="submit" class="btn btn--primary">Добавить</button>
+    </form>
+
+    <div class="toolbar">
+      <div class="filters" id="filters" role="tablist">
+        <button class="chip is-active" data-filter="all">Все</button>
+        <button class="chip" data-filter="active">Активные</button>
+        <button class="chip" data-filter="done">Выполненные</button>
+      </div>
+      <button id="clearDone" class="btn btn--ghost">Очистить выполненные</button>
+    </div>
+
+    <ul id="taskList" class="task-list"></ul>
+
+    <div id="emptyState" class="empty">
+      <div class="empty__icon">🗒️</div>
+      <p class="empty__text">Задач пока нет. Добавь первую!</p>
+    </div>
+
+    <footer class="app__footer">
+      <span>Данные хранятся локально в браузере</span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
