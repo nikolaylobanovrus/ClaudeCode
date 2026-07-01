@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+
+# Яндекс
+User-agent: Yandex
+Allow: /
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term
+
+# Разрешаем ИИ-краулерам индексировать контент (оптимизация под ИИ-поиск)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: YandexAdditional
+Allow: /
+
+Sitemap: https://nalog-service.online/sitemap.xml
+Host: https://nalog-service.online
