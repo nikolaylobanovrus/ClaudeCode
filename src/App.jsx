@@ -1,0 +1,27 @@
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout.jsx";
+import Home from "./pages/Home.jsx";
+import Deductions from "./pages/Deductions.jsx";
+import Pricing from "./pages/Pricing.jsx";
+import HowItWorks from "./pages/HowItWorks.jsx";
+import Contacts from "./pages/Contacts.jsx";
+import Privacy from "./pages/Privacy.jsx";
+import Offer from "./pages/Offer.jsx";
+import NotFound from "./pages/NotFound.jsx";
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="vychety" element={<Deductions />} />
+        <Route path="tarify" element={<Pricing />} />
+        <Route path="kak-rabotaem" element={<HowItWorks />} />
+        <Route path="kontakty" element={<Contacts />} />
+        <Route path="politika-konfidencialnosti" element={<Privacy />} />
+        <Route path="publichnaya-oferta" element={<Offer />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  );
+}
