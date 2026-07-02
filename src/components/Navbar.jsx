@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { company } from "../data/content.js";
+import { getAccount } from "../lib/account.js";
 
 const LINKS = [
   { to: "/", label: "Главная", end: true },
@@ -13,6 +14,7 @@ const LINKS = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const account = getAccount();
 
   return (
     <header className="navbar">
@@ -49,6 +51,17 @@ export default function Navbar() {
               {l.label}
             </NavLink>
           ))}
+          {account && (
+            <NavLink
+              to="/kabinet"
+              className={({ isActive }) =>
+                "navbar__link" + (isActive ? " is-active" : "")
+              }
+              onClick={close}
+            >
+              Кабинет
+            </NavLink>
+          )}
           <span className="navbar__phone">
             <a href={`tel:${company.phoneRaw}`}>{company.phone}</a>
             <span>Колл-центр 24/7</span>

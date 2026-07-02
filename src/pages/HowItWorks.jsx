@@ -70,12 +70,17 @@ export default function HowItWorks() {
         <div className="cta__inner container">
           <h2 className="cta__title">Начнём прямо сейчас?</h2>
           <p className="cta__text">
-            Оставьте заявку — и уже сегодня получите список документов для вашего
-            вычета.
+            Сформируйте декларацию онлайн — или оставьте заявку, и уже сегодня
+            получите список документов для вашего вычета.
           </p>
-          <Link to="/kontakty" className="btn btn--green btn--lg">
-            Оставить заявку
-          </Link>
+          <div className="cta__actions">
+            <Link to="/registraciya" className="btn btn--green btn--lg">
+              Сформировать декларацию онлайн
+            </Link>
+            <Link to="/kontakty" className="btn btn--light btn--lg">
+              Оставить заявку
+            </Link>
+          </div>
         </div>
       </section>
     </>

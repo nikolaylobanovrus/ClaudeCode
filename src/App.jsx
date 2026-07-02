@@ -7,6 +7,9 @@ import HowItWorks from "./pages/HowItWorks.jsx";
 import Contacts from "./pages/Contacts.jsx";
 import Privacy from "./pages/Privacy.jsx";
 import Offer from "./pages/Offer.jsx";
+import Register from "./pages/Register.jsx";
+import ChooseSituation from "./pages/ChooseSituation.jsx";
+import Cabinet from "./pages/Cabinet.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 export default function App() {
@@ -18,6 +21,9 @@ export default function App() {
         <Route path="tarify" element={<Pricing />} />
         <Route path="kak-rabotaem" element={<HowItWorks />} />
         <Route path="kontakty" element={<Contacts />} />
+        <Route path="registraciya" element={<Register />} />
+        <Route path="vyberite-situaciyu" element={<ChooseSituation />} />
+        <Route path="kabinet" element={<Cabinet />} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />
         <Route path="*" element={<NotFound />} />

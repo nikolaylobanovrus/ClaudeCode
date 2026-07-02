@@ -77,12 +77,17 @@ export default function Pricing() {
         <div className="cta__inner container">
           <h2 className="cta__title">Готовы оформить вычет?</h2>
           <p className="cta__text">
-            Оставьте заявку — рассчитаем стоимость и сумму к возврату именно для
-            вашей ситуации.
+            Сформируйте декларацию онлайн или оставьте заявку — рассчитаем
+            стоимость и сумму к возврату именно для вашей ситуации.
           </p>
-          <Link to="/kontakty" className="btn btn--green btn--lg">
-            Оставить заявку
-          </Link>
+          <div className="cta__actions">
+            <Link to="/registraciya" className="btn btn--green btn--lg">
+              Сформировать декларацию онлайн
+            </Link>
+            <Link to="/kontakty" className="btn btn--light btn--lg">
+              Оставить заявку
+            </Link>
+          </div>
         </div>
       </section>
     </>

@@ -1,0 +1,114 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import Seo from "../components/Seo.jsx";
+import PageHero from "../components/PageHero.jsx";
+import { getAccount, updateAccount } from "../lib/account.js";
+import { situationArts } from "../components/SituationArt.jsx";
+
+const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
+
+const SITUATIONS = [
+  { slug: "kvartira", label: "Купили квартиру или дом" },
+  { slug: "ipoteka", label: "Платили за ипотеку" },
+  { slug: "lechenie-obuchenie", label: "Платили за лечение или обучение" },
+  { slug: "inostrannym", label: "3-НДФЛ для иностранных граждан" },
+  { slug: "prodazha", label: "Продали недвижимость или автомобиль" },
+  { slug: "inaya", label: "Иная ситуация" },
+];
+
+export default function ChooseSituation() {
+  const navigate = useNavigate();
+  const account = getAccount();
+  const [selected, setSelected] = useState(account?.situation || "");
+
+  // Страница доступна только после регистрации.
+  useEffect(() => {
+    if (!account) navigate("/registraciya", { replace: true });
+  }, [account, navigate]);
+
+  if (!account) return null;
+
+  function choose(label) {
+    setSelected(label);
+    updateAccount({ situation: label });
+    // Сообщаем менеджеру о выборе клиента (не блокируем интерфейс).
+    fetch(FORM_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        _subject: `Клиент выбрал ситуацию — ID ${account.id}`,
+        _template: "table",
+        _captcha: "false",
+        "ID клиента": String(account.id),
+        "Email": account.email,
+        "Ситуация": label,
+      }),
+    }).catch(() => {
+      /* дублирующее уведомление; выбор уже сохранён в кабинете */
+    });
+  }
+
+  return (
+    <>
+      <Seo
+        title="Выберите ситуацию | Налог-сервис"
+        description="Выберите свою ситуацию, и мы подготовим декларацию 3-НДФЛ."
+        path="/vyberite-situaciyu"
+        noindex
+      />
+      <PageHero
+        eyebrow={`ID клиента: ${account.id}`}
+        title="Выберите ситуацию"
+        subtitle="За что вы хотите получить налоговый вычет? Выберите подходящую плашку — остальное мы возьмём на себя."
+        crumbs={["Выберите ситуацию"]}
+      />
+
+      <section className="section">
+        <div className="container">
+          <div className="sit-grid">
+            {SITUATIONS.map((s) => {
+              const Art = situationArts[s.slug];
+              const isSel = selected === s.label;
+              return (
+                <button
+                  key={s.slug}
+                  type="button"
+                  className={"sit-card" + (isSel ? " is-selected" : "")}
+                  onClick={() => choose(s.label)}
+                  aria-pressed={isSel}
+                >
+                  <Art />
+                  <span className="sit-card__label">
+                    {s.label}
+                    <span className="sit-card__mark" aria-hidden="true">
+                      {isSel ? "✓" : "→"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {selected && (
+            <div className="sit-done" role="status">
+              <div className="form__success-icon">✓</div>
+              <h3>Отличный выбор: «{selected}»</h3>
+              <p>
+                Мы получили вашу заявку. Специалист свяжется с вами, запросит
+                документы и подготовит декларацию 3-НДФЛ.
+              </p>
+              <div className="cta__actions">
+                <Link to="/kabinet" className="btn btn--primary">
+                  Перейти в личный кабинет
+                </Link>
+                <Link to="/kontakty" className="btn btn--ghost">
+                  Связаться с нами
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  );
+}

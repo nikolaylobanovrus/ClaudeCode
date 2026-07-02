@@ -57,9 +57,14 @@ export default function Deductions() {
             Задайте вопрос эксперту — бесплатно проконсультируем и подскажем, на
             какой вычет вы имеете право.
           </p>
-          <Link to="/kontakty" className="btn btn--green btn--lg">
-            Получить консультацию
-          </Link>
+          <div className="cta__actions">
+            <Link to="/registraciya" className="btn btn--green btn--lg">
+              Сформировать декларацию онлайн
+            </Link>
+            <Link to="/kontakty" className="btn btn--light btn--lg">
+              Получить консультацию
+            </Link>
+          </div>
         </div>
       </section>
     </>

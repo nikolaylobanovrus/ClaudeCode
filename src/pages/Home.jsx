@@ -84,8 +84,8 @@ export default function Home() {
               документов.
             </p>
             <div className="hero__actions">
-              <Link to="/kontakty" className="btn btn--green btn--lg">
-                Получить налоговый вычет
+              <Link to="/registraciya" className="btn btn--green btn--lg">
+                Сформировать декларацию онлайн
               </Link>
               <a href={`tel:${company.phoneRaw}`} className="btn btn--light btn--lg">
                 {company.phone}
@@ -345,11 +345,17 @@ export default function Home() {
         <div className="cta__inner container">
           <h2 className="cta__title">Готовы вернуть свои деньги?</h2>
           <p className="cta__text">
-            Оставьте заявку — эксперт свяжется с вами и рассчитает сумму вычета.
+            Сформируйте декларацию онлайн или оставьте заявку — эксперт свяжется
+            с вами и рассчитает сумму вычета.
           </p>
-          <Link to="/kontakty" className="btn btn--green btn--lg">
-            Оставить заявку
-          </Link>
+          <div className="cta__actions">
+            <Link to="/registraciya" className="btn btn--green btn--lg">
+              Сформировать декларацию онлайн
+            </Link>
+            <Link to="/kontakty" className="btn btn--light btn--lg">
+              Оставить заявку
+            </Link>
+          </div>
         </div>
       </section>
     </>
