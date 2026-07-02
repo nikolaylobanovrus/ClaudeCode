@@ -94,6 +94,7 @@ export default function SituationIpoteka() {
   const [sendMethod, setSendMethod] = useState(draft?.sendMethod || "paper");
   const [sendLogin, setSendLogin] = useState(draft?.sendLogin || "");
   const [sendPassword, setSendPassword] = useState(draft?.sendPassword || "");
+  const [regAddress, setRegAddress] = useState(draft?.regAddress || "");
   const [draftFileNames, setDraftFileNames] = useState(draft?.fileNames || {});
 
   const [savingDraft, setSavingDraft] = useState(false);
@@ -184,6 +185,9 @@ export default function SituationIpoteka() {
         sendPassword || (fnsPassword ? "указан выше" : "не указан")
       );
     }
+    if (sendMode === "us") {
+      fd.append("Адрес регистрации", regAddress.trim() || "не указан");
+    }
     return fd;
   }
 
@@ -212,6 +216,7 @@ export default function SituationIpoteka() {
       sendMethod,
       sendLogin,
       sendPassword,
+      regAddress,
       savedAt: new Date().toISOString(),
     });
     setDraftFileNames(names);
@@ -261,6 +266,10 @@ export default function SituationIpoteka() {
       !(sendPassword || fnsPassword)
     ) {
       setError("Для подачи через личный кабинет Налоговой укажите Логин/ИНН и Пароль.");
+      return;
+    }
+    if (sendMode === "us" && !regAddress.trim()) {
+      setError("Укажите адрес регистрации — он необходим для определения Налоговой, в которую подаются документы.");
       return;
     }
     if (totalSize() > MAX_TOTAL_BYTES) {
@@ -479,6 +488,19 @@ export default function SituationIpoteka() {
                 />
                 {sendMethod === "cabinet" &&
                   credsBlock(sendLogin, setSendLogin, sendPassword, setSendPassword, true)}
+                <div className="form__field" style={{ marginTop: 16 }}>
+                  <label htmlFor="reg-address">Адрес регистрации</label>
+                  <input
+                    id="reg-address"
+                    type="text"
+                    value={regAddress}
+                    onChange={(e) => setRegAddress(e.target.value)}
+                    placeholder="Индекс, город, улица, дом, квартира"
+                  />
+                  <p className="creds__note" style={{ marginTop: 6 }}>
+                    Необходим для определения Налоговой, в которую подаются документы
+                  </p>
+                </div>
               </div>
             )}
           </div>
