@@ -32,7 +32,7 @@ export const company = {
     bank: "Т-Банк",
     phone: "+7 (912) 791-64-70",
     recipient: "Виктор Михайлович Л.",
-    link: "",
+    link: "https://www.tinkoff.ru/rm/r_ABnxqmpgaF.JXOzauGxZI/luhVY56104",
   },
 };
 

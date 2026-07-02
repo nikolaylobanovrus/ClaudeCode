@@ -1367,6 +1367,21 @@ h4 {
   color: var(--ink-700);
   font-size: 14px;
 }
+.pay__alt {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 12px 16px;
+  background: var(--bg-soft);
+}
+.pay__alt summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--blue-700);
+}
+.pay__alt[open] summary {
+  margin-bottom: 4px;
+}
 
 /* ============ Плашки «Выберите ситуацию» ============ */
 .sit-grid {

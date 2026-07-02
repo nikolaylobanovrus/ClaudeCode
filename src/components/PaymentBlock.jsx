@@ -24,6 +24,16 @@ export default function PaymentBlock({ title = "Оплата услуг" }) {
   const tariff = tariffs.find((t) => t.name === tariffName) || tariffs[1];
   const pay = company.payment;
   const comment = `ID ${account.id}`;
+  const amountDigits = tariff.price.replace(/\D/g, "");
+  // Платёжная ссылка Т-Банка с предзаполненной суммой тарифа.
+  const payUrl = pay.link
+    ? pay.link + (pay.link.includes("?") ? "&" : "?") + "amount=" + amountDigits
+    : "";
+
+  function openPayment() {
+    if (payUrl) window.open(payUrl, "_blank", "noopener");
+    setOpen(true);
+  }
 
   function pick(name) {
     setTariffName(name);
@@ -102,18 +112,53 @@ export default function PaymentBlock({ title = "Оплата услуг" }) {
           <button
             type="button"
             className="btn btn--green btn--lg"
-            onClick={() => setOpen((v) => !v)}
+            onClick={openPayment}
           >
             Оплатить
           </button>
 
           {open && (
             <div className="pay__panel">
-              <p className="pay__step">
-                Переведите <strong>{tariff.price}</strong> через{" "}
-                <strong>СБП</strong> (Систему быстрых платежей):
-              </p>
-              <ul className="pay__req">
+              {payUrl && (
+                <>
+                  <p className="pay__step">
+                    Страница оплаты Т-Банка открылась в новой вкладке. Если
+                    этого не произошло — нажмите кнопку:
+                  </p>
+                  <a
+                    className="btn btn--primary"
+                    href={payUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Оплатить {tariff.price} через Т-Банк
+                  </a>
+                  <p className="pay__hint">
+                    В комментарии к платежу укажите <strong>{comment}</strong>{" "}
+                    — так мы быстрее найдём ваш платёж.
+                    <button
+                      type="button"
+                      className="pay__copy"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => copy(comment, "comment2")}
+                    >
+                      {copied === "comment2" ? "✓ Скопировано" : "Копировать ID"}
+                    </button>
+                  </p>
+                </>
+              )}
+
+              <details className="pay__alt" open={!payUrl}>
+                <summary>
+                  {payUrl
+                    ? "Другой способ: СБП-перевод по номеру телефона"
+                    : "СБП-перевод по номеру телефона"}
+                </summary>
+                <p className="pay__step" style={{ marginTop: 12 }}>
+                  Переведите <strong>{tariff.price}</strong> через{" "}
+                  <strong>СБП</strong> (Систему быстрых платежей):
+                </p>
+                <ul className="pay__req">
                 <li>
                   <span>Номер телефона</span>
                   <span className="pay__val">
@@ -162,22 +207,14 @@ export default function PaymentBlock({ title = "Оплата услуг" }) {
                   </span>
                 </li>
               </ul>
-              <p className="pay__hint">
-                Откройте приложение вашего банка → «Платежи» → «Перевод по
-                номеру телефона» → выберите банк <strong>{pay.bank}</strong>.
-                Обязательно укажите комментарий <strong>{comment}</strong> —
-                так мы быстрее найдём ваш платёж.
-              </p>
-              {pay.link && (
-                <a
-                  className="btn btn--primary"
-                  href={pay.link}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Оплатить по ссылке Т-Банка
-                </a>
-              )}
+                <p className="pay__hint">
+                  Откройте приложение вашего банка → «Платежи» → «Перевод по
+                  номеру телефона» → выберите банк <strong>{pay.bank}</strong>.
+                  Обязательно укажите комментарий <strong>{comment}</strong> —
+                  так мы быстрее найдём ваш платёж.
+                </p>
+              </details>
+
               <button
                 type="button"
                 className="btn btn--ghost"
