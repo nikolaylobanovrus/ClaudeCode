@@ -21,15 +21,17 @@ export default function Layout() {
       <Footer />
       <CookieBanner />
 
-      {/* Липкая мобильная панель конверсии */}
-      <div className="mobile-cta">
-        <a href={`tel:${company.phoneRaw}`} className="btn btn--ghost">
-          Позвонить
-        </a>
-        <Link to="/kontakty" className="btn btn--primary">
-          Заявка
-        </Link>
-      </div>
+      {/* Липкая мобильная панель конверсии (на странице документов — своя) */}
+      {!pathname.startsWith("/situaciya") && (
+        <div className="mobile-cta">
+          <a href={`tel:${company.phoneRaw}`} className="btn btn--ghost">
+            Позвонить
+          </a>
+          <Link to="/kontakty" className="btn btn--primary">
+            Заявка
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

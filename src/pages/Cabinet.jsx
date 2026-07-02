@@ -74,9 +74,13 @@ export default function Cabinet() {
               <div>
                 <dt>Статус</dt>
                 <dd>
-                  {account.situation
-                    ? "Заявка принята — специалист свяжется с вами"
-                    : "Ожидает выбора ситуации"}
+                  {account.docsStatus === "sent"
+                    ? "Документы получены — готовим декларацию 3-НДФЛ"
+                    : account.docsStatus === "draft"
+                      ? "Сохранён черновик — завершите загрузку документов"
+                      : account.situation
+                        ? "Заявка принята — специалист свяжется с вами"
+                        : "Ожидает выбора ситуации"}
                 </dd>
               </div>
             </dl>
@@ -94,6 +98,14 @@ export default function Cabinet() {
             </p>
 
             <div className="cta__actions" style={{ justifyContent: "flex-start" }}>
+              {account.situation === "Платили за ипотеку" &&
+                account.docsStatus !== "sent" && (
+                  <Link to="/situaciya/ipoteka" className="btn btn--green">
+                    {account.docsStatus === "draft"
+                      ? "Продолжить загрузку документов"
+                      : "Загрузить документы"}
+                  </Link>
+                )}
               <Link to="/vyberite-situaciyu" className="btn btn--primary">
                 {account.situation ? "Изменить ситуацию" : "Выбрать ситуацию"}
               </Link>

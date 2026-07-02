@@ -9,6 +9,7 @@ import Privacy from "./pages/Privacy.jsx";
 import Offer from "./pages/Offer.jsx";
 import Register from "./pages/Register.jsx";
 import ChooseSituation from "./pages/ChooseSituation.jsx";
+import SituationIpoteka from "./pages/SituationIpoteka.jsx";
 import Cabinet from "./pages/Cabinet.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="kontakty" element={<Contacts />} />
         <Route path="registraciya" element={<Register />} />
         <Route path="vyberite-situaciyu" element={<ChooseSituation />} />
+        <Route path="situaciya/ipoteka" element={<SituationIpoteka />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />

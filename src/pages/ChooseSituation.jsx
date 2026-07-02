@@ -28,9 +28,9 @@ export default function ChooseSituation() {
 
   if (!account) return null;
 
-  function choose(label) {
-    setSelected(label);
-    updateAccount({ situation: label });
+  function choose(s) {
+    setSelected(s.label);
+    updateAccount({ situation: s.label });
     // Сообщаем менеджеру о выборе клиента (не блокируем интерфейс).
     fetch(FORM_ENDPOINT, {
       method: "POST",
@@ -41,11 +41,13 @@ export default function ChooseSituation() {
         _captcha: "false",
         "ID клиента": String(account.id),
         "Email": account.email,
-        "Ситуация": label,
+        "Ситуация": s.label,
       }),
     }).catch(() => {
       /* дублирующее уведомление; выбор уже сохранён в кабинете */
     });
+    // Для ипотеки есть отдельная страница загрузки документов.
+    if (s.slug === "ipoteka") navigate("/situaciya/ipoteka");
   }
 
   return (
@@ -74,7 +76,7 @@ export default function ChooseSituation() {
                   key={s.slug}
                   type="button"
                   className={"sit-card" + (isSel ? " is-selected" : "")}
-                  onClick={() => choose(s.label)}
+                  onClick={() => choose(s)}
                   aria-pressed={isSel}
                 >
                   <Art />
@@ -98,6 +100,11 @@ export default function ChooseSituation() {
                 документы и подготовит декларацию 3-НДФЛ.
               </p>
               <div className="cta__actions">
+                {selected === "Платили за ипотеку" && (
+                  <Link to="/situaciya/ipoteka" className="btn btn--green">
+                    Загрузить документы
+                  </Link>
+                )}
                 <Link to="/kabinet" className="btn btn--primary">
                   Перейти в личный кабинет
                 </Link>
