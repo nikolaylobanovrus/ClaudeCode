@@ -4,13 +4,20 @@ import { deductions } from "../data/content.js";
 
 const EMPTY = { name: "", phone: "", situation: deductions[0].title, comment: "" };
 
+// Куда уходят заявки: FormSubmit.co пересылает POST-запросы на email
+// без собственного бэкенда (сайт хостится статически).
+const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
+const FORM_SUBJECT = "Консультация с сайта 2";
+
 // Форма заявки с валидацией и согласием на обработку ПДн.
-// Реального бэкенда нет — при отправке показываем подтверждение.
+// Данные отправляются на email через FormSubmit.co.
 export default function LeadForm({ compact = false, title = "Оставьте заявку" }) {
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [consent, setConsent] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
 
   function validate(v) {
     const e = {};
@@ -27,14 +34,41 @@ export default function LeadForm({ compact = false, title = "Оставьте з
     if (errors[name]) setErrors((p) => ({ ...p, [name]: undefined }));
   }
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
     const found = validate(form);
     setErrors(found);
-    if (Object.keys(found).length === 0) {
+    if (Object.keys(found).length > 0) return;
+
+    setSending(true);
+    setSendError("");
+    try {
+      const payload = {
+        _subject: FORM_SUBJECT,
+        _template: "table",
+        _captcha: "false",
+        "Имя": form.name,
+        "Телефон": form.phone,
+      };
+      if (!compact) {
+        payload["Ситуация"] = form.situation;
+        if (form.comment.trim()) payload["Комментарий"] = form.comment;
+      }
+      const res = await fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
       setSent(true);
       setForm(EMPTY);
       setConsent(false);
+    } catch {
+      setSendError(
+        "Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам: +7 (920) 837-91-93."
+      );
+    } finally {
+      setSending(false);
     }
   }
 
@@ -133,9 +167,20 @@ export default function LeadForm({ compact = false, title = "Оставьте з
       </label>
       {errors.consent && <span className="form__error">{errors.consent}</span>}
 
-      <button type="submit" className="btn btn--primary btn--block btn--lg">
-        Получить консультацию
+      <button
+        type="submit"
+        className="btn btn--primary btn--block btn--lg"
+        disabled={sending}
+        style={sending ? { opacity: 0.7, cursor: "wait" } : undefined}
+      >
+        {sending ? "Отправляем…" : "Получить консультацию"}
       </button>
+
+      {sendError && (
+        <span className="form__error" role="alert">
+          {sendError}
+        </span>
+      )}
     </form>
   );
 }
