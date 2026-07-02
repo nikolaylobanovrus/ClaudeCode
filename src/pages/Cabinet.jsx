@@ -4,6 +4,7 @@ import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { getAccount, isLoggedIn, setLoggedIn } from "../lib/account.js";
 import { company } from "../data/content.js";
+import PaymentBlock from "../components/PaymentBlock.jsx";
 
 export default function Cabinet() {
   const navigate = useNavigate();
@@ -76,6 +77,14 @@ export default function Cabinet() {
                 </dd>
               </div>
               <div>
+                <dt>Оплата</dt>
+                <dd>
+                  {account.paymentStatus === "reported"
+                    ? "Вы сообщили об оплате — проверяем поступление"
+                    : "Не оплачено · после готовности документов"}
+                </dd>
+              </div>
+              <div>
                 <dt>Статус</dt>
                 <dd>
                   {account.docsStatus === "sent"
@@ -117,6 +126,10 @@ export default function Cabinet() {
                 Выйти из кабинета
               </button>
             </div>
+          </div>
+
+          <div className="auth" style={{ marginTop: 24 }}>
+            <PaymentBlock />
           </div>
         </div>
       </section>

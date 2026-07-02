@@ -1289,6 +1289,85 @@ h4 {
   flex: 1;
 }
 
+/* ============ Оплата (СБП) ============ */
+.pay__title {
+  font-size: 21px;
+}
+.pay__note {
+  color: var(--ink-500);
+  font-size: 14.5px;
+  margin: 6px 0 16px;
+}
+.pay__tariffs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.pay__amount {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+.pay__amount strong {
+  font-size: 26px;
+  color: var(--blue-700);
+}
+.pay__panel {
+  margin-top: 18px;
+  border-top: 1px dashed var(--line);
+  padding-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+.pay__step {
+  font-size: 15.5px;
+  color: var(--ink-700);
+}
+.pay__req {
+  display: grid;
+  gap: 0;
+}
+.pay__req li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+.pay__req li > span:first-child {
+  color: var(--ink-500);
+}
+.pay__val {
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pay__copy {
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--blue-700);
+}
+.pay__copy:hover {
+  border-color: var(--blue-500);
+}
+.pay__hint {
+  background: var(--blue-50);
+  border-left: 3px solid var(--blue-500);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  color: var(--ink-700);
+  font-size: 14px;
+}
+
 /* ============ Плашки «Выберите ситуацию» ============ */
 .sit-grid {
   display: grid;

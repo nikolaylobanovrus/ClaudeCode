@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
+import PaymentBlock from "../components/PaymentBlock.jsx";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const DRAFT_KEY = "ns.draft.ipoteka.v1";
@@ -280,7 +281,12 @@ export default function SituationIpoteka() {
     try {
       await send("final");
       clearDraftStorage();
-      updateAccount({ situation: "Платили за ипотеку", docsStatus: "sent" });
+      updateAccount({
+        situation: "Платили за ипотеку",
+        docsStatus: "sent",
+        // Рекомендуемый тариф: подаём мы — «Премиум», иначе «Оптимальный».
+        tariff: account.tariff || (sendMode === "us" ? "Премиум" : "Оптимальный"),
+      });
       setDone(true);
       window.scrollTo(0, 0);
     } catch {
@@ -337,6 +343,10 @@ export default function SituationIpoteka() {
                 <Link to="/kabinet" className="btn btn--primary">Личный кабинет</Link>
                 <Link to="/" className="btn btn--ghost">На главную</Link>
               </div>
+            </div>
+
+            <div className="auth" style={{ marginTop: 24 }}>
+              <PaymentBlock title="Оплата услуг" />
             </div>
           </div>
         </section>
