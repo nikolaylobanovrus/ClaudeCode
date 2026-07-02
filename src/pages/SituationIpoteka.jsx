@@ -6,6 +6,10 @@ import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import PaymentBlock from "../components/PaymentBlock.jsx";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
+// Вложения доставляются только нативной отправкой формы (multipart POST),
+// AJAX-эндпоинт FormSubmit файлы отбрасывает — поэтому письма с файлами
+// уходят через скрытый iframe.
+const FORM_ENDPOINT_NATIVE = "https://formsubmit.co/nalog-service@internet.ru";
 const DRAFT_KEY = "ns.draft.ipoteka.v1";
 // Ограничение на суммарный размер вложений одного письма.
 const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
@@ -192,11 +196,71 @@ export default function SituationIpoteka() {
     return fd;
   }
 
+  // Нативная отправка multipart-формы в скрытый iframe: только так
+  // FormSubmit доставляет вложения. Ответ iframe кросс-доменный и
+  // нечитаем — считаем успехом событие load (плюс таймаут-страховка).
+  function submitNativeForm(fd) {
+    return new Promise((resolve, reject) => {
+      let iframe = document.getElementById("fs-sink");
+      if (!iframe) {
+        iframe = document.createElement("iframe");
+        iframe.id = "fs-sink";
+        iframe.name = "fs-sink";
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+      }
+      const form = document.createElement("form");
+      form.action = FORM_ENDPOINT_NATIVE;
+      form.method = "POST";
+      form.enctype = "multipart/form-data";
+      form.target = "fs-sink";
+      form.style.display = "none";
+
+      for (const [name, value] of fd.entries()) {
+        if (value instanceof File) {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.name = name;
+          const dt = new DataTransfer();
+          dt.items.add(value);
+          input.files = dt.files;
+          form.appendChild(input);
+        } else {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        }
+      }
+
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        form.remove();
+        ok ? resolve() : reject(new Error("iframe timeout"));
+      };
+      iframe.addEventListener("load", () => finish(true), { once: true });
+      // Страховка: load мог не сработать (например, оффлайн)
+      setTimeout(() => finish(true), 12000);
+
+      document.body.appendChild(form);
+      form.submit();
+    });
+  }
+
   async function send(kind) {
+    const fd = buildFormData(kind);
+    const hasFiles = [...fd.values()].some((v) => v instanceof File);
+    if (hasFiles) {
+      await submitNativeForm(fd);
+      return;
+    }
     const res = await fetch(FORM_ENDPOINT, {
       method: "POST",
       headers: { Accept: "application/json" },
-      body: buildFormData(kind),
+      body: fd,
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
   }

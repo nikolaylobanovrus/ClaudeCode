@@ -29,7 +29,7 @@ export default function Contacts() {
     <>
       <Seo
         title="Контакты — Налог-сервис | Возврат налогового вычета"
-        description="Свяжитесь с Налог-сервис: телефон +7 (920) 837-91-93, электронная почта, мессенджеры WhatsApp, Telegram, Viber. Колл-центр 24/7. Оставьте заявку онлайн."
+        description="Свяжитесь с Налог-сервис: телефон +7 (920) 837-91-93, электронная почта, мессенджеры WhatsApp, Telegram, Max. Колл-центр 24/7. Оставьте заявку онлайн."
         path="/kontakty"
         jsonLd={jsonLd}
       />
@@ -78,8 +78,13 @@ export default function Contacts() {
                 <a className="messenger messenger--tg" href={company.telegram} target="_blank" rel="noreferrer">
                   Telegram
                 </a>
-                <a className="messenger messenger--vb" href={company.viber}>
-                  Viber
+                <a
+                  className="messenger messenger--max"
+                  href={company.max}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Max
                 </a>
               </div>
 

@@ -990,8 +990,8 @@ h4 {
 .messenger--tg {
   background: #29a9eb;
 }
-.messenger--vb {
-  background: #7360f2;
+.messenger--max {
+  background: #6c5ce7;
 }
 
 /* ============ CTA actions (несколько кнопок в ряд) ============ */
@@ -1697,10 +1697,31 @@ h4 {
   }
 }
 
-/* Тесный десктоп: прячем телефон, чтобы шапка не переполнялась */
+/* Тесный десктоп: ужимаем шапку, телефон остаётся виден
+   (прячем только подпись «Колл-центр 24/7») */
 @media (max-width: 1420px) and (min-width: 1151px) {
-  .navbar__phone {
+  .navbar__inner {
+    gap: 12px;
+  }
+  .navbar__brand {
+    font-size: 18px;
+  }
+  .navbar__nav {
+    gap: 2px;
+  }
+  .navbar__link {
+    padding: 8px 7px;
+    font-size: 13.5px;
+  }
+  .navbar__phone span {
     display: none;
+  }
+  .navbar__phone a {
+    font-size: 14px;
+  }
+  .navbar__cta {
+    padding: 11px 18px;
+    font-size: 14px;
   }
 }
 
@@ -1744,6 +1765,11 @@ h4 {
   }
   .section {
     padding: 56px 0;
+  }
+  /* Длинные надписи кнопок («Сформировать декларацию онлайн») должны
+     переноситься, иначе распирают сетку и дают горизонтальный скролл */
+  .btn {
+    white-space: normal;
   }
   .stats {
     grid-template-columns: repeat(2, 1fr);
