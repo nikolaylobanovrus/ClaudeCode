@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
-import { getAccount, updateAccount } from "../lib/account.js";
+import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const DRAFT_KEY = "ns.draft.ipoteka.v1";
@@ -102,11 +102,13 @@ export default function SituationIpoteka() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
+  const logged = isLoggedIn();
   useEffect(() => {
     if (!account) navigate("/registraciya", { replace: true });
-  }, [account, navigate]);
+    else if (!logged) navigate("/vhod", { replace: true });
+  }, [account, logged, navigate]);
 
-  if (!account) return null;
+  if (!account || !logged) return null;
 
   const toggleHint = (key) => setHints((h) => ({ ...h, [key]: !h[key] }));
 

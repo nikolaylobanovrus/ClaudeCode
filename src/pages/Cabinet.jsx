@@ -2,18 +2,21 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
-import { getAccount, clearAccount } from "../lib/account.js";
+import { getAccount, isLoggedIn, setLoggedIn } from "../lib/account.js";
 import { company } from "../data/content.js";
 
 export default function Cabinet() {
   const navigate = useNavigate();
   const account = getAccount();
 
+  const logged = isLoggedIn();
+
   useEffect(() => {
     if (!account) navigate("/registraciya", { replace: true });
-  }, [account, navigate]);
+    else if (!logged) navigate("/vhod", { replace: true });
+  }, [account, logged, navigate]);
 
-  if (!account) return null;
+  if (!account || !logged) return null;
 
   const created = new Date(account.createdAt).toLocaleDateString("ru-RU", {
     day: "numeric",
@@ -22,8 +25,9 @@ export default function Cabinet() {
   });
 
   function logout() {
-    clearAccount();
-    navigate("/");
+    // Завершаем сессию, но кабинет сохраняем — вход по почте/ID и паролю.
+    setLoggedIn(false);
+    navigate("/vhod");
   }
 
   return (

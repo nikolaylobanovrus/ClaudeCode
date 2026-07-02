@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
-import { getAccount, updateAccount } from "../lib/account.js";
+import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import { situationArts } from "../components/SituationArt.jsx";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
@@ -21,12 +21,14 @@ export default function ChooseSituation() {
   const account = getAccount();
   const [selected, setSelected] = useState(account?.situation || "");
 
-  // Страница доступна только после регистрации.
+  // Страница доступна только после регистрации и входа.
+  const logged = isLoggedIn();
   useEffect(() => {
     if (!account) navigate("/registraciya", { replace: true });
-  }, [account, navigate]);
+    else if (!logged) navigate("/vhod", { replace: true });
+  }, [account, logged, navigate]);
 
-  if (!account) return null;
+  if (!account || !logged) return null;
 
   function choose(s) {
     setSelected(s.label);

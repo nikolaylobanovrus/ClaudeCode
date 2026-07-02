@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
-import { getAccount, saveAccount, generateClientId } from "../lib/account.js";
+import {
+  getAccount,
+  saveAccount,
+  generateClientId,
+  hashPassword,
+  setLoggedIn,
+} from "../lib/account.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
@@ -63,8 +69,10 @@ export default function Register() {
         id,
         email: form.email,
         phone: form.phone,
+        passwordHash: await hashPassword(form.password),
         createdAt: new Date().toISOString(),
       });
+      setLoggedIn(true);
       navigate("/vyberite-situaciyu");
     } catch {
       setSendError(
