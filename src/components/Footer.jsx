@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { company } from "../data/content.js";
+import Logo from "./Logo.jsx";
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -10,9 +11,7 @@ export default function Footer() {
         <div className="footer__grid">
           <div>
             <div className="footer__brand">
-              <span className="navbar__logo" aria-hidden="true">
-                ₽
-              </span>
+              <Logo />
               Налог-сервис
             </div>
             <p className="footer__tagline">

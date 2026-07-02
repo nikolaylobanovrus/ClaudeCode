@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { company } from "../data/content.js";
 import { isLoggedIn } from "../lib/account.js";
+import Logo from "./Logo.jsx";
 
 const LINKS = [
   { to: "/", label: "Главная", end: true },
@@ -21,10 +22,10 @@ export default function Navbar() {
     <header className="navbar">
       <div className="navbar__inner container">
         <Link to="/" className="navbar__brand" onClick={close}>
-          <span className="navbar__logo" aria-hidden="true">
-            ₽
+          <Logo />
+          <span>
+            Налог<span className="navbar__brand-accent">-сервис</span>
           </span>
-          Налог<span className="navbar__brand-accent">-сервис</span>
         </Link>
 
         <button
