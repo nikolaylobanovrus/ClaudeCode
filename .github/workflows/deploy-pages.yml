@@ -46,8 +46,31 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.d1.outputs.page_url || steps.d2.outputs.page_url || steps.d3.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      # GitHub Pages иногда возвращает транзиентную ошибку
+      # «Deployment failed, try again later» на финальном шаге.
+      # Делаем до 3 попыток: первые две мягкие, третья — решающая.
+      - name: Deploy — попытка 1
+        id: d1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Пауза перед попыткой 2
+        if: steps.d1.outcome == 'failure'
+        run: sleep 20
+
+      - name: Deploy — попытка 2
+        id: d2
+        if: steps.d1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Пауза перед попыткой 3
+        if: steps.d1.outcome == 'failure' && steps.d2.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy — попытка 3 (финальная)
+        id: d3
+        if: steps.d1.outcome == 'failure' && steps.d2.outcome == 'failure'
         uses: actions/deploy-pages@v4
