@@ -41,11 +41,11 @@ export default function Footer() {
             <a href={`tel:${company.phoneRaw}`}>{company.phone}</a>
             <a href={`mailto:${company.email}`}>{company.email.toLowerCase()}</a>
             <div className="messengers" style={{ marginTop: 8 }}>
-              <a className="messenger messenger--wa" href={company.whatsapp} target="_blank" rel="noreferrer">
-                WhatsApp
-              </a>
               <a className="messenger messenger--tg" href={company.telegram} target="_blank" rel="noreferrer">
                 Telegram
+              </a>
+              <a className="messenger messenger--max" href={company.max} target="_blank" rel="noreferrer">
+                Max
               </a>
             </div>
           </div>

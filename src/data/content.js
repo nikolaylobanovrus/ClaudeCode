@@ -19,7 +19,6 @@ export const company = {
   phoneRaw: "+79208379193",
   phone2: "+7 (912) 791-64-70",
   phone2Raw: "+79127916470",
-  whatsapp: "https://wa.me/79127916470",
   telegram: "https://t.me/+79127916470",
   // ЗАМЕНИТЕ на реальную ссылку профиля в Max (мессенджер max.ru)
   max: "https://max.ru/",
