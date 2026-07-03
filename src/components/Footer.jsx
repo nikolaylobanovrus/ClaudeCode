@@ -66,7 +66,12 @@ export default function Footer() {
 
       <div className="footer__bottom container">
         <span>© {year} Налог-сервис. Все права защищены.</span>
-        <span>Возврат налоговых вычетов НДФЛ по всей России</span>
+        <span>
+          Возврат налоговых вычетов НДФЛ по всей России
+          <span style={{ opacity: 0.45, marginLeft: 10, fontSize: 11 }}>
+            сборка {__BUILD_TS__}
+          </span>
+        </span>
       </div>
     </footer>
   );

@@ -33,10 +33,11 @@ jobs:
           VITE_BASE: "./"
           VITE_HASH_ROUTER: "1"
 
+      # force_orphan убран: force-push ветки провоцировал сбои внутренней
+      # сборки GitHub Pages (история коммитов деплоя теперь сохраняется).
       - name: Publish to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          force_orphan: true
