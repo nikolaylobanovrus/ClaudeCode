@@ -20,8 +20,8 @@ export const company = {
   phone2: "+7 (912) 791-64-70",
   phone2Raw: "+79127916470",
   telegram: "https://t.me/+79127916470",
-  // ЗАМЕНИТЕ на реальную ссылку профиля в Max (мессенджер max.ru)
-  max: "https://max.ru/",
+  // Персональная ссылка профиля в Max — открывает чат прямо в приложении
+  max: "https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA",
   site: "https://nalog-service.online",
   // Реквизиты приёма оплаты: СБП-перевод на карту физлица в Т-Банке.
   // ЗАМЕНИТЕ на реальные: номер телефона, привязанный к Т-Банку, имя
