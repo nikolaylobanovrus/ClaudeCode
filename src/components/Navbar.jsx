@@ -28,6 +28,18 @@ export default function Navbar() {
           </span>
         </Link>
 
+        {/* Телефон в верхней строке для узких экранов (когда меню — бургер) */}
+        <a
+          href={`tel:${company.phoneRaw}`}
+          className="navbar__phone-top"
+          aria-label={`Позвонить: ${company.phone}`}
+        >
+          <span className="navbar__phone-top-ico" aria-hidden="true">
+            📞
+          </span>
+          <span className="navbar__phone-top-num">{company.phone}</span>
+        </a>
+
         <button
           className="navbar__toggle"
           aria-label="Меню"

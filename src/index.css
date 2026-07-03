@@ -303,6 +303,27 @@ h4 {
   padding: 8px;
   margin-left: auto;
 }
+
+/* Телефон в верхней строке шапки — виден только в бургер-режиме (≤1150px) */
+.navbar__phone-top {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink-900);
+  white-space: nowrap;
+}
+.navbar__phone-top-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--green-100);
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
 .navbar__toggle span {
   width: 26px;
   height: 2.5px;
@@ -1727,6 +1748,13 @@ h4 {
 
 /* Планшеты и уже: бургер-меню (пунктов много, в строку не помещаются) */
 @media (max-width: 1150px) {
+  .navbar__phone-top {
+    display: flex;
+    margin-left: auto;
+  }
+  .navbar__toggle {
+    margin-left: 12px;
+  }
   .navbar__nav {
     position: fixed;
     inset: 74px 0 auto 0;
@@ -1818,6 +1846,13 @@ h4 {
   }
   .site__main {
     padding-bottom: 76px;
+  }
+}
+
+/* Совсем узкие экраны: от телефона остаётся круглая кнопка-трубка */
+@media (max-width: 480px) {
+  .navbar__phone-top-num {
+    display: none;
   }
 }
 
