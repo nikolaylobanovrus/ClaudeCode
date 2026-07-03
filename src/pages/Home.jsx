@@ -11,9 +11,9 @@ import {
   tariffs,
   reviews,
   team,
-  faq,
   stats,
 } from "../data/content.js";
+import { faq } from "../data/faq.jsx";
 
 const initials = (name) =>
   name
@@ -53,7 +53,7 @@ export default function Home() {
       mainEntity: faq.map((f) => ({
         "@type": "Question",
         name: f.q,
-        acceptedAnswer: { "@type": "Answer", text: f.a },
+        acceptedAnswer: { "@type": "Answer", text: f.aText || f.a },
       })),
     },
   ];

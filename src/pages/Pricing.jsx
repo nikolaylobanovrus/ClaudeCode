@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
-import { tariffs, faq } from "../data/content.js";
+import { tariffs } from "../data/content.js";
+import { faq } from "../data/faq.jsx";
 import Faq from "../components/Faq.jsx";
 
 export default function Pricing() {

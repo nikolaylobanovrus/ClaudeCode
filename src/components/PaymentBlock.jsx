@@ -81,7 +81,11 @@ export default function PaymentBlock({ title = "Оплата услуг" }) {
   return (
     <div className="pay">
       <h3 className="pay__title">{title}</h3>
-      <p className="pay__note">Оплата после готовности документов.</p>
+      <p className="pay__note">
+        Оплата после готовности документов. Когда наш специалист подготовит
+        документы, направит их вам. После проверки вы можете оплатить услугу тут
+        или любым удобным способом.
+      </p>
 
       <div className="pay__tariffs" role="radiogroup" aria-label="Тариф">
         {tariffs.map((t) => (
