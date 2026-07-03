@@ -78,13 +78,19 @@ export default function Register() {
         createdAt: new Date().toISOString(),
       });
       setLoggedIn(true);
-      // Заводим клиента в базе (кабинет оператора); сбой не мешает регистрации.
+      // Заводим клиента в базе (кабинет оператора). Дожидаемся записи ДО
+      // перехода, иначе размонтирование страницы может оборвать запрос.
+      // Сбой не блокирует регистрацию — клиент всё равно попадёт в кабинет.
       const phoneDigits = form.phone.replace(/\D/g, "");
-      sbRpc("register_client", {
-        p_id: id,
-        p_email: form.email,
-        p_phone: phoneDigits ? "+" + phoneDigits : "",
-      }).catch(() => {});
+      try {
+        await sbRpc("register_client", {
+          p_id: id,
+          p_email: form.email,
+          p_phone: phoneDigits ? "+" + phoneDigits : "",
+        });
+      } catch {
+        /* база недоступна — не мешаем регистрации */
+      }
       navigate("/vyberite-situaciyu");
     } catch {
       setSendError(
