@@ -9,6 +9,7 @@ import {
   hashPassword,
   setLoggedIn,
 } from "../lib/account.js";
+import { maskRuPhone, isCompleteRuPhone } from "../lib/phone.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
@@ -28,7 +29,7 @@ export default function Register() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email))
       e.email = "Укажите корректный e-mail — он будет вашим логином";
     if (!v.password) e.password = "Придумайте пароль";
-    if (v.phone && v.phone.replace(/\D/g, "").length < 10)
+    if (v.phone && !isCompleteRuPhone(v.phone))
       e.phone = "Телефон указан не полностью";
     if (!consent) e.consent = "Необходимо согласие";
     return e;
@@ -36,7 +37,10 @@ export default function Register() {
 
   function change(e) {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    setForm((f) => ({
+      ...f,
+      [name]: name === "phone" ? maskRuPhone(value, f.phone) : value,
+    }));
     if (errors[name]) setErrors((p) => ({ ...p, [name]: undefined }));
   }
 

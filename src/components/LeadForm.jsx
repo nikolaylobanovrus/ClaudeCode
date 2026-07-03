@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { deductions } from "../data/content.js";
+import { maskRuPhone, isCompleteRuPhone } from "../lib/phone.js";
 
 const EMPTY = { name: "", phone: "", situation: deductions[0].title, comment: "" };
 
@@ -12,6 +13,8 @@ const FORM_SUBJECT = "Консультация с сайта 2";
 // Форма заявки с валидацией и согласием на обработку ПДн.
 // Данные отправляются на email через FormSubmit.co.
 export default function LeadForm({ compact = false, title = "Оставьте заявку" }) {
+  // Уникальные id полей: на странице может быть несколько форм одновременно.
+  const uid = useId();
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [consent, setConsent] = useState(false);
@@ -22,15 +25,17 @@ export default function LeadForm({ compact = false, title = "Оставьте з
   function validate(v) {
     const e = {};
     if (!v.name.trim()) e.name = "Укажите имя";
-    const digits = v.phone.replace(/\D/g, "");
-    if (digits.length < 10) e.phone = "Введите корректный телефон";
+    if (!isCompleteRuPhone(v.phone)) e.phone = "Введите корректный телефон";
     if (!consent) e.consent = "Необходимо согласие";
     return e;
   }
 
   function change(el) {
     const { name, value } = el.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    setForm((f) => ({
+      ...f,
+      [name]: name === "phone" ? maskRuPhone(value, f.phone) : value,
+    }));
     if (errors[name]) setErrors((p) => ({ ...p, [name]: undefined }));
   }
 
@@ -96,9 +101,9 @@ export default function LeadForm({ compact = false, title = "Оставьте з
       {title && <h3 style={{ fontSize: 22 }}>{title}</h3>}
 
       <div className="form__field">
-        <label htmlFor="lf-name">Ваше имя</label>
+        <label htmlFor={`${uid}-name`}>Ваше имя</label>
         <input
-          id="lf-name"
+          id={`${uid}-name`}
           name="name"
           value={form.name}
           onChange={change}
@@ -109,9 +114,9 @@ export default function LeadForm({ compact = false, title = "Оставьте з
       </div>
 
       <div className="form__field">
-        <label htmlFor="lf-phone">Телефон</label>
+        <label htmlFor={`${uid}-phone`}>Телефон</label>
         <input
-          id="lf-phone"
+          id={`${uid}-phone`}
           name="phone"
           type="tel"
           value={form.phone}
@@ -125,8 +130,8 @@ export default function LeadForm({ compact = false, title = "Оставьте з
       {!compact && (
         <>
           <div className="form__field">
-            <label htmlFor="lf-situation">Ваша ситуация</label>
-            <select id="lf-situation" name="situation" value={form.situation} onChange={change}>
+            <label htmlFor={`${uid}-situation`}>Ваша ситуация</label>
+            <select id={`${uid}-situation`} name="situation" value={form.situation} onChange={change}>
               {deductions.map((d) => (
                 <option key={d.slug} value={d.title}>
                   {d.title}
@@ -136,9 +141,9 @@ export default function LeadForm({ compact = false, title = "Оставьте з
             </select>
           </div>
           <div className="form__field">
-            <label htmlFor="lf-comment">Комментарий (необязательно)</label>
+            <label htmlFor={`${uid}-comment`}>Комментарий (необязательно)</label>
             <textarea
-              id="lf-comment"
+              id={`${uid}-comment`}
               name="comment"
               rows="3"
               value={form.comment}
