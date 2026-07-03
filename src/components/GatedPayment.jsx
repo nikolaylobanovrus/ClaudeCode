@@ -3,44 +3,51 @@ import PaymentBlock from "./PaymentBlock.jsx";
 import { getAccount, updateAccount } from "../lib/account.js";
 import { sbConfigured, sbRpc } from "../lib/supabase.js";
 
-// Оплата открывается только после отметки оператора «Декларация направлена».
-// Пока база (Supabase) не подключена — ведём себя как раньше (оплата видна).
-// При сбое сети используем кэш из аккаунта, а без кэша не блокируем оплату
-// (fail-open): сбой базы не должен мешать клиентам платить.
+// Оплата открывается, когда оператор назначил тариф/сумму (amount > 0).
+// Пока база не подключена — показываем блок с суммой из аккаунта, если она
+// уже была назначена, иначе fail-open как раньше (сумма 0 → скрыто).
 export default function GatedPayment({ title = "Оплата услуг", onStatus }) {
   const account = getAccount();
-  const [sent, setSent] = useState(() => {
-    if (!sbConfigured()) return true;
-    if (!account) return true;
-    if (account.declarationSent === true) return true;
-    if (account.declarationSent === false) return false;
-    return null; // статус ещё неизвестен — уточняем в базе
+
+  // state: null (ждём), либо { amount, tariff }
+  const [pay, setPay] = useState(() => {
+    if (!sbConfigured()) {
+      return { amount: account?.paymentAmount || 0, tariff: account?.paymentTariff || "" };
+    }
+    if (!account) return { amount: 0, tariff: "" };
+    if (account.paymentAmount != null) {
+      return { amount: account.paymentAmount, tariff: account.paymentTariff || "" };
+    }
+    return null; // ещё не знаем — уточняем в базе
   });
 
   useEffect(() => {
     if (!sbConfigured() || !account) return;
     let alive = true;
-    // Fail-open: если база не ответила вовремя — не оставляем клиента
-    // с пустым местом; показываем оплату (кэш из аккаунта в приоритете).
-    const failOpen = () => {
+    const cached = () => ({
+      amount: account.paymentAmount || 0,
+      tariff: account.paymentTariff || "",
+    });
+    const guard = setTimeout(() => {
       if (!alive) return;
-      const val = account.declarationSent === false ? false : true;
-      setSent((cur) => (cur === null ? val : cur));
-      onStatus?.(val);
-    };
-    const guard = setTimeout(failOpen, 9000);
-    sbRpc("get_status", { p_id: account.id })
-      .then((flag) => {
+      setPay((cur) => cur ?? cached());
+    }, 9000);
+    sbRpc("get_payment", { p_id: account.id })
+      .then((row) => {
         if (!alive) return;
         clearTimeout(guard);
-        const val = flag === true;
-        setSent(val);
-        updateAccount({ declarationSent: val });
-        onStatus?.(val);
+        const amount = Number(row?.amount || 0);
+        const tariff = row?.tariff || "";
+        setPay({ amount, tariff });
+        updateAccount({ paymentAmount: amount, paymentTariff: tariff });
+        onStatus?.(amount > 0);
       })
       .catch(() => {
         clearTimeout(guard);
-        failOpen();
+        if (!alive) return;
+        const c = cached();
+        setPay(c);
+        onStatus?.(c.amount > 0);
       });
     return () => {
       alive = false;
@@ -50,19 +57,19 @@ export default function GatedPayment({ title = "Оплата услуг", onStat
   }, []);
 
   if (!account) return null;
-  if (sent === null) return null; // короткое ожидание ответа базы
+  if (pay === null) return null; // короткое ожидание базы
 
-  if (sent === false) {
+  if (!(pay.amount > 0)) {
     return (
       <div className="pay">
         <h3 className="pay__title">{title}</h3>
         <p className="pay__note" data-testid="pay-waiting">
-          Готовим ваши документы. Кнопка оплаты появится здесь, когда декларация
-          будет направлена вам.
+          Готовим ваши документы. Кнопка оплаты появится здесь, когда специалист
+          подготовит документы и выставит сумму.
         </p>
       </div>
     );
   }
 
-  return <PaymentBlock title={title} />;
+  return <PaymentBlock title={title} tariffName={pay.tariff} amount={pay.amount} />;
 }

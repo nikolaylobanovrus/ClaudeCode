@@ -1657,26 +1657,104 @@ h4 {
 }
 .op__table {
   margin: 0;
-  min-width: 720px;
+  min-width: 900px;
 }
-.op__flag {
+.op__table td {
+  vertical-align: top;
+}
+
+/* Выбор тарифа/суммы в строке клиента */
+.op__pay {
+  display: grid;
+  gap: 8px;
+  min-width: 300px;
+}
+.op__tariffs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.op__tbtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   border: 1.5px solid var(--line);
   background: #fff;
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13.5px;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink-700);
-  white-space: nowrap;
+  line-height: 1.1;
   transition: 0.15s;
 }
-.op__flag:hover {
+.op__tbtn span {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+.op__tbtn:hover {
   border-color: var(--blue-500);
 }
-.op__flag.is-on {
-  background: var(--green-100);
+.op__tbtn.is-on {
   border-color: var(--green-500);
+  background: var(--green-100);
   color: var(--green-600);
+}
+.op__tbtn.is-on span {
+  color: var(--green-600);
+}
+.op__custom {
+  display: flex;
+  gap: 6px;
+}
+.op__custom input {
+  width: 130px;
+  padding: 7px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+.op__custom .btn {
+  padding: 7px 14px;
+  font-size: 13.5px;
+}
+.op__assigned {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.op__badge {
+  background: var(--green-100);
+  color: var(--green-600);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.op__clear {
+  background: none;
+  border: 0;
+  color: #c62a30;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.op__none {
+  color: var(--ink-300);
+  font-size: 13px;
+}
+
+/* Название тарифа над суммой в блоке оплаты клиента */
+.pay__tariff-name {
+  display: block;
+  color: var(--ink-500);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 /* ============ Cookie banner ============ */

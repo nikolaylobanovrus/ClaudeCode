@@ -87,11 +87,17 @@ export async function sbListClients(token) {
   return res.json();
 }
 
-export async function sbSetDeclaration(token, id, value) {
+// Оператор назначает тариф и сумму (или сбрасывает: amount=0).
+// declaration_sent держим в синхроне для статуса в кабинете клиента.
+export async function sbSetPayment(token, id, { tariff, amount }) {
   const res = await fetch(`${cfg.url}/rest/v1/clients?id=eq.${id}`, {
     method: "PATCH",
     headers: { ...baseHeaders(token), Prefer: "return=minimal" },
-    body: JSON.stringify({ declaration_sent: value }),
+    body: JSON.stringify({
+      tariff: tariff || "",
+      amount: amount || 0,
+      declaration_sent: (amount || 0) > 0,
+    }),
   });
   if (!res.ok) {
     const err = new Error("update failed");

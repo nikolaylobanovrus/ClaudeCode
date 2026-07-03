@@ -11,8 +11,8 @@ export default function Cabinet() {
   const account = getAccount();
 
   const logged = isLoggedIn();
-  // Признак «Декларация направлена» — обновляется из базы через GatedPayment.
-  const [declSent, setDeclSent] = useState(account?.declarationSent === true);
+  // Готовность к оплате (сумма выставлена оператором) — из базы через GatedPayment.
+  const [payable, setPayable] = useState((account?.paymentAmount || 0) > 0);
 
   useEffect(() => {
     if (!account) navigate("/registraciya", { replace: true });
@@ -89,8 +89,8 @@ export default function Cabinet() {
               <div>
                 <dt>Статус</dt>
                 <dd>
-                  {declSent
-                    ? "Декларация направлена — можно оплатить"
+                  {payable
+                    ? "Сумма к оплате выставлена — можно оплатить"
                     : account.docsStatus === "sent"
                       ? "Документы получены — готовим декларацию 3-НДФЛ"
                       : account.docsStatus === "draft"
@@ -133,7 +133,7 @@ export default function Cabinet() {
           </div>
 
           <div className="auth" style={{ marginTop: 24 }}>
-            <GatedPayment onStatus={setDeclSent} />
+            <GatedPayment onStatus={setPayable} />
           </div>
         </div>
       </section>

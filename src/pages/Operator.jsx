@@ -5,10 +5,11 @@ import {
   sbConfigured,
   sbOperatorLogin,
   sbListClients,
-  sbSetDeclaration,
+  sbSetPayment,
   getOperatorToken,
   setOperatorToken,
 } from "../lib/supabase.js";
+import { tariffs } from "../data/content.js";
 
 const fmtDate = (iso) =>
   new Date(iso).toLocaleDateString("ru-RU", {
@@ -16,6 +17,13 @@ const fmtDate = (iso) =>
     month: "2-digit",
     year: "2-digit",
   });
+
+// Тарифы с числовой суммой (из прайса).
+const TARIFFS = tariffs.map((t) => ({
+  name: t.name,
+  amount: Number(t.price.replace(/\D/g, "")),
+}));
+const fmtRub = (n) => Number(n || 0).toLocaleString("ru-RU") + " ₽";
 
 export default function Operator() {
   const [token, setToken] = useState(getOperatorToken());
@@ -71,23 +79,20 @@ export default function Operator() {
     }
   }
 
-  async function toggleDeclaration(client) {
-    const next = !client.declaration_sent;
-    // оптимистичное обновление
+  // Назначить тариф и сумму (или сбросить: tariff="", amount=0).
+  async function assignPayment(client, tariff, amount) {
+    const prev = { tariff: client.tariff, amount: client.amount };
     setClients((list) =>
-      list.map((c) => (c.id === client.id ? { ...c, declaration_sent: next } : c))
+      list.map((c) => (c.id === client.id ? { ...c, tariff, amount } : c))
     );
     try {
-      await sbSetDeclaration(token, client.id, next);
+      await sbSetPayment(token, client.id, { tariff, amount });
     } catch (e) {
-      // откат
       setClients((list) =>
-        list.map((c) =>
-          c.id === client.id ? { ...c, declaration_sent: !next } : c
-        )
+        list.map((c) => (c.id === client.id ? { ...c, ...prev } : c))
       );
       if (e.status === 401) logout();
-      else setError(`Не удалось обновить статус клиента ${client.id}.`);
+      else setError(`Не удалось обновить сумму клиента ${client.id}.`);
     }
   }
 
@@ -112,7 +117,7 @@ export default function Operator() {
       <PageHero
         eyebrow="Служебная страница"
         title="Кабинет оператора"
-        subtitle="База клиентов и статусы деклараций."
+        subtitle="База клиентов: выберите тариф или задайте сумму — у клиента появится кнопка оплаты."
         crumbs={["Оператор"]}
       />
 
@@ -203,7 +208,7 @@ export default function Operator() {
                       <th>Телефон</th>
                       <th>Ситуация</th>
                       <th>Дата</th>
-                      <th>Декларация</th>
+                      <th>Тариф и сумма к оплате</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -217,20 +222,7 @@ export default function Operator() {
                         <td>{c.situation || "—"}</td>
                         <td>{c.created_at ? fmtDate(c.created_at) : "—"}</td>
                         <td>
-                          <button
-                            type="button"
-                            className={
-                              "op__flag" + (c.declaration_sent ? " is-on" : "")
-                            }
-                            onClick={() => toggleDeclaration(c)}
-                            title={
-                              c.declaration_sent
-                                ? "Снять отметку «Декларация направлена»"
-                                : "Отметить «Декларация направлена»"
-                            }
-                          >
-                            {c.declaration_sent ? "✓ Направлена" : "Отметить"}
-                          </button>
+                          <PaymentPicker client={c} onAssign={assignPayment} />
                         </td>
                       </tr>
                     ))}
@@ -253,5 +245,74 @@ export default function Operator() {
         </div>
       </section>
     </>
+  );
+}
+
+// Выбор тарифа/суммы в строке клиента: 3 тарифа, своя сумма, сброс.
+function PaymentPicker({ client, onAssign }) {
+  const [custom, setCustom] = useState("");
+  const active = Number(client.amount || 0);
+  const assigned = active > 0;
+
+  function applyCustom(e) {
+    e.preventDefault();
+    const val = Number(String(custom).replace(/\D/g, ""));
+    if (val > 0) {
+      onAssign(client, "Своя сумма", val);
+      setCustom("");
+    }
+  }
+
+  return (
+    <div className="op__pay">
+      <div className="op__tariffs">
+        {TARIFFS.map((t) => (
+          <button
+            key={t.name}
+            type="button"
+            className={
+              "op__tbtn" +
+              (client.tariff === t.name && active === t.amount ? " is-on" : "")
+            }
+            onClick={() => onAssign(client, t.name, t.amount)}
+            title={`${t.name} — ${fmtRub(t.amount)}`}
+          >
+            {t.name}
+            <span>{fmtRub(t.amount)}</span>
+          </button>
+        ))}
+      </div>
+      <form className="op__custom" onSubmit={applyCustom}>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          placeholder="Своя сумма, ₽"
+          aria-label="Своя сумма"
+        />
+        <button type="submit" className="btn btn--ghost">
+          Задать
+        </button>
+      </form>
+      <div className="op__assigned">
+        {assigned ? (
+          <>
+            <span className="op__badge">
+              ✓ {client.tariff || "Сумма"} · {fmtRub(active)}
+            </span>
+            <button
+              type="button"
+              className="op__clear"
+              onClick={() => onAssign(client, "", 0)}
+            >
+              Сбросить
+            </button>
+          </>
+        ) : (
+          <span className="op__none">не выставлено</span>
+        )}
+      </div>
+    </div>
   );
 }

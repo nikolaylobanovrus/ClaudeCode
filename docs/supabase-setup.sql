@@ -7,6 +7,8 @@ create table if not exists public.clients (
   phone text not null default '',
   situation text not null default '',
   declaration_sent boolean not null default false,
+  tariff text not null default '',
+  amount integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -56,10 +58,28 @@ as $$
   select declaration_sent from public.clients where id = p_id;
 $$;
 
+-- Сумма к оплате, назначенная оператором (тариф + сумма), по числовому ID.
+create or replace function public.get_payment(p_id bigint)
+returns json
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select json_build_object(
+    'tariff', tariff,
+    'amount', amount,
+    'declaration_sent', declaration_sent
+  )
+  from public.clients where id = p_id;
+$$;
+
 revoke all on function public.register_client(bigint, text, text) from public;
 revoke all on function public.set_situation(bigint, text) from public;
 revoke all on function public.get_status(bigint) from public;
+revoke all on function public.get_payment(bigint) from public;
 
 grant execute on function public.register_client(bigint, text, text) to anon, authenticated;
 grant execute on function public.set_situation(bigint, text) to anon, authenticated;
 grant execute on function public.get_status(bigint) to anon, authenticated;
+grant execute on function public.get_payment(bigint) to anon, authenticated;
