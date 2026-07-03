@@ -18,16 +18,23 @@ function baseHeaders(token) {
 }
 
 // --- Клиентские RPC ---------------------------------------------------------
-export async function sbRpc(fn, args) {
+export async function sbRpc(fn, args, timeoutMs = 8000) {
   if (!sbConfigured()) return null;
-  const res = await fetch(`${cfg.url}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: baseHeaders(),
-    body: JSON.stringify(args),
-  });
-  if (!res.ok) throw new Error(`Supabase RPC ${fn}: HTTP ${res.status}`);
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: baseHeaders(),
+      body: JSON.stringify(args),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`Supabase RPC ${fn}: HTTP ${res.status}`);
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // --- Сессия оператора --------------------------------------------------------

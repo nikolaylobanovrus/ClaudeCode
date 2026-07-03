@@ -39,9 +39,13 @@ export const company = {
 // Supabase — база клиентов и статусов для кабинета оператора.
 // Пока значения пустые — функциональность выключена, сайт работает как раньше.
 // Инструкция по подключению: docs/supabase-setup.md
+// anon-ключ публичный по дизайну (доступ к данным закрыт RLS), поэтому
+// хранится прямо в клиентском коде — так его подхватывает и CI-сборка.
 export const supabase = {
-  url: import.meta.env.VITE_SB_URL || "",
-  anonKey: import.meta.env.VITE_SB_ANON || "",
+  url: import.meta.env.VITE_SB_URL || "https://iaogyzwnkrulhqbxotvf.supabase.co",
+  anonKey:
+    import.meta.env.VITE_SB_ANON ||
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlhb2d5endua3J1bGhxYnhvdHZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODMwMjYsImV4cCI6MjA5ODY1OTAyNn0.E995RAu8FZOuyTDm7zhy5r2ApGeav8i3Crx-Tt8GMZ8",
 };
 
 // Виды налоговых вычетов («ситуации» на исходном сайте).

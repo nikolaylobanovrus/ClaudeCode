@@ -20,23 +20,31 @@ export default function GatedPayment({ title = "Оплата услуг", onStat
   useEffect(() => {
     if (!sbConfigured() || !account) return;
     let alive = true;
+    // Fail-open: если база не ответила вовремя — не оставляем клиента
+    // с пустым местом; показываем оплату (кэш из аккаунта в приоритете).
+    const failOpen = () => {
+      if (!alive) return;
+      const val = account.declarationSent === false ? false : true;
+      setSent((cur) => (cur === null ? val : cur));
+      onStatus?.(val);
+    };
+    const guard = setTimeout(failOpen, 9000);
     sbRpc("get_status", { p_id: account.id })
       .then((flag) => {
         if (!alive) return;
+        clearTimeout(guard);
         const val = flag === true;
         setSent(val);
         updateAccount({ declarationSent: val });
         onStatus?.(val);
       })
       .catch(() => {
-        if (!alive) return;
-        const cached = account.declarationSent;
-        const val = cached === false ? false : true;
-        setSent(val);
-        onStatus?.(val);
+        clearTimeout(guard);
+        failOpen();
       });
     return () => {
       alive = false;
+      clearTimeout(guard);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
