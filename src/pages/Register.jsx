@@ -10,6 +10,7 @@ import {
   setLoggedIn,
 } from "../lib/account.js";
 import { maskRuPhone, isCompleteRuPhone } from "../lib/phone.js";
+import { sbRpc } from "../lib/supabase.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
@@ -77,6 +78,13 @@ export default function Register() {
         createdAt: new Date().toISOString(),
       });
       setLoggedIn(true);
+      // Заводим клиента в базе (кабинет оператора); сбой не мешает регистрации.
+      const phoneDigits = form.phone.replace(/\D/g, "");
+      sbRpc("register_client", {
+        p_id: id,
+        p_email: form.email,
+        p_phone: phoneDigits ? "+" + phoneDigits : "",
+      }).catch(() => {});
       navigate("/vyberite-situaciyu");
     } catch {
       setSendError(

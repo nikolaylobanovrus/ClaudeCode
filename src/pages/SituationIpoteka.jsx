@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
-import PaymentBlock from "../components/PaymentBlock.jsx";
+import GatedPayment from "../components/GatedPayment.jsx";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 // Вложения доставляются только нативной отправкой формы (multipart POST),
@@ -406,7 +406,7 @@ export default function SituationIpoteka() {
             </div>
 
             <div className="auth" style={{ marginTop: 24 }}>
-              <PaymentBlock title="Оплата услуг" />
+              <GatedPayment title="Оплата услуг" />
             </div>
           </div>
         </section>

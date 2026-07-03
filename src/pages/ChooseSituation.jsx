@@ -4,6 +4,7 @@ import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import { situationArts } from "../components/SituationArt.jsx";
+import { sbRpc } from "../lib/supabase.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
@@ -48,6 +49,10 @@ export default function ChooseSituation() {
     }).catch(() => {
       /* дублирующее уведомление; выбор уже сохранён в кабинете */
     });
+    // Обновляем ситуацию в базе клиентов (кабинет оператора).
+    sbRpc("set_situation", { p_id: account.id, p_situation: s.label }).catch(
+      () => {}
+    );
     // Для ипотеки есть отдельная страница загрузки документов.
     if (s.slug === "ipoteka") navigate("/situaciya/ipoteka");
   }

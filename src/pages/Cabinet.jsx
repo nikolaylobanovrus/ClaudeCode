@@ -1,16 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { getAccount, isLoggedIn, setLoggedIn } from "../lib/account.js";
 import { company } from "../data/content.js";
-import PaymentBlock from "../components/PaymentBlock.jsx";
+import GatedPayment from "../components/GatedPayment.jsx";
 
 export default function Cabinet() {
   const navigate = useNavigate();
   const account = getAccount();
 
   const logged = isLoggedIn();
+  // Признак «Декларация направлена» — обновляется из базы через GatedPayment.
+  const [declSent, setDeclSent] = useState(account?.declarationSent === true);
 
   useEffect(() => {
     if (!account) navigate("/registraciya", { replace: true });
@@ -87,13 +89,15 @@ export default function Cabinet() {
               <div>
                 <dt>Статус</dt>
                 <dd>
-                  {account.docsStatus === "sent"
-                    ? "Документы получены — готовим декларацию 3-НДФЛ"
-                    : account.docsStatus === "draft"
-                      ? "Сохранён черновик — завершите загрузку документов"
-                      : account.situation
-                        ? "Заявка принята — специалист свяжется с вами"
-                        : "Ожидает выбора ситуации"}
+                  {declSent
+                    ? "Декларация направлена — можно оплатить"
+                    : account.docsStatus === "sent"
+                      ? "Документы получены — готовим декларацию 3-НДФЛ"
+                      : account.docsStatus === "draft"
+                        ? "Сохранён черновик — завершите загрузку документов"
+                        : account.situation
+                          ? "Заявка принята — специалист свяжется с вами"
+                          : "Ожидает выбора ситуации"}
                 </dd>
               </div>
             </dl>
@@ -129,7 +133,7 @@ export default function Cabinet() {
           </div>
 
           <div className="auth" style={{ marginTop: 24 }}>
-            <PaymentBlock />
+            <GatedPayment onStatus={setDeclSent} />
           </div>
         </div>
       </section>

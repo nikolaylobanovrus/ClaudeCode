@@ -36,6 +36,14 @@ export const company = {
   },
 };
 
+// Supabase — база клиентов и статусов для кабинета оператора.
+// Пока значения пустые — функциональность выключена, сайт работает как раньше.
+// Инструкция по подключению: docs/supabase-setup.md
+export const supabase = {
+  url: import.meta.env.VITE_SB_URL || "",
+  anonKey: import.meta.env.VITE_SB_ANON || "",
+};
+
 // Виды налоговых вычетов («ситуации» на исходном сайте).
 export const deductions = [
   {
