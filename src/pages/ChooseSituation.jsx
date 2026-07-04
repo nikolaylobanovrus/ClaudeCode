@@ -17,6 +17,9 @@ const SITUATIONS = [
   { slug: "inaya", label: "Иная ситуация" },
 ];
 
+// Ситуации, у которых есть своя страница загрузки документов.
+const DOC_SLUGS = ["ipoteka", "kvartira"];
+
 export default function ChooseSituation() {
   const navigate = useNavigate();
   const account = getAccount();
@@ -53,8 +56,7 @@ export default function ChooseSituation() {
     sbRpc("set_situation", { p_id: account.id, p_situation: s.label }).catch(
       () => {}
     );
-    // Для ипотеки есть отдельная страница загрузки документов.
-    if (s.slug === "ipoteka") navigate("/situaciya/ipoteka");
+    if (DOC_SLUGS.includes(s.slug)) navigate(`/situaciya/${s.slug}`);
   }
 
   return (
@@ -107,11 +109,14 @@ export default function ChooseSituation() {
                 документы и подготовит декларацию 3-НДФЛ.
               </p>
               <div className="cta__actions">
-                {selected === "Платили за ипотеку" && (
-                  <Link to="/situaciya/ipoteka" className="btn btn--green">
-                    Загрузить документы
-                  </Link>
-                )}
+                {(() => {
+                  const sel = SITUATIONS.find((s) => s.label === selected);
+                  return sel && DOC_SLUGS.includes(sel.slug) ? (
+                    <Link to={`/situaciya/${sel.slug}`} className="btn btn--green">
+                      Загрузить документы
+                    </Link>
+                  ) : null;
+                })()}
                 <Link to="/kabinet" className="btn btn--primary">
                   Перейти в личный кабинет
                 </Link>

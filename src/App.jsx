@@ -11,6 +11,7 @@ import Register from "./pages/Register.jsx";
 import Login from "./pages/Login.jsx";
 import ChooseSituation from "./pages/ChooseSituation.jsx";
 import SituationIpoteka from "./pages/SituationIpoteka.jsx";
+import SituationKvartira from "./pages/SituationKvartira.jsx";
 import Cabinet from "./pages/Cabinet.jsx";
 import Operator from "./pages/Operator.jsx";
 import NotFound from "./pages/NotFound.jsx";
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="vhod" element={<Login />} />
         <Route path="vyberite-situaciyu" element={<ChooseSituation />} />
         <Route path="situaciya/ipoteka" element={<SituationIpoteka />} />
+        <Route path="situaciya/kvartira" element={<SituationKvartira />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="operator" element={<Operator />} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
