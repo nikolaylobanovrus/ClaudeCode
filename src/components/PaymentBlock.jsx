@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { getAccount, updateAccount } from "../lib/account.js";
 import { company } from "../data/content.js";
-import sbpQr from "../assets/sbp-qr-alfa.png";
+import qrAlfa from "../assets/sbp-qr-alfa.png";
+import qrSber from "../assets/sbp-qr-sber.png";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const fmt = (n) => Number(n || 0).toLocaleString("ru-RU") + " ₽";
@@ -18,20 +19,31 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
 
   const pay = company.payment;
   const amountDigits = String(amount || 0);
-  // Статичная СБП C2C-ссылка (cbrpay) — используем как есть, сумму она не
-  // принимает параметром: клиент вводит сумму сам в приложении банка.
-  const payUrl = pay.link || "";
-  const banks = pay.banks && pay.banks.length ? pay.banks : [pay.bank];
 
   if (!account) return null;
 
   const comment = `ID ${account.id}`;
   const priceStr = fmt(amount);
 
-  function openPayment() {
-    if (payUrl) window.open(payUrl, "_blank", "noopener");
-    setOpen(true);
-  }
+  // Два «приложения банков»-варианта (QR + ссылка). Третий — перевод по номеру.
+  const appOptions = [
+    {
+      key: "alfa",
+      num: 1,
+      title: "Через приложения Альфа-Банк, ВТБ, Газпромбанк, МТС Банк",
+      qr: qrAlfa,
+      link: pay.linkAlfa,
+      banks: pay.banksAlfa,
+    },
+    {
+      key: "sber",
+      num: 2,
+      title: "Через приложения Сбербанк и Т-Банк",
+      qr: qrSber,
+      link: pay.linkSber,
+      banks: pay.banksSber,
+    },
+  ];
 
   async function copy(text, key) {
     try {
@@ -58,7 +70,7 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
           "Email": account.email,
           "Тариф": tariffName || "—",
           "Сумма": priceStr,
-          "Способ оплаты": `${pay.method} → ${pay.bank}, ${pay.phone}`,
+          "Способ оплаты": pay.method,
         }),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
@@ -93,109 +105,112 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
         </div>
       ) : (
         <>
-          <button type="button" className="btn btn--green btn--lg" onClick={openPayment}>
-            Оплатить {priceStr}
-          </button>
+          {!open && (
+            <button type="button" className="btn btn--green btn--lg" onClick={() => setOpen(true)}>
+              Оплатить {priceStr}
+            </button>
+          )}
 
           {open && (
             <div className="pay__panel">
-              {payUrl && (
-                <>
-                  <div className="pay__qr">
-                    <img src={sbpQr} alt="QR-код для оплаты через СБП (Альфа-банк)" width="220" />
-                    <p className="pay__qr-cap">
-                      Наведите камеру телефона на QR — откроется оплата через
-                      СБП. Укажите сумму <strong>{priceStr}</strong>.
+              <p className="pay__lead">
+                Выберите удобный способ оплаты на сумму{" "}
+                <strong>{priceStr}</strong>. Оплата проходит через{" "}
+                <strong>СБП</strong> — быстро, без комиссии.
+              </p>
+
+              <div className="payopts">
+                {appOptions.map((o) => (
+                  <div className="payopt" key={o.key}>
+                    <div className="payopt__head">
+                      <span className="payopt__num">{o.num}</span>
+                      <span className="payopt__title">{o.title}</span>
+                    </div>
+                    <div className="payopt__body">
+                      <div className="payopt__qr">
+                        <img src={o.qr} alt={`QR-код СБП для оплаты (${o.banks.join(", ")})`} width="180" height="180" />
+                      </div>
+                      <div className="payopt__how">
+                        <ol className="payopt__steps">
+                          <li>
+                            Отсканируйте QR камерой телефона или в приложении
+                            банка (кнопка «Оплатить по QR»).
+                          </li>
+                          <li>
+                            Проверьте получателя и укажите сумму{" "}
+                            <strong>{priceStr}</strong>.
+                          </li>
+                        </ol>
+                        <a className="btn btn--primary" href={o.link} target="_blank" rel="noreferrer">
+                          Открыть оплату с телефона
+                        </a>
+                        <span className="payopt__mini">
+                          Если оплачиваете с телефона — нажмите кнопку, QR не
+                          нужен.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Вариант 3 — перевод по номеру телефона (любой банк) */}
+                <div className="payopt">
+                  <div className="payopt__head">
+                    <span className="payopt__num">3</span>
+                    <span className="payopt__title">Перевод по СБП — с любого банка</span>
+                  </div>
+                  <div className="payopt__body payopt__body--phone">
+                    <ul className="pay__req">
+                      <li>
+                        <span>Номер телефона</span>
+                        <span className="pay__val">
+                          {pay.phone}
+                          <button type="button" className="pay__copy" onClick={() => copy(pay.phone, "phone")}>
+                            {copied === "phone" ? "✓ Скопировано" : "Копировать"}
+                          </button>
+                        </span>
+                      </li>
+                      <li>
+                        <span>Получатель</span>
+                        <span className="pay__val">{pay.recipient}</span>
+                      </li>
+                      <li>
+                        <span>Сумма</span>
+                        <span className="pay__val">
+                          {priceStr}
+                          <button type="button" className="pay__copy" onClick={() => copy(amountDigits, "sum")}>
+                            {copied === "sum" ? "✓ Скопировано" : "Копировать"}
+                          </button>
+                        </span>
+                      </li>
+                    </ul>
+                    <p className="payopt__mini">
+                      Приложение банка → «Платежи» → «Перевод по номеру телефона»
+                      → выберите получателя из списка и переведите{" "}
+                      <strong>{priceStr}</strong>.
                     </p>
                   </div>
-                  <p className="pay__step">
-                    Или откройте страницу оплаты (открылась в новой вкладке;
-                    если нет — нажмите кнопку) и укажите сумму{" "}
-                    <strong>{priceStr}</strong>:
-                  </p>
-                  <a className="btn btn--primary" href={payUrl} target="_blank" rel="noreferrer">
-                    Оплатить через Альфа-банк (СБП)
-                  </a>
-                  <p className="pay__hint">
-                    В комментарии к платежу укажите <strong>{comment}</strong> —
-                    так мы быстрее найдём ваш платёж.
-                    <button
-                      type="button"
-                      className="pay__copy"
-                      style={{ marginLeft: 8 }}
-                      onClick={() => copy(comment, "comment2")}
-                    >
-                      {copied === "comment2" ? "✓ Скопировано" : "Копировать ID"}
-                    </button>
-                  </p>
-                </>
-              )}
+                </div>
+              </div>
 
-              <details className="pay__alt" open={!payUrl}>
-                <summary>
-                  {payUrl
-                    ? "Другой способ: СБП-перевод по номеру телефона"
-                    : "СБП-перевод по номеру телефона"}
-                </summary>
-                <p className="pay__step" style={{ marginTop: 12 }}>
-                  Также вы можете перевести оплату <strong>{priceStr}</strong> по{" "}
-                  <strong>СБП</strong> (Системе быстрых платежей) по номеру
-                  телефона:
-                </p>
-                <ul className="pay__req">
-                  <li>
-                    <span>Номер телефона</span>
-                    <span className="pay__val">
-                      {pay.phone}
-                      <button type="button" className="pay__copy" onClick={() => copy(pay.phone, "phone")}>
-                        {copied === "phone" ? "✓ Скопировано" : "Копировать"}
-                      </button>
-                    </span>
-                  </li>
-                  <li>
-                    <span>Получатель</span>
-                    <span className="pay__val">{pay.recipient}</span>
-                  </li>
-                  <li>
-                    <span>Банк получателя</span>
-                    <span className="pay__val">{banks.join(", ")}</span>
-                  </li>
-                  <li>
-                    <span>Сумма</span>
-                    <span className="pay__val">
-                      {priceStr}
-                      <button type="button" className="pay__copy" onClick={() => copy(amountDigits, "sum")}>
-                        {copied === "sum" ? "✓ Скопировано" : "Копировать"}
-                      </button>
-                    </span>
-                  </li>
-                  <li>
-                    <span>Комментарий к переводу</span>
-                    <span className="pay__val">
-                      {comment}
-                      <button type="button" className="pay__copy" onClick={() => copy(comment, "comment")}>
-                        {copied === "comment" ? "✓ Скопировано" : "Копировать"}
-                      </button>
-                    </span>
-                  </li>
-                </ul>
-                <p className="pay__hint">
-                  Откройте приложение вашего банка → «Платежи» → «Перевод по
-                  номеру телефона» → выберите банк получателя (
-                  <strong>{banks.join(", ")}</strong>). Обязательно укажите
-                  комментарий <strong>{comment}</strong> — так мы быстрее найдём
-                  ваш платёж.
-                </p>
-              </details>
+              <p className="pay__idnote">
+                Необязательно, но желательно: в комментарии к платежу укажите{" "}
+                <strong>{comment}</strong> — так мы найдём ваш платёж быстрее.
+                <button type="button" className="pay__copy" onClick={() => copy(comment, "id")}>
+                  {copied === "id" ? "✓ Скопировано" : "Копировать ID"}
+                </button>
+              </p>
 
-              <button type="button" className="btn btn--ghost" onClick={reportPaid} disabled={busy}>
-                {busy ? "Отправляем…" : "Я оплатил(а)"}
-              </button>
-              {error && (
-                <span className="form__error" role="alert">
-                  {error}
-                </span>
-              )}
+              <div className="pay__done">
+                <button type="button" className="btn btn--green" onClick={reportPaid} disabled={busy}>
+                  {busy ? "Отправляем…" : "Я оплатил(а)"}
+                </button>
+                {error && (
+                  <span className="form__error" role="alert">
+                    {error}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </>
