@@ -41,8 +41,10 @@ function Seg({ value, onChange, options, name }) {
 //   subject     — название в теме письма оператору;
 //   title/subtitle/seoTitle/seoDescription — тексты шапки и SEO;
 //   intro       — вводный абзац перед списком документов (JSX);
-//   fileFields  — список полей загрузки: { key, label, hint };
-//                 поле с key="ndfl" получает выбор «Получу сам / Получите за меня».
+//   fileFields  — список полей загрузки: { key, label, hint, textInput };
+//                 поле с key="ndfl" получает выбор «Получу сам / Получите за меня»;
+//                 textInput: { placeholder } добавляет текстовое поле — клиент
+//                 может вставить данные текстом вместо загрузки файла.
 export default function SituationDocsPage({ config }) {
   const { slug, label, subject, fileFields } = config;
   const DRAFT_KEY = `ns.draft.${slug}.v1`;
@@ -71,6 +73,8 @@ export default function SituationDocsPage({ config }) {
   const [sendPassword, setSendPassword] = useState("");
   const [regAddress, setRegAddress] = useState(draft?.regAddress || "");
   const [draftFileNames, setDraftFileNames] = useState(draft?.fileNames || {});
+  // Тексты полей с textInput (например, реквизиты счёта, вставленные текстом).
+  const [fieldTexts, setFieldTexts] = useState(draft?.fieldTexts || {});
 
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -118,10 +122,14 @@ export default function SituationDocsPage({ config }) {
 
     fileFields.forEach((f) => {
       const list = files[f.key] || [];
+      const text = (fieldTexts[f.key] || "").trim();
       list.forEach((file, i) =>
         fd.append(list.length > 1 ? `${f.label} (${i + 1})` : f.label, file, file.name)
       );
-      if (list.length === 0) {
+      if (text) {
+        fd.append(list.length ? `${f.label} — текстом` : f.label, text);
+      }
+      if (list.length === 0 && !text) {
         const prev = draftFileNames[f.key];
         if (prev?.length) {
           fd.append(f.label, `Отправлен ранее с черновиком: ${prev.join(", ")}`);
@@ -250,6 +258,7 @@ export default function SituationDocsPage({ config }) {
         DRAFT_KEY,
         JSON.stringify({
           fileNames: names,
+          fieldTexts,
           ndflMode,
           sendMode,
           sendMethod,
@@ -485,6 +494,19 @@ export default function SituationDocsPage({ config }) {
                           </li>
                         ))}
                       </ul>
+                    )}
+                    {f.textInput && (
+                      <div className="up-text">
+                        <span className="up-text__or">или вставьте текстом</span>
+                        <textarea
+                          rows={3}
+                          value={fieldTexts[f.key] || ""}
+                          placeholder={f.textInput.placeholder || ""}
+                          onChange={(e) =>
+                            setFieldTexts((t) => ({ ...t, [f.key]: e.target.value }))
+                          }
+                        />
+                      </div>
                     )}
                   </>
                 )}

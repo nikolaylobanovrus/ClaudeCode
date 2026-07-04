@@ -1229,6 +1229,29 @@ h4 {
   font-size: 14px;
   font-weight: 600;
 }
+.up-text {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+.up-text__or {
+  font-size: 13px;
+  color: var(--ink-500);
+}
+.up-text textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14.5px;
+  background: #fff;
+  resize: vertical;
+}
+.up-text textarea:focus {
+  outline: none;
+  border-color: var(--blue-500);
+}
 
 .seg {
   display: flex;
