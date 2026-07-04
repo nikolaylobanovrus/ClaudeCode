@@ -1384,6 +1384,27 @@ h4 {
   color: var(--ink-700);
   font-size: 14px;
 }
+.pay__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.pay__qr img {
+  display: block;
+  border-radius: 8px;
+}
+.pay__qr-cap {
+  text-align: center;
+  color: var(--ink-700);
+  font-size: 14.5px;
+  max-width: 260px;
+}
 .pay__alt {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);

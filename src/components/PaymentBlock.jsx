@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getAccount, updateAccount } from "../lib/account.js";
 import { company } from "../data/content.js";
+import sbpQr from "../assets/sbp-qr-alfa.png";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const fmt = (n) => Number(n || 0).toLocaleString("ru-RU") + " ₽";
@@ -15,15 +16,17 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
 
+  const pay = company.payment;
+  const amountDigits = String(amount || 0);
+  // Статичная СБП C2C-ссылка (cbrpay) — используем как есть, сумму она не
+  // принимает параметром: клиент вводит сумму сам в приложении банка.
+  const payUrl = pay.link || "";
+  const banks = pay.banks && pay.banks.length ? pay.banks : [pay.bank];
+
   if (!account) return null;
 
-  const pay = company.payment;
   const comment = `ID ${account.id}`;
   const priceStr = fmt(amount);
-  const amountDigits = String(amount || 0);
-  const payUrl = pay.link
-    ? pay.link + (pay.link.includes("?") ? "&" : "?") + "amount=" + amountDigits
-    : "";
 
   function openPayment() {
     if (payUrl) window.open(payUrl, "_blank", "noopener");
@@ -98,12 +101,20 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
             <div className="pay__panel">
               {payUrl && (
                 <>
+                  <div className="pay__qr">
+                    <img src={sbpQr} alt="QR-код для оплаты через СБП (Альфа-банк)" width="220" />
+                    <p className="pay__qr-cap">
+                      Наведите камеру телефона на QR — откроется оплата через
+                      СБП. Укажите сумму <strong>{priceStr}</strong>.
+                    </p>
+                  </div>
                   <p className="pay__step">
-                    Страница оплаты Т-Банка открылась в новой вкладке. Если этого
-                    не произошло — нажмите кнопку:
+                    Или откройте страницу оплаты (открылась в новой вкладке;
+                    если нет — нажмите кнопку) и укажите сумму{" "}
+                    <strong>{priceStr}</strong>:
                   </p>
                   <a className="btn btn--primary" href={payUrl} target="_blank" rel="noreferrer">
-                    Оплатить {priceStr} через Т-Банк
+                    Оплатить через Альфа-банк (СБП)
                   </a>
                   <p className="pay__hint">
                     В комментарии к платежу укажите <strong>{comment}</strong> —
@@ -127,8 +138,9 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
                     : "СБП-перевод по номеру телефона"}
                 </summary>
                 <p className="pay__step" style={{ marginTop: 12 }}>
-                  Переведите <strong>{priceStr}</strong> через <strong>СБП</strong>{" "}
-                  (Систему быстрых платежей):
+                  Также вы можете перевести оплату <strong>{priceStr}</strong> по{" "}
+                  <strong>СБП</strong> (Системе быстрых платежей) по номеру
+                  телефона:
                 </p>
                 <ul className="pay__req">
                   <li>
@@ -141,12 +153,12 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
                     </span>
                   </li>
                   <li>
-                    <span>Банк получателя</span>
-                    <span className="pay__val">{pay.bank}</span>
-                  </li>
-                  <li>
                     <span>Получатель</span>
                     <span className="pay__val">{pay.recipient}</span>
+                  </li>
+                  <li>
+                    <span>Банк получателя</span>
+                    <span className="pay__val">{banks.join(", ")}</span>
                   </li>
                   <li>
                     <span>Сумма</span>
@@ -169,9 +181,10 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
                 </ul>
                 <p className="pay__hint">
                   Откройте приложение вашего банка → «Платежи» → «Перевод по
-                  номеру телефона» → выберите банк <strong>{pay.bank}</strong>.
-                  Обязательно укажите комментарий <strong>{comment}</strong> — так
-                  мы быстрее найдём ваш платёж.
+                  номеру телефона» → выберите банк получателя (
+                  <strong>{banks.join(", ")}</strong>). Обязательно укажите
+                  комментарий <strong>{comment}</strong> — так мы быстрее найдём
+                  ваш платёж.
                 </p>
               </details>
 
