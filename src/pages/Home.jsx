@@ -12,6 +12,7 @@ import {
   reviews,
   team,
   stats,
+  selfService,
 } from "../data/content.js";
 import { faq } from "../data/faq.jsx";
 
@@ -87,9 +88,9 @@ export default function Home() {
               <Link to="/registraciya" className="btn btn--green btn--lg">
                 Сформировать декларацию онлайн
               </Link>
-              <a href={`tel:${company.phoneRaw}`} className="btn btn--light btn--lg">
-                {company.phone}
-              </a>
+              <Link to="/deklaraciya" className="btn btn--light btn--lg">
+                Заполнить самому — {selfService.price.toLocaleString("ru-RU")} ₽
+              </Link>
             </div>
             <div className="hero__trust">
               <span>✅ Гарантия качества</span>

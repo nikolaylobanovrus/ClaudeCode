@@ -18,6 +18,8 @@ import SituationProdazha from "./pages/SituationProdazha.jsx";
 import SituationInaya from "./pages/SituationInaya.jsx";
 import Cabinet from "./pages/Cabinet.jsx";
 import Operator from "./pages/Operator.jsx";
+import SelfService from "./pages/SelfService.jsx";
+import Wizard from "./pages/Wizard.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 export default function App() {
@@ -40,6 +42,8 @@ export default function App() {
         <Route path="situaciya/inaya" element={<SituationInaya />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="operator" element={<Operator />} />
+        <Route path="deklaraciya" element={<SelfService />} />
+        <Route path="deklaraciya/anketa" element={<Wizard />} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />
         <Route path="*" element={<NotFound />} />

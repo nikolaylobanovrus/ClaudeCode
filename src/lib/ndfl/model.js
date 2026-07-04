@@ -1,0 +1,96 @@
+// Нормализация черновика анкеты в модель декларации. Одна и та же модель
+// питает PDF (pdf3ndfl.js, zayavlenie.js) и XML (xml3ndfl.js) — так данные
+// в документах гарантированно совпадают.
+import { computeDeclaration } from "./calc.js";
+import { CODES, KBK, RATE } from "./refs.js";
+
+const digits = (s) => String(s || "").replace(/\D/g, "");
+const trim = (s) => String(s || "").trim();
+const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
+
+// Дата "2024-05-20" → "20.05.2024" (формат печатной формы).
+export const fmtDate = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).split("-");
+  return d && m && y ? `${d}.${m}.${y}` : String(iso);
+};
+
+export function buildDeclarationModel(draft) {
+  const calc = computeDeclaration(draft);
+  const p = draft.personal || {};
+  const b = draft.bank || {};
+  const pr = draft.property || {};
+
+  const person = {
+    lastName: trim(p.lastName),
+    firstName: trim(p.firstName),
+    middleName: trim(p.middleName),
+    fio: [p.lastName, p.firstName, p.middleName].map(trim).filter(Boolean).join(" "),
+    inn: digits(p.inn),
+    birthDate: p.birthDate || "",
+    birthPlace: trim(p.birthPlace),
+    passport: {
+      code: CODES.passport,
+      series: digits(p.passportSeries),
+      number: digits(p.passportNumber),
+      date: p.passportDate || "",
+      issuer: trim(p.passportIssuer),
+    },
+    phone: trim(p.phone),
+    oktmo: digits(p.oktmo),
+    ifns: digits(p.ifns),
+  };
+
+  const incomes = (draft.incomes || [])
+    .filter((i) => num(i.income) > 0)
+    .map((i) => ({
+      name: trim(i.name),
+      inn: digits(i.inn),
+      kpp: digits(i.kpp),
+      oktmo: digits(i.oktmo),
+      income: num(i.income),
+      withheld: num(i.withheld),
+    }));
+
+  const has = (t) => (draft.types || []).includes(t);
+
+  return {
+    year: draft.year,
+    types: draft.types || [],
+    person,
+    incomes,
+    calc,
+    kbk: KBK,
+    ratePercent: Math.round(RATE * 100),
+    refund: calc.refund,
+    bank: { bik: digits(b.bik), account: digits(b.account), kind: CODES.accountKind },
+    // Приложение 7 (имущественный) — только если выбран соответствующий вычет
+    property:
+      has("kvartira") || has("ipoteka")
+        ? {
+            address: trim(pr.address),
+            cadastral: trim(pr.cadastral),
+            cost: num(pr.cost),
+            dateAct: pr.dateAct || "",
+            dateReg: pr.dateReg || "",
+            priorDeduction: num(pr.priorDeduction),
+            priorInterest: num(pr.priorInterest),
+            interestPaid: num(pr.interestPaid),
+          }
+        : null,
+    // Приложение 5 (социальные и ИИС)
+    social:
+      has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie")
+        ? {
+            medicalOrdinary: has("lechenie") ? num(draft.medical?.ordinary) : 0,
+            medicalExpensive: has("lechenie") ? num(draft.medical?.expensive) : 0,
+            educationSelf: has("obuchenie") ? num(draft.education?.self) : 0,
+            educationChildren: has("obuchenie")
+              ? (draft.education?.children || []).map((c) => num(c.amount)).filter(Boolean)
+              : [],
+            insurance: has("strahovanie") ? num(draft.insurance?.amount) : 0,
+            iis: has("iis") ? num(draft.iis?.contribution) : 0,
+          }
+        : null,
+  };
+}

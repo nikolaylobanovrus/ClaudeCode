@@ -7,6 +7,7 @@ import Logo from "./Logo.jsx";
 const LINKS = [
   { to: "/", label: "Главная", end: true },
   { to: "/vychety", label: "Виды вычетов" },
+  { to: "/deklaraciya", label: "Заполнить самому" },
   { to: "/kak-rabotaem", label: "Как работаем" },
   { to: "/tarify", label: "Тарифы" },
   { to: "/kontakty", label: "Контакты" },

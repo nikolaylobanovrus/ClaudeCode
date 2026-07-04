@@ -1,0 +1,210 @@
+// Лендинг услуги «Заполнить декларацию самому»: отдельная точка входа для
+// рекламы (Авито, директ) — свой оффер, цена и CTA, дизайн — общий с сайтом.
+// Сам мастер — на /deklaraciya/anketa.
+import { Link } from "react-router-dom";
+import Seo from "../components/Seo.jsx";
+import Faq from "../components/Faq.jsx";
+import { company, selfService } from "../data/content.js";
+import { wizardDeductions } from "../data/wizard.js";
+
+const fmt = (n) => n.toLocaleString("ru-RU");
+
+const HOW = [
+  {
+    num: "1",
+    title: "Отвечаете на вопросы",
+    text: "Простая анкета с подсказками «где взять цифру»: справка о доходах, договор, чеки. 10–15 минут.",
+  },
+  {
+    num: "2",
+    title: "Оплачиваете",
+    text: `Фиксированная цена — ${fmt(selfService.price)} ₽, без процентов от возврата.`,
+  },
+  {
+    num: "3",
+    title: "Получаете документы",
+    text: "Декларация 3-НДФЛ, файл для Личного кабинета ФНС и заявление на возврат — сразу после оплаты.",
+  },
+  {
+    num: "4",
+    title: "Подаёте онлайн",
+    text: "Загружаете файл в Личный кабинет ФНС — и ждёте деньги на счёт. Инструкция прилагается.",
+  },
+];
+
+const WIZARD_FAQ = [
+  {
+    q: "Чем это отличается от услуги «под ключ»?",
+    a: "Здесь вы заполняете анкету сами, а документы формируются автоматически — поэтому дешевле и мгновенно. В услуге «под ключ» наши специалисты всё делают за вас.",
+  },
+  {
+    q: "Мои паспортные данные куда-то отправляются?",
+    a: "Нет. Документы формируются прямо в вашем браузере: паспорт, доходы и суммы не покидают ваше устройство и не сохраняются на наших серверах.",
+  },
+  {
+    q: "Что я получу после оплаты?",
+    a: "Три файла: декларацию 3-НДФЛ (PDF), файл для загрузки в Личный кабинет ФНС (XML) и заявление на возврат налога. Их можно скачать или отправить себе в мессенджер и на почту.",
+  },
+  {
+    q: "Можно объединить несколько вычетов?",
+    a: "Да, и нужно: за один год подаётся одна декларация. Выберите в анкете все ситуации — квартира, лечение, обучение, ИИС — они попадут в один документ.",
+  },
+  {
+    q: "А если я запутаюсь?",
+    a: "У каждого поля есть подсказка, где взять цифру. Если всё же сложно — закажите услугу «под ключ», и мы всё сделаем за вас.",
+  },
+];
+
+export default function SelfService() {
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: selfService.name,
+      description: selfService.description,
+      provider: { "@type": "Organization", name: company.brand, url: company.site },
+      offers: {
+        "@type": "Offer",
+        price: String(selfService.price),
+        priceCurrency: "RUB",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: WIZARD_FAQ.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    },
+  ];
+
+  return (
+    <>
+      <Seo
+        title={`Заполнить 3-НДФЛ онлайн самому за ${fmt(selfService.price)} ₽ | Налог-сервис`}
+        description={`Декларация 3-НДФЛ онлайн за 15 минут: анкета с подсказками, автоматический расчёт вычета, файл для Личного кабинета ФНС и заявление на возврат. Фиксированная цена ${fmt(selfService.price)} ₽.`}
+        path="/deklaraciya"
+        jsonLd={jsonLd}
+      />
+
+      {/* HERO */}
+      <section className="hero">
+        <div className="hero__inner container">
+          <div>
+            <span className="eyebrow hero__eyebrow">
+              Онлайн · Автоматически · {fmt(selfService.price)} ₽
+            </span>
+            <h1 className="hero__title">
+              Заполните <span className="hero__accent">3-НДФЛ сами</span> за 15
+              минут — мы всё посчитаем
+            </h1>
+            <p className="hero__subtitle">
+              Отвечаете на простые вопросы — получаете готовую декларацию, файл
+              для Личного кабинета ФНС и заявление на возврат. Без ожидания и
+              без процентов от вычета.
+            </p>
+            <div className="hero__actions">
+              <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
+                Начать заполнение
+              </Link>
+              <Link to="/tarify" className="btn btn--light btn--lg">
+                Лучше сделайте за меня
+              </Link>
+            </div>
+            <div className="hero__trust">
+              <span>⚡ Документы сразу после оплаты</span>
+              <span>🔒 Данные не покидают ваш браузер</span>
+              <span>💾 Черновик сохраняется</span>
+            </div>
+          </div>
+          <div className="hero__card">
+            <h3>Что вы получите</h3>
+            <p>📄 Декларация 3-НДФЛ (PDF) — со всеми листами и расчётом</p>
+            <p>💻 Файл для Личного кабинета ФНС — подача онлайн без очередей</p>
+            <p>✍️ Заявление на возврат налога — деньги придут на ваш счёт</p>
+            <p>
+              <strong>Цена — {fmt(selfService.price)} ₽</strong>, фиксированная
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Какие вычеты */}
+      <section className="section">
+        <div className="container">
+          <div className="section__head">
+            <span className="eyebrow">Подходит для</span>
+            <h2 className="section__title">Какие вычеты можно оформить</h2>
+            <p className="section__subtitle">
+              Несколько ситуаций за один год объединяются в одну декларацию —
+              выберете их в анкете галочками.
+            </p>
+          </div>
+          <div className="deduction-grid">
+            {wizardDeductions.map((d) => (
+              <div className="deduction" key={d.slug}>
+                <div className="deduction__icon" aria-hidden="true">
+                  {d.icon}
+                </div>
+                <h3 className="deduction__title">{d.title}</h3>
+                <p className="deduction__text">{d.short}</p>
+                <span className="deduction__limit">{d.limit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Как это работает */}
+      <section className="section section--muted">
+        <div className="container">
+          <div className="section__head">
+            <span className="eyebrow">Как это работает</span>
+            <h2 className="section__title">4 шага — и документы у вас</h2>
+          </div>
+          <div className="steps">
+            {HOW.map((s) => (
+              <div className="step" key={s.num}>
+                <div className="step__num">{s.num}</div>
+                <h3 className="step__title">{s.title}</h3>
+                <p className="step__text">{s.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="section">
+        <div className="container">
+          <div className="section__head">
+            <span className="eyebrow">Вопросы</span>
+            <h2 className="section__title">Частые вопросы</h2>
+          </div>
+          <Faq items={WIZARD_FAQ.map((f) => ({ q: f.q, a: f.a }))} />
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="cta">
+        <div className="cta__inner container">
+          <h2 className="cta__title">Верните свои 13% уже в этом году</h2>
+          <p className="cta__text">
+            Средний вычет наших клиентов — больше 50 000 ₽. Анкета займёт 15
+            минут, черновик сохраняется автоматически.
+          </p>
+          <div className="cta__actions">
+            <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
+              Начать заполнение — {fmt(selfService.price)} ₽
+            </Link>
+            <a href={company.telegram} className="btn btn--light btn--lg">
+              Спросить в Telegram
+            </a>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}

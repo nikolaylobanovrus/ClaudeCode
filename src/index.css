@@ -2128,3 +2128,316 @@ h4 {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============ Мастер «Заполнить самому» ============ */
+.wiz {
+  max-width: 1060px;
+  margin: 0 auto;
+}
+.wiz__resume {
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wiz__resume p {
+  margin: 0;
+}
+.wiz__progress {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 26px;
+  overflow-x: auto;
+}
+.wiz__dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 10px;
+  min-width: 64px;
+  color: var(--ink-500);
+  font: inherit;
+  font-size: 12px;
+}
+.wiz__dot:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.wiz__dot-num {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  font-weight: 700;
+  background: #fff;
+}
+.wiz__dot.is-current .wiz__dot-num {
+  border-color: var(--blue-600);
+  color: var(--blue-600);
+}
+.wiz__dot.is-done .wiz__dot-num {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
+  color: #fff;
+}
+.wiz__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 28px;
+  align-items: start;
+}
+.wiz__heading {
+  font-size: 24px;
+  margin: 0 0 16px;
+}
+.wiz__aside {
+  position: sticky;
+  top: 90px;
+}
+.wiz__aside-card {
+  margin-bottom: 12px;
+}
+.wiz__aside-note {
+  font-size: 12.5px;
+  color: var(--ink-500);
+  line-height: 1.5;
+}
+.wiz__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 16px;
+}
+.wiz__subhead {
+  font-size: 16px;
+  margin: 18px 0 10px;
+}
+.wiz__block {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px 6px;
+  margin-bottom: 16px;
+  background: #fff;
+}
+.wiz__block .wiz__subhead:first-child {
+  margin-top: 0;
+}
+.wiz__note {
+  font-size: 13.5px;
+  color: var(--ink-500);
+  line-height: 1.55;
+}
+.wiz__nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+.wiz__types {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.wiz__type {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.wiz__type.is-active {
+  border-color: var(--blue-600);
+  background: var(--blue-50);
+}
+.wiz__type-icon {
+  font-size: 24px;
+}
+.wiz__type-title {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+}
+.wiz__type-limit {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-500);
+}
+.wiz__type-check {
+  margin-left: auto;
+  color: var(--blue-600);
+  font-weight: 700;
+  font-size: 16px;
+  width: 18px;
+}
+.wiz__hint-wrap {
+  position: relative;
+  display: inline-block;
+  margin-left: 6px;
+}
+.wiz__hint-btn {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1.5px solid var(--blue-600);
+  color: var(--blue-600);
+  background: none;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: text-bottom;
+}
+.wiz__hint {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 8px);
+  width: 260px;
+  background: var(--ink-900);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.18);
+}
+.wiz__employer {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px 18px 10px;
+  margin: 0 0 16px;
+}
+.wiz__employer legend {
+  font-weight: 700;
+  padding: 0 6px;
+}
+.wiz__remove {
+  background: none;
+  border: 0;
+  color: #d92d20;
+  font-size: 12.5px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+.wiz__child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wiz__child input {
+  max-width: 220px;
+}
+.wiz__summary dd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wiz__edit {
+  background: none;
+  border: 0;
+  color: var(--blue-600);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.wiz__calc {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-top: 18px;
+  background: #fff;
+}
+.wiz__calc-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px dashed var(--line);
+}
+.wiz__calc-row--total {
+  border-bottom: 0;
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--blue-600);
+}
+.wiz__pay {
+  padding: 22px;
+  max-width: 460px;
+}
+.wiz__pay-price {
+  font-size: 34px;
+  font-weight: 800;
+  margin: 10px 0 16px;
+}
+.wiz__docs {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: grid;
+  gap: 12px;
+}
+.wiz__doc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  flex-wrap: wrap;
+}
+.wiz__doc-info p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-500);
+  max-width: 520px;
+}
+.wiz__beta {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fef0c7;
+  color: #93370d;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.wiz__next {
+  padding-left: 20px;
+  line-height: 1.7;
+  font-size: 14.5px;
+}
+@media (max-width: 900px) {
+  .wiz__grid {
+    grid-template-columns: 1fr;
+  }
+  .wiz__aside {
+    position: static;
+    order: -1;
+  }
+  .wiz__dot-label {
+    display: none;
+  }
+  .wiz__dot {
+    min-width: 40px;
+  }
+}
