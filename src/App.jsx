@@ -13,6 +13,7 @@ import ChooseSituation from "./pages/ChooseSituation.jsx";
 import SituationIpoteka from "./pages/SituationIpoteka.jsx";
 import SituationKvartira from "./pages/SituationKvartira.jsx";
 import SituationLechenie from "./pages/SituationLechenie.jsx";
+import SituationInostrannym from "./pages/SituationInostrannym.jsx";
 import Cabinet from "./pages/Cabinet.jsx";
 import Operator from "./pages/Operator.jsx";
 import NotFound from "./pages/NotFound.jsx";
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="situaciya/ipoteka" element={<SituationIpoteka />} />
         <Route path="situaciya/kvartira" element={<SituationKvartira />} />
         <Route path="situaciya/lechenie-obuchenie" element={<SituationLechenie />} />
+        <Route path="situaciya/inostrannym" element={<SituationInostrannym />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="operator" element={<Operator />} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />

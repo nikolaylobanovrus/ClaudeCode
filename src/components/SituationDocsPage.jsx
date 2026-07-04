@@ -141,13 +141,15 @@ export default function SituationDocsPage({ config }) {
       }
     });
 
-    fd.append(
-      "Справка 2-НДФЛ — способ получения",
-      ndflMode === "us" ? "Получите за меня" : "Получу сам"
-    );
-    if (ndflMode === "us") {
-      fd.append("ФНС: Логин/ИНН", fnsLogin || "не указан");
-      fd.append("ФНС: Пароль", fnsPassword || "не указан");
+    if (fileFields.some((f) => f.key === "ndfl")) {
+      fd.append(
+        "Справка 2-НДФЛ — способ получения",
+        ndflMode === "us" ? "Получите за меня" : "Получу сам"
+      );
+      if (ndflMode === "us") {
+        fd.append("ФНС: Логин/ИНН", fnsLogin || "не указан");
+        fd.append("ФНС: Пароль", fnsPassword || "не указан");
+      }
     }
 
     fd.append(
@@ -301,8 +303,14 @@ export default function SituationDocsPage({ config }) {
     const hasAnyFiles =
       Object.values(files).some((l) => l?.length) ||
       Object.values(draftFileNames).some((l) => l?.length);
-    if (!hasAnyFiles && ndflMode !== "us") {
-      setError("Загрузите хотя бы один документ или выберите «Получите за меня» в справке 2-НДФЛ.");
+    const hasAnyText = Object.values(fieldTexts).some((t) => t && t.trim());
+    const hasNdflField = fileFields.some((f) => f.key === "ndfl");
+    if (!hasAnyFiles && !hasAnyText && !(hasNdflField && ndflMode === "us")) {
+      setError(
+        hasNdflField
+          ? "Загрузите хотя бы один документ или выберите «Получите за меня» в справке 2-НДФЛ."
+          : "Загрузите хотя бы один документ или заполните текстовое поле."
+      );
       return;
     }
     if (ndflMode === "us" && (!fnsLogin || !fnsPassword)) {
