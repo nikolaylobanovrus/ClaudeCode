@@ -272,15 +272,14 @@ export default function SituationIpoteka() {
       if (list.length)
         names[f.key] = [...(names[f.key] || []), ...list.map((x) => x.name)];
     });
+    // ВАЖНО: логины/пароли от кабинета Налоговой НЕ сохраняем в localStorage
+    // (чувствительные данные). Они уже отправлены оператору письмом при
+    // «Сохранить»; при возврате к черновику клиент вводит их заново.
     saveDraftStorage({
       fileNames: names,
       ndflMode,
-      fnsLogin,
-      fnsPassword,
       sendMode,
       sendMethod,
-      sendLogin,
-      sendPassword,
       regAddress,
       savedAt: new Date().toISOString(),
     });
