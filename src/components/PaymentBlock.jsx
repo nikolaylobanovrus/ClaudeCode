@@ -28,20 +28,20 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
   // Два «приложения банков»-варианта (QR + ссылка). Третий — перевод по номеру.
   const appOptions = [
     {
-      key: "alfa",
-      num: 1,
-      title: "Через приложения Альфа-Банк, ВТБ, Газпромбанк, МТС Банк",
-      qr: qrAlfa,
-      link: pay.linkAlfa,
-      banks: pay.banksAlfa,
-    },
-    {
       key: "sber",
-      num: 2,
+      num: 1,
       title: "Через приложения Сбербанк и Т-Банк",
       qr: qrSber,
       link: pay.linkSber,
       banks: pay.banksSber,
+    },
+    {
+      key: "alfa",
+      num: 2,
+      title: "Через приложения Альфа-Банк, ВТБ, Газпромбанк, МТС Банк",
+      qr: qrAlfa,
+      link: pay.linkAlfa,
+      banks: pay.banksAlfa,
     },
   ];
 
@@ -116,7 +116,7 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
               <p className="pay__lead">
                 Выберите удобный способ оплаты на сумму{" "}
                 <strong>{priceStr}</strong>. Оплата проходит через{" "}
-                <strong>СБП</strong> — быстро, без комиссии.
+                <strong>СБП</strong>.
               </p>
 
               <div className="payopts">
