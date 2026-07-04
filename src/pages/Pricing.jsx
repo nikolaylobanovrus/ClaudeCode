@@ -6,21 +6,33 @@ import { faq } from "../data/faq.jsx";
 import Faq from "../components/Faq.jsx";
 
 export default function Pricing() {
-  const jsonLd = tariffs.map((t) => ({
-    "@context": "https://schema.org",
-    "@type": "Offer",
-    name: `Тариф «${t.name}»`,
-    price: t.price.replace(/\D/g, ""),
-    priceCurrency: "RUB",
-    description: t.features.join(", "),
-    availability: "https://schema.org/InStock",
-  }));
+  const jsonLd = [
+    // Самостоятельное заполнение — тоже оффер, участвует в rich snippets.
+    {
+      "@context": "https://schema.org",
+      "@type": "Offer",
+      name: `Тариф «Сам онлайн» — ${selfService.name}`,
+      price: String(selfService.price),
+      priceCurrency: "RUB",
+      description: selfService.description,
+      availability: "https://schema.org/InStock",
+    },
+    ...tariffs.map((t) => ({
+      "@context": "https://schema.org",
+      "@type": "Offer",
+      name: `Тариф «${t.name}»`,
+      price: t.price.replace(/\D/g, ""),
+      priceCurrency: "RUB",
+      description: t.features.join(", "),
+      availability: "https://schema.org/InStock",
+    })),
+  ];
 
   return (
     <>
       <Seo
         title="Тарифы и цены на подготовку декларации 3-НДФЛ | Налог-сервис"
-        description="Стоимость подготовки декларации 3-НДФЛ — от 990 ₽. Тарифы «Базовый», «Оптимальный» и «Премиум». Оплата только по факту готовности документов, гарантия качества."
+        description="Стоимость подготовки декларации 3-НДФЛ — от 99 ₽: самостоятельное заполнение онлайн или тарифы «Базовый», «Оптимальный» и «Премиум» под ключ. Оплата по факту, гарантия качества."
         path="/tarify"
         jsonLd={jsonLd}
       />

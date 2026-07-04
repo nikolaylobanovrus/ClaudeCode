@@ -4,8 +4,9 @@ import { company } from "../data/content.js";
 import { isLoggedIn } from "../lib/account.js";
 import Logo from "./Logo.jsx";
 
+// «Главной» в меню нет — на неё ведёт клик по логотипу/названию:
+// пунктов стало больше («Заполнить самому»), и шапка перестала помещаться.
 const LINKS = [
-  { to: "/", label: "Главная", end: true },
   { to: "/vychety", label: "Виды вычетов" },
   { to: "/deklaraciya", label: "Заполнить самому" },
   { to: "/kak-rabotaem", label: "Как работаем" },

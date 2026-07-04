@@ -16,11 +16,17 @@ import SituationLechenie from "./pages/SituationLechenie.jsx";
 import SituationInostrannym from "./pages/SituationInostrannym.jsx";
 import SituationProdazha from "./pages/SituationProdazha.jsx";
 import SituationInaya from "./pages/SituationInaya.jsx";
+import { lazy, Suspense } from "react";
 import Cabinet from "./pages/Cabinet.jsx";
 import Operator from "./pages/Operator.jsx";
-import SelfService from "./pages/SelfService.jsx";
-import Wizard from "./pages/Wizard.jsx";
 import NotFound from "./pages/NotFound.jsx";
+
+// Мастер декларации — самый тяжёлый раздел (8 шагов, валидация, расчёт):
+// грузим его чанк только при заходе на /deklaraciya, чтобы не замедлять
+// маркетинговые страницы.
+const SelfService = lazy(() => import("./pages/SelfService.jsx"));
+const Wizard = lazy(() => import("./pages/Wizard.jsx"));
+const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
 
 export default function App() {
   return (
@@ -42,8 +48,8 @@ export default function App() {
         <Route path="situaciya/inaya" element={<SituationInaya />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="operator" element={<Operator />} />
-        <Route path="deklaraciya" element={<SelfService />} />
-        <Route path="deklaraciya/anketa" element={<Wizard />} />
+        <Route path="deklaraciya" element={lazyPage(<SelfService />)} />
+        <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />
         <Route path="*" element={<NotFound />} />

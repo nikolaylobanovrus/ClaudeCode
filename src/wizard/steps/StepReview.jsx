@@ -1,15 +1,11 @@
 // Шаг 6: сводка введённого и расчёт возврата перед оплатой.
-import { useMemo } from "react";
+// calc приходит из WizardShell — расчёт выполняется один раз на рендер.
 import { useWizard } from "../WizardContext.jsx";
-import { computeDeclaration } from "../../lib/ndfl/calc.js";
-import { wizardDeductions, STEPS } from "../../data/wizard.js";
-import { fmtRub } from "../fields.jsx";
+import { wizardDeductions, stepIndex } from "../../data/wizard.js";
+import { fmtRub } from "../../lib/format.js";
 
-const stepIndex = (key) => STEPS.findIndex((s) => s.key === key);
-
-export default function StepReview() {
+export default function StepReview({ calc }) {
   const { draft, dispatch } = useWizard();
-  const calc = useMemo(() => computeDeclaration(draft), [draft]);
   const p = draft.personal;
   const goto = (key) => dispatch({ type: "GOTO", step: stepIndex(key) });
 

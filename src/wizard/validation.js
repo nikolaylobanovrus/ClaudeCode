@@ -2,17 +2,17 @@
 // Проверки соответствуют форматному контролю ФНС, чтобы декларация
 // не «отлетела» на приёме из-за опечатки.
 
-const digits = (s) => String(s || "").replace(/\D/g, "");
+import { digits } from "../lib/format.js";
 
 // ИНН физлица: 12 цифр + две контрольные цифры (алгоритм ФНС).
 export function validateInn(value) {
   const inn = digits(value);
   if (!inn) return "Укажите ИНН";
   if (inn.length !== 12) return "ИНН физического лица — 12 цифр";
-  const check = (len, weights) =>
+  const check = (weights) =>
     weights.reduce((s, w, i) => s + w * Number(inn[i]), 0) % 11 % 10;
-  const n11 = check(10, [7, 2, 4, 10, 3, 5, 9, 4, 6, 8]);
-  const n12 = check(11, [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]);
+  const n11 = check([7, 2, 4, 10, 3, 5, 9, 4, 6, 8]);
+  const n12 = check([3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]);
   if (n11 !== Number(inn[10]) || n12 !== Number(inn[11]))
     return "Проверьте ИНН — контрольные цифры не сходятся";
   return "";
@@ -103,12 +103,22 @@ export function validateName(value, label) {
   return "";
 }
 
+// Сегодняшняя дата в формате YYYY-MM-DD по ЛОКАЛЬНОМУ времени пользователя.
+// new Date("YYYY-MM-DD") парсится как полночь UTC — сравнение с ней ошибочно
+// отбраковывало «сегодня» у пользователей восточнее Гринвича сразу после
+// местной полуночи. Строки ISO сравниваются лексикографически корректно.
+export function todayIso() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function validateDate(value, label = "дату") {
   if (!value) return `Укажите ${label}`;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "Некорректная дата";
-  if (d > new Date()) return "Дата не может быть в будущем";
-  if (d.getFullYear() < 1900) return "Проверьте год";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(new Date(value).getTime()))
+    return "Некорректная дата";
+  if (value > todayIso()) return "Дата не может быть в будущем";
+  if (value.slice(0, 4) < "1900") return "Проверьте год";
   return "";
 }
 

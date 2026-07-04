@@ -4,6 +4,7 @@
 // ВНИМАНИЕ: ЛК ФНС жёстко проверяет файл по XSD актуального приказа —
 // функция помечена в интерфейсе как «бета», основной документ — PDF.
 import { CODES, XML_FORMAT_VERSION } from "./refs.js";
+import { fmtDate as dateRu } from "./model.js";
 
 const kop = (n) => (Math.max(0, Number(n) || 0)).toFixed(2);
 const rub = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
@@ -28,29 +29,26 @@ function el(name, attrs = {}, ...children) {
 
 // Кодировщик windows-1251: кириллица занимает непрерывный блок 0xC0–0xFF,
 // отдельно Ё/ё и №. TextEncoder cp1251 не поддерживает — пишем сами.
+// Итерация по code point'ам (for..of), а не по code unit'ам: эмодзи и прочие
+// символы вне BMP дают ОДИН «?», а не пару мусорных байтов.
 export function encodeCp1251(str) {
-  const bytes = new Uint8Array(str.length);
-  for (let i = 0; i < str.length; i++) {
-    const code = str.codePointAt(i);
-    if (code <= 0x7f) bytes[i] = code;
-    else if (code >= 0x0410 && code <= 0x044f) bytes[i] = code - 0x0410 + 0xc0; // А..я
-    else if (code === 0x0401) bytes[i] = 0xa8; // Ё
-    else if (code === 0x0451) bytes[i] = 0xb8; // ё
-    else if (code === 0x2116) bytes[i] = 0xb9; // №
-    else if (code === 0x00ab) bytes[i] = 0xab; // «
-    else if (code === 0x00bb) bytes[i] = 0xbb; // »
-    else if (code === 0x2013 || code === 0x2014) bytes[i] = 0x2d; // тире → дефис
-    else bytes[i] = 0x3f; // прочее → "?"
+  const bytes = [];
+  for (const ch of str) {
+    const code = ch.codePointAt(0);
+    if (code <= 0x7f) bytes.push(code);
+    else if (code >= 0x0410 && code <= 0x044f) bytes.push(code - 0x0410 + 0xc0); // А..я
+    else if (code === 0x0401) bytes.push(0xa8); // Ё
+    else if (code === 0x0451) bytes.push(0xb8); // ё
+    else if (code === 0x2116) bytes.push(0xb9); // №
+    else if (code === 0x00ab) bytes.push(0xab); // «
+    else if (code === 0x00bb) bytes.push(0xbb); // »
+    else if (code === 0x2013 || code === 0x2014) bytes.push(0x2d); // тире → дефис
+    else bytes.push(0x3f); // прочее → "?"
   }
-  return bytes;
+  return Uint8Array.from(bytes);
 }
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
-const dateRu = (iso) => {
-  if (!iso) return "";
-  const [y, m, d] = iso.split("-");
-  return `${d}.${m}.${y}`;
-};
 
 export function buildDeclarationXml(model) {
   const { person, calc, year } = model;
@@ -150,13 +148,15 @@ export function buildDeclarationXml(model) {
               })
             )
           ),
+          // Значения «применённые» (см. calc.js) — суммы Приложения 5
+          // сходятся с СумВычет Раздела 2 по контрольным соотношениям.
           model.social &&
             el("Прил5", {
               ОбучДет: rub(calc.applied.childEducation),
-              ЛечДорог: rub(model.social.medicalExpensive),
-              ОбучСвое: rub(model.social.educationSelf),
-              Лечение: rub(model.social.medicalOrdinary),
-              СтрахЖизн: rub(model.social.insurance),
+              ЛечДорог: rub(calc.applied.expensiveMedical),
+              ОбучСвое: rub(calc.lines.educationSelf),
+              Лечение: rub(calc.lines.medicalOrdinary),
+              СтрахЖизн: rub(calc.lines.insurance),
               СоцВычОгр: rub(calc.applied.socialGroup),
               СоцВычОбщ: rub(
                 calc.applied.socialGroup +

@@ -154,14 +154,16 @@ export async function buildDeclarationPdf(model) {
       sheetTitle:
         "Приложение 5. Расчёт стандартных, социальных и инвестиционных налоговых вычетов",
     });
+    // Все значения — «применённые» (см. calc.js): суммы строк Приложения 5
+    // сходятся со строкой 040 Раздела 2 даже при вычетах больше дохода.
     s.h2("Социальные вычеты, к которым не применяется ограничение");
     s.line("100", "Обучение детей (не более 110 000 руб. на ребёнка), руб.", rub(ap.childEducation));
-    s.line("110", "Дорогостоящее лечение, руб.", rub(so.medicalExpensive));
-    s.line("120", "Итого по пункту, руб.", rub(ap.childEducation + so.medicalExpensive));
+    s.line("110", "Дорогостоящее лечение, руб.", rub(ap.expensiveMedical));
+    s.line("120", "Итого по пункту, руб.", rub(ap.childEducation + ap.expensiveMedical));
     s.h2("Социальные вычеты, к которым применяется ограничение 150 000 руб.");
-    s.line("130", "Своё обучение, руб.", rub(so.educationSelf));
-    s.line("140", "Лечение и лекарства (кроме дорогостоящего), руб.", rub(so.medicalOrdinary));
-    s.line("150", "Страхование жизни (договоры от 5 лет), руб.", rub(so.insurance));
+    s.line("130", "Своё обучение, руб.", rub(calc.lines.educationSelf));
+    s.line("140", "Лечение и лекарства (кроме дорогостоящего), руб.", rub(calc.lines.medicalOrdinary));
+    s.line("150", "Страхование жизни (договоры от 5 лет), руб.", rub(calc.lines.insurance));
     s.line("180", "Итого (в пределах 150 000 руб.), руб.", rub(ap.socialGroup));
     s.line(
       "190",

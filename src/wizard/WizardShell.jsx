@@ -2,11 +2,11 @@
 // и сайдбар с живым расчётом возврата. Шаг «Документы» доступен только
 // после оплаты (гейтинг дублируется внутри StepDocuments серверной проверкой).
 import { useMemo, useState } from "react";
-import { useWizard, loadDraft, clearDraft } from "./WizardContext.jsx";
-import { STEPS } from "../data/wizard.js";
+import { useWizard } from "./WizardContext.jsx";
+import { STEPS, PAYMENT_STEP, DOCUMENTS_STEP } from "../data/wizard.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
-import { fmtRub } from "./fields.jsx";
+import { fmtRub } from "../lib/format.js";
 import StepDeductions from "./steps/StepDeductions.jsx";
 import StepPersonal from "./steps/StepPersonal.jsx";
 import StepIncome from "./steps/StepIncome.jsx";
@@ -26,9 +26,6 @@ const COMPONENTS = {
   payment: StepPayment,
   documents: StepDocuments,
 };
-
-const PAYMENT_STEP = STEPS.findIndex((s) => s.key === "payment");
-const DOCUMENTS_STEP = STEPS.findIndex((s) => s.key === "documents");
 
 export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const { draft, dispatch } = useWizard();
@@ -102,6 +99,7 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
           <h2 className="wiz__heading">{step.heading}</h2>
           <Step
             errors={errors}
+            calc={calc}
             onPaid={() => goto(DOCUMENTS_STEP)}
             onUnpaid={() => goto(PAYMENT_STEP)}
           />
@@ -147,5 +145,3 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
     </div>
   );
 }
-
-export { loadDraft, clearDraft };

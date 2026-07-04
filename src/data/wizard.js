@@ -14,6 +14,12 @@ export const STEPS = [
   { key: "documents", title: "Документы", heading: "Ваши документы готовы" },
 ];
 
+// Индексы ключевых шагов — единственное место, где они вычисляются:
+// дубли findIndex по файлам разъезжаются при переименовании шага.
+export const stepIndex = (key) => STEPS.findIndex((s) => s.key === key);
+export const PAYMENT_STEP = stepIndex("payment");
+export const DOCUMENTS_STEP = stepIndex("documents");
+
 // Виды вычетов, доступные в мастере (подмножество каталога deductions
 // из content.js — те, что формируются автоматически).
 const WIZARD_SLUGS = ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie"];

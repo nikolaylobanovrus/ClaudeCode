@@ -1,6 +1,8 @@
 // Переиспользуемые поля анкеты: подпись + подсказка «где взять» + ошибка.
 // Стили — существующие form__field / form__error из index.css плюс wiz__*.
 import { useId, useState } from "react";
+import { todayIso } from "./validation.js";
+export { fmtRub } from "../lib/format.js";
 
 export function Field({ label, hint, error, children }) {
   return (
@@ -74,10 +76,8 @@ export function DateInput({ value, onChange, error, ...rest }) {
       className={error ? "is-error" : ""}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
-      max={new Date().toISOString().slice(0, 10)}
+      max={todayIso()}
       {...rest}
     />
   );
 }
-
-export const fmtRub = (n) => (Math.round(Number(n) || 0)).toLocaleString("ru-RU") + " ₽";

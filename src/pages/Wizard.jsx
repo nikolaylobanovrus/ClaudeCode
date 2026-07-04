@@ -1,7 +1,7 @@
 // Страница мастера «Заполнить декларацию самому» (/deklaraciya/anketa).
 // Отвечает за восстановление черновика и возврат со страницы оплаты ЮKassa
 // (?order=<id> в query до #), сам мастер — в WizardShell.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import {
@@ -11,13 +11,14 @@ import {
   clearDraft,
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
-import { STEPS } from "../data/wizard.js";
-
-const PAYMENT_STEP = STEPS.findIndex((s) => s.key === "payment");
+import { PAYMENT_STEP } from "../data/wizard.js";
 
 function WizardBody() {
   const { dispatch } = useWizard();
   const [resumeOffer, setResumeOffer] = useState(null);
+  // Черновик, прочитанный при заходе на страницу: «Продолжить» восстанавливает
+  // именно его, а не повторное чтение localStorage (защита от перезаписи).
+  const savedRef = useRef(null);
 
   // ?order=… приходит ДО решётки (return_url ЮKassa), поэтому читается
   // из window.location.search и при hash-роутинге.
@@ -29,6 +30,7 @@ function WizardBody() {
   useEffect(() => {
     const saved = loadDraft();
     if (!saved) return;
+    savedRef.current = saved;
     if (returnedOrderId && saved.order?.id === returnedOrderId) {
       // Вернулись с оплаты: сразу на шаг оплаты, поллинг подтвердит платёж
       // и автоматически откроет документы.
@@ -48,8 +50,7 @@ function WizardBody() {
     <WizardShell
       resumeOffer={resumeOffer}
       onResume={() => {
-        const saved = loadDraft();
-        if (saved) dispatch({ type: "RESTORE", draft: saved });
+        if (savedRef.current) dispatch({ type: "RESTORE", draft: savedRef.current });
         setResumeOffer(null);
       }}
       onRestart={() => {

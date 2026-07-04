@@ -54,13 +54,19 @@ export async function createOrder(clientId) {
   };
 }
 
-// Тестовая «оплата» mock-заказа.
+// Тестовая «оплата» — только для mock/local-заказов. Боевой заказ ЮKassa
+// «оплатить» на клиенте нельзя: его подтверждает вебхук.
 export async function payMockOrder(order) {
+  if (order.provider === "yookassa")
+    throw new Error("оплата возможна только на странице ЮKassa");
   if (order.provider === "mock") {
     try {
       await sbRpc("mock_pay_order", { p_id: order.id });
     } catch {
-      /* тестовый режим: статус останется в черновике */
+      // База недоступна или миграция не применена: превращаем заказ в
+      // локальный, чтобы статус в базе и в черновике не разъехались
+      // (иначе шаг «Документы» увидит в базе pending и откажет).
+      return { ...order, provider: "local", status: "paid" };
     }
   }
   return { ...order, status: "paid" };

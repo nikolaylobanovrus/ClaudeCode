@@ -34,7 +34,7 @@ export default function Home() {
       url: company.site,
       telephone: company.phoneRaw,
       email: company.email,
-      priceRange: "от 990 ₽",
+      priceRange: "от 99 ₽",
       areaServed: "RU",
       address: {
         "@type": "PostalAddress",
@@ -93,8 +93,11 @@ export default function Home() {
               </Link>
             </div>
             <div className="hero__trust">
+              {/* Телефон возвращён в первый экран: раньше он был кнопкой
+                  (её место занял «Заполнить самому»), а описание страницы
+                  обещает бесплатную консультацию по телефону. */}
+              <a href={`tel:${company.phoneRaw}`}>📞 {company.phone}</a>
               <span>✅ Гарантия качества</span>
-              <span>💳 Оплата по факту</span>
               <span>🔒 Конфиденциально</span>
             </div>
           </div>

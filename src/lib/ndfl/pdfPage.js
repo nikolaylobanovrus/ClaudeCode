@@ -15,12 +15,20 @@ const INK = rgb(0.1, 0.12, 0.16);
 const FRAME = rgb(0.45, 0.5, 0.58);
 const MUTED = rgb(0.45, 0.48, 0.55);
 
+// Байты шрифтов скачиваются один раз на сессию: createDoc вызывается дважды
+// подряд (декларация + заявление), без кэша ~825 КБ загружались бы повторно.
+let fontBytesPromise = null;
+function loadFontBytes() {
+  fontBytesPromise ||= Promise.all(
+    [fontRegularUrl, fontBoldUrl].map((u) => fetch(u).then((r) => r.arrayBuffer()))
+  );
+  return fontBytesPromise;
+}
+
 export async function createDoc() {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const [reg, bold] = await Promise.all(
-    [fontRegularUrl, fontBoldUrl].map((u) => fetch(u).then((r) => r.arrayBuffer()))
-  );
+  const [reg, bold] = await loadFontBytes();
   const font = await doc.embedFont(reg, { subset: true });
   const fontBold = await doc.embedFont(bold, { subset: true });
   return { doc, font, fontBold };

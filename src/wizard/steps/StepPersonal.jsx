@@ -3,6 +3,7 @@
 import { useWizard } from "../WizardContext.jsx";
 import { HINTS } from "../../data/wizard.js";
 import { Field, TextInput, DateInput } from "../fields.jsx";
+import { maskRuPhone } from "../../lib/phone.js";
 
 export default function StepPersonal({ errors }) {
   const { draft, dispatch } = useWizard();
@@ -74,8 +75,8 @@ export default function StepPersonal({ errors }) {
             placeholder="8 или 11 цифр" onChange={(v) => set({ oktmo: v.replace(/\D/g, "") })} />
         </Field>
         <Field label="Телефон">
-          <TextInput value={p.phone} autoComplete="tel" placeholder="+7 900 000-00-00"
-            onChange={(v) => set({ phone: v })} />
+          <TextInput value={p.phone} autoComplete="tel" placeholder="+7 (900) 000-00-00"
+            onChange={(v) => set({ phone: maskRuPhone(v, p.phone) })} />
         </Field>
       </div>
     </div>

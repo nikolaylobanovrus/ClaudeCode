@@ -389,10 +389,16 @@ h4 {
   color: #d6e2ff;
   font-size: 15px;
 }
-.hero__trust span {
+.hero__trust span,
+.hero__trust a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+.hero__trust a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .hero__card {
   background: #fff;
@@ -572,7 +578,9 @@ h4 {
 /* ============ Tariffs ============ */
 .tariffs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Карточек теперь четыре («Сам онлайн» + три классических тарифа):
+     auto-fit держит их в один ряд на десктопе и аккуратно переносит уже. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 22px;
   align-items: stretch;
 }
@@ -624,6 +632,9 @@ h4 {
   text-decoration: line-through;
   font-size: 18px;
   font-weight: 600;
+  /* Карточек четыре, они уже: старая цена не должна рваться посреди числа */
+  white-space: nowrap;
+  display: inline-block;
 }
 .tariff__term {
   color: var(--ink-500);
@@ -1982,31 +1993,36 @@ h4 {
   }
 }
 
-/* Тесный десктоп: ужимаем шапку, телефон остаётся виден
-   (прячем только подпись «Колл-центр 24/7») */
-@media (max-width: 1420px) and (min-width: 1151px) {
+/* Десктоп: пунктов меню стало больше («Заполнить самому»), поэтому шапка
+   ужата на ВСЕХ ширинах десктопа — контейнер 1180px одинаков и на 1200px,
+   и на 1920px, ограничения по верхней ширине быть не должно. Подпись
+   «Колл-центр 24/7» прячем. */
+@media (min-width: 1151px) {
   .navbar__inner {
-    gap: 12px;
+    gap: 10px;
   }
   .navbar__brand {
-    font-size: 18px;
+    font-size: 17px;
   }
   .navbar__nav {
-    gap: 2px;
+    gap: 0;
   }
   .navbar__link {
-    padding: 8px 7px;
+    padding: 8px 5px;
     font-size: 13.5px;
+  }
+  .navbar__phone {
+    margin-left: 2px;
   }
   .navbar__phone span {
     display: none;
   }
   .navbar__phone a {
-    font-size: 14px;
+    font-size: 13.5px;
   }
   .navbar__cta {
-    padding: 11px 18px;
-    font-size: 14px;
+    padding: 11px 14px;
+    font-size: 13.5px;
   }
 }
 
@@ -2439,5 +2455,18 @@ h4 {
   }
   .wiz__dot {
     min-width: 40px;
+  }
+}
+
+/* На узких экранах подсказка «?» раскрывается блоком под подписью поля,
+   а не всплывашкой: та упиралась в край экрана и перекрывалась плавающей
+   панелью «Позвонить/Заявка». */
+@media (max-width: 600px) {
+  .wiz__hint {
+    position: static;
+    display: block;
+    transform: none;
+    width: auto;
+    margin-top: 6px;
   }
 }

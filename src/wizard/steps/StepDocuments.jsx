@@ -1,7 +1,7 @@
 // Шаг 8: генерация и выдача документов. Генераторы (pdf-lib + шрифты)
 // подгружаются лениво только здесь — в основной бандл сайта не входят.
 // Доступ строго по оплаченному заказу: статус перепроверяется в базе.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWizard } from "../WizardContext.jsx";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
@@ -13,6 +13,17 @@ export default function StepDocuments({ onUnpaid }) {
   const [docs, setDocs] = useState(null); // [{key,title,note,filename,bytes,mime,beta}]
   const [state, setState] = useState("checking"); // checking | building | ready | denied | error
   const [shareOk, setShareOk] = useState(null);
+
+  // File-объекты создаются один раз: new File копирует мегабайтные буферы,
+  // пересоздавать их на каждый рендер (и дёргать canShare) расточительно.
+  const files = useMemo(
+    () => (docs ? docs.map((d) => toFile(d.bytes, d.filename, d.mime)) : []),
+    [docs]
+  );
+  const shareSupported = useMemo(
+    () => files.length > 0 && canShareFiles(files),
+    [files]
+  );
 
   useEffect(() => {
     let alive = true;
@@ -111,10 +122,9 @@ export default function StepDocuments({ onUnpaid }) {
       </div>
     );
 
-  const allFiles = docs.map((d) => toFile(d.bytes, d.filename, d.mime));
   const shareAll = async () => {
     const ok = await shareFiles({
-      files: allFiles,
+      files,
       title: "Документы 3-НДФЛ",
       text: `Декларация 3-НДФЛ за ${draft.year} год`,
     });
@@ -128,7 +138,7 @@ export default function StepDocuments({ onUnpaid }) {
       </div>
 
       <ul className="wiz__docs">
-        {docs.map((d) => (
+        {docs.map((d, i) => (
           <li className="wiz__doc card" key={d.key}>
             <div className="wiz__doc-info">
               <strong>
@@ -145,13 +155,11 @@ export default function StepDocuments({ onUnpaid }) {
               >
                 Скачать
               </button>
-              {canShareFiles([toFile(d.bytes, d.filename, d.mime)]) && (
+              {shareSupported && (
                 <button
                   type="button"
                   className="btn btn--ghost"
-                  onClick={() =>
-                    shareFiles({ files: [toFile(d.bytes, d.filename, d.mime)], title: d.title })
-                  }
+                  onClick={() => shareFiles({ files: [files[i]], title: d.title })}
                 >
                   Поделиться
                 </button>
@@ -162,7 +170,7 @@ export default function StepDocuments({ onUnpaid }) {
       </ul>
 
       <div className="doc-actions" style={{ marginTop: 14 }}>
-        {canShareFiles(allFiles) && (
+        {shareSupported && (
           <button type="button" className="btn btn--green btn--lg" onClick={shareAll}>
             Отправить всё в мессенджер / почту
           </button>

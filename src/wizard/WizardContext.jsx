@@ -142,25 +142,50 @@ const WizardCtx = createContext(null);
 export function WizardProvider({ children }) {
   const [draft, dispatch] = useReducer(reducer, undefined, initialDraft);
 
+  const persist = (d) => {
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ ...d, savedAt: new Date().toISOString() })
+      );
+    } catch {
+      /* приватный режим — черновик проживёт до конца сессии */
+    }
+  };
+
   // Автосохранение черновика с дебаунсом: паспорт и суммы не должны
-  // пропасть из-за случайно закрытой вкладки.
+  // пропасть из-за случайно закрытой вкладки. Первый рендер пропускаем:
+  // пока пользователь не решил «Продолжить или заново», пустой начальный
+  // черновик не должен затереть сохранённый (иначе клик «Продолжить»
+  // спустя 400 мс восстановит уже затёртую пустышку).
   const timer = useRef(0);
+  const mounted = useRef(false);
+  const latest = useRef(draft);
+  latest.current = draft;
   useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return undefined;
+    }
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          DRAFT_KEY,
-          JSON.stringify({ ...draft, savedAt: new Date().toISOString() })
-        );
-      } catch {
-        /* приватный режим — черновик проживёт до конца сессии */
-      }
-    }, 400);
+    timer.current = setTimeout(() => persist(latest.current), 400);
     return () => clearTimeout(timer.current);
   }, [draft]);
 
-  const value = useMemo(() => ({ draft, dispatch }), [draft]);
+  // Страховка от дебаунса: при уходе со страницы (закрытие вкладки,
+  // редирект на страницу оплаты) сбрасываем черновик немедленно.
+  useEffect(() => {
+    const flushOnLeave = () => {
+      if (mounted.current) persist(latest.current);
+    };
+    window.addEventListener("pagehide", flushOnLeave);
+    return () => window.removeEventListener("pagehide", flushOnLeave);
+  }, []);
+
+  const value = useMemo(
+    () => ({ draft, dispatch, flushDraft: () => persist(latest.current) }),
+    [draft]
+  );
   return <WizardCtx.Provider value={value}>{children}</WizardCtx.Provider>;
 }
 

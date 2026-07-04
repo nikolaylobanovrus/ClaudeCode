@@ -3,8 +3,8 @@
 // в документах гарантированно совпадают.
 import { computeDeclaration } from "./calc.js";
 import { CODES, KBK, RATE } from "./refs.js";
+import { digits } from "../format.js";
 
-const digits = (s) => String(s || "").replace(/\D/g, "");
 const trim = (s) => String(s || "").trim();
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
 

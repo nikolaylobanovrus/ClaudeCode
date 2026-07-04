@@ -5,9 +5,8 @@ import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import Faq from "../components/Faq.jsx";
 import { company, selfService } from "../data/content.js";
+import { fmtRub } from "../lib/format.js";
 import { wizardDeductions } from "../data/wizard.js";
-
-const fmt = (n) => n.toLocaleString("ru-RU");
 
 const HOW = [
   {
@@ -18,7 +17,7 @@ const HOW = [
   {
     num: "2",
     title: "Оплачиваете",
-    text: `Фиксированная цена — ${fmt(selfService.price)} ₽, без процентов от возврата.`,
+    text: `Фиксированная цена — ${fmtRub(selfService.price)}, без процентов от возврата.`,
   },
   {
     num: "3",
@@ -83,8 +82,8 @@ export default function SelfService() {
   return (
     <>
       <Seo
-        title={`Заполнить 3-НДФЛ онлайн самому за ${fmt(selfService.price)} ₽ | Налог-сервис`}
-        description={`Декларация 3-НДФЛ онлайн за 15 минут: анкета с подсказками, автоматический расчёт вычета, файл для Личного кабинета ФНС и заявление на возврат. Фиксированная цена ${fmt(selfService.price)} ₽.`}
+        title={`Заполнить 3-НДФЛ онлайн самому за ${fmtRub(selfService.price)} | Налог-сервис`}
+        description={`Декларация 3-НДФЛ онлайн за 15 минут: анкета с подсказками, автоматический расчёт вычета, файл для Личного кабинета ФНС и заявление на возврат. Фиксированная цена ${fmtRub(selfService.price)}.`}
         path="/deklaraciya"
         jsonLd={jsonLd}
       />
@@ -94,7 +93,7 @@ export default function SelfService() {
         <div className="hero__inner container">
           <div>
             <span className="eyebrow hero__eyebrow">
-              Онлайн · Автоматически · {fmt(selfService.price)} ₽
+              Онлайн · Автоматически · {fmtRub(selfService.price)}
             </span>
             <h1 className="hero__title">
               Заполните <span className="hero__accent">3-НДФЛ сами</span> за 15
@@ -125,7 +124,7 @@ export default function SelfService() {
             <p>💻 Файл для Личного кабинета ФНС — подача онлайн без очередей</p>
             <p>✍️ Заявление на возврат налога — деньги придут на ваш счёт</p>
             <p>
-              <strong>Цена — {fmt(selfService.price)} ₽</strong>, фиксированная
+              <strong>Цена — {fmtRub(selfService.price)}</strong>, фиксированная
             </p>
           </div>
         </div>
@@ -183,7 +182,7 @@ export default function SelfService() {
             <span className="eyebrow">Вопросы</span>
             <h2 className="section__title">Частые вопросы</h2>
           </div>
-          <Faq items={WIZARD_FAQ.map((f) => ({ q: f.q, a: f.a }))} />
+          <Faq items={WIZARD_FAQ} />
         </div>
       </section>
 
@@ -197,7 +196,7 @@ export default function SelfService() {
           </p>
           <div className="cta__actions">
             <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
-              Начать заполнение — {fmt(selfService.price)} ₽
+              Начать заполнение — {fmtRub(selfService.price)}
             </Link>
             <a href={company.telegram} className="btn btn--light btn--lg">
               Спросить в Telegram
