@@ -30,7 +30,7 @@ create policy "operator select orders"
 -- Цена услуги. Единственное место, где она задана для базы:
 -- при изменении цены на сайте (src/data/content.js) поменяйте и здесь.
 create or replace function public.self_service_price()
-returns integer language sql immutable as $$ select 499 $$;
+returns integer language sql immutable as $$ select 99 $$;
 
 -- Создать тестовый (mock) заказ. Возвращает id.
 create or replace function public.create_order(p_client bigint default null)

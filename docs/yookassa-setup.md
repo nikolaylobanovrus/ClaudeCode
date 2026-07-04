@@ -89,5 +89,5 @@ revoke execute on function public.mock_pay_order(uuid) from anon;
 
 ```sql
 create or replace function public.self_service_price()
-returns integer language sql immutable as $$ select 499 $$;
+returns integer language sql immutable as $$ select 99 $$;
 ```
