@@ -175,6 +175,10 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
                         <span className="pay__val">{pay.recipient}</span>
                       </li>
                       <li>
+                        <span>Банк получателя</span>
+                        <span className="pay__val">{(pay.banksPhone || []).join(", ")}</span>
+                      </li>
+                      <li>
                         <span>Сумма</span>
                         <span className="pay__val">
                           {priceStr}
