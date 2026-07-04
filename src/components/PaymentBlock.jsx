@@ -142,7 +142,7 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
                           </li>
                         </ol>
                         <a className="btn btn--primary" href={o.link} target="_blank" rel="noreferrer">
-                          Открыть оплату с телефона
+                          Оплатить с телефона
                         </a>
                         <span className="payopt__mini">
                           Если оплачиваете с телефона — нажмите кнопку, QR не

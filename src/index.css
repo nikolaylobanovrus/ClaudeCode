@@ -1459,7 +1459,11 @@ h4 {
 }
 .payopt__how .btn {
   white-space: normal;
-  max-width: 100%;
+  text-wrap: balance;
+  text-align: center;
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 .payopt__steps {
   margin: 0;
