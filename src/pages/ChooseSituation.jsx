@@ -18,7 +18,14 @@ const SITUATIONS = [
 ];
 
 // Ситуации, у которых есть своя страница загрузки документов.
-const DOC_SLUGS = ["ipoteka", "kvartira", "lechenie-obuchenie", "inostrannym", "prodazha"];
+const DOC_SLUGS = [
+  "ipoteka",
+  "kvartira",
+  "lechenie-obuchenie",
+  "inostrannym",
+  "prodazha",
+  "inaya",
+];
 
 export default function ChooseSituation() {
   const navigate = useNavigate();
