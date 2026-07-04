@@ -1450,10 +1450,16 @@ h4 {
   border-radius: 6px;
 }
 .payopt__how {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
   align-items: flex-start;
+}
+.payopt__how .btn {
+  white-space: normal;
+  max-width: 100%;
 }
 .payopt__steps {
   margin: 0;
