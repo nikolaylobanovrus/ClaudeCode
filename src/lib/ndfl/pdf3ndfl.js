@@ -30,6 +30,9 @@ export async function buildDeclarationPdf(model) {
       formTitle: FORM_TITLE,
       sheetTitle: `Титульный лист · КНД 1151020`,
     });
+    // Форма за каждый год утверждена своим приказом ФНС — печатаем ссылку.
+    s.note(`Форма утверждена: ${yearRules(year).order}`);
+    s.advance(2);
     s.fieldsRow([
       { label: "Номер корректировки", value: "0", count: 3 },
       { label: "Налоговый период (код)", value: CODES.period, count: 2 },

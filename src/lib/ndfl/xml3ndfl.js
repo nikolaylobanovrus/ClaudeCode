@@ -52,10 +52,11 @@ const isoToday = () => new Date().toISOString().slice(0, 10);
 
 export function buildDeclarationXml(model) {
   const { person, calc, year } = model;
+  const rules = yearRules(year);
   const guid = crypto.randomUUID().toUpperCase();
   const stamp = isoToday().replace(/-/g, "");
   const fileId = `NO_NDFL3_${person.ifns}_${person.ifns}_${person.inn}_${stamp}_${guid}`;
-  const version = yearRules(year).xmlVersion;
+  const version = rules.xmlVersion;
 
   const xml =
     `<?xml version="1.0" encoding="windows-1251"?>` +
@@ -191,5 +192,9 @@ export function buildDeclarationXml(model) {
       )
     );
 
-  return { filename: `${fileId}.xml`, bytes: encodeCp1251(xml) };
+  return {
+    filename: `${fileId}.xml`,
+    bytes: encodeCp1251(xml),
+    verified: Boolean(rules.xmlVerified),
+  };
 }

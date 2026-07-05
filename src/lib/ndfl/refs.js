@@ -11,18 +11,40 @@ export const RATE = 0.13;
 
 // Правила, зависящие от отчётного года. Ключи этого объекта — и есть
 // список лет, доступных в мастере (добавление года = одна запись здесь).
+// Форма 3-НДФЛ утверждается отдельным приказом ФНС на каждый год (поле
+// `order`) — на неё опирается структура листов PDF (реплика формы).
 //  - socialGroup: общий лимит соцвычетов (лечение + своё обучение +
 //    страхование): 120 000 ₽ до 2023 включительно, 150 000 ₽ с 2024;
 //  - childEducation: обучение ребёнка: 50 000 ₽ до 2023, 110 000 ₽ с 2024;
 //  - progressiveThreshold: доход, выше которого действует повышенная
 //    ставка НДФЛ — расчёт по 13% становится приблизительным;
-//  - xmlVersion: версия формата НО_НДФЛ3. ВНИМАНИЕ: перед включением
-//    нового года сверить с актуальным приказом ФНС — XML помечен «бета».
+//  - xmlVersion: версия формата файла обмена НО_НДФЛ3 (атрибут ВерсФорм).
+//    Подтверждена по официальному тексту приказа только для 2023 года
+//    (5.18, приказ 903@ в ред. 615@). Для остальных лет — предварительная
+//    оценка (`xmlVerified: false`): точное значение берётся из имени
+//    XSD-схемы NO_NDFL3_1_033_00_05_XX_YY на сайте ФНС. Поэтому XML
+//    помечен в интерфейсе как «бета», основной документ — PDF.
 export const YEAR_RULES = {
-  2022: { socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000, xmlVersion: "5.09" },
-  2023: { socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000, xmlVersion: "5.10" },
-  2024: { socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 5_000_000, xmlVersion: "5.11" },
-  2025: { socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 2_400_000, xmlVersion: "5.12" },
+  2022: {
+    order: "Приказ ФНС от 29.09.2022 № ЕД-7-11/880@",
+    socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000,
+    xmlVersion: "5.05", xmlVerified: false,
+  },
+  2023: {
+    order: "Приказ ФНС от 15.10.2021 № ЕД-7-11/903@ (ред. от 11.09.2023 № ЕД-7-11/615@)",
+    socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000,
+    xmlVersion: "5.18", xmlVerified: true,
+  },
+  2024: {
+    order: "Приказ ФНС от 19.09.2024 № ЕД-7-11/757@",
+    socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 5_000_000,
+    xmlVersion: "5.19", xmlVerified: false,
+  },
+  2025: {
+    order: "Приказ ФНС от 20.10.2025 № ЕД-7-11/913@",
+    socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 2_400_000,
+    xmlVersion: "5.20", xmlVerified: false,
+  },
 };
 
 // Годы в интерфейсе — от свежего к старому.
