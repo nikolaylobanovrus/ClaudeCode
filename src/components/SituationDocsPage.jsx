@@ -276,7 +276,7 @@ export default function SituationDocsPage({ config }) {
       updateAccount({ situation: label, docsStatus: "draft" });
       setNotice(
         failed.length
-          ? `Черновик отправлен, но часть файлов не загрузилась (${failed.join(", ")}). Добавьте их снова и сохраните ещё раз — или пришлите нам в Telegram.`
+          ? `Черновик отправлен, но часть файлов не загрузилась (${failed.join(", ")}). Добавьте их снова и сохраните ещё раз — или пришлите на почту nalog-service@internet.ru с вашим ID.`
           : "Черновик сохранён и отправлен нам. Заполненные данные сохранены — при следующем входе останется дозаполнить только пустые поля."
       );
     } catch {
@@ -394,9 +394,12 @@ export default function SituationDocsPage({ config }) {
               {failedFiles.length > 0 && (
                 <p className="doc-note doc-note--err" style={{ textAlign: "left" }}>
                   Не удалось загрузить: {failedFiles.join(", ")}. Пришлите эти
-                  файлы нам в{" "}
-                  <a href="https://t.me/+79127916470">Telegram</a> с указанием
-                  вашего ID {account.id} — остальные данные мы уже получили.
+                  файлы нам на почту{" "}
+                  <a href={`mailto:nalog-service@internet.ru?subject=ID ${account.id} — файлы к документам`}>
+                    nalog-service@internet.ru
+                  </a>{" "}
+                  с указанием вашего ID {account.id} — остальные данные мы уже
+                  получили.
                 </p>
               )}
               <div className="cta__actions">
