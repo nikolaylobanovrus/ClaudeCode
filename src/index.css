@@ -1891,6 +1891,13 @@ h4 {
   font-size: 13px;
   font-weight: 600;
   text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+}
+/* Кнопка «Удалить клиента» под блоком тарифа */
+.op__delete {
+  display: block;
+  margin-top: 10px;
 }
 .op__none {
   color: var(--ink-300);

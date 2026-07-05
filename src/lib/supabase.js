@@ -160,6 +160,37 @@ export async function sbDownloadClientFile(token, clientId, name) {
   return res.blob();
 }
 
+// Удаление ВСЕХ файлов клиента (для оператора). Возвращает число удалённых.
+// Право удаления — миграция docs/supabase-migration-operator-delete.sql.
+export async function sbDeleteClientFiles(token, clientId) {
+  const items = await sbListClientFiles(token, clientId);
+  if (!items.length) return 0;
+  const res = await fetch(`${cfg.url}/storage/v1/object/${DOCS_BUCKET}`, {
+    method: "DELETE",
+    headers: baseHeaders(token),
+    body: JSON.stringify({ prefixes: items.map((it) => `${clientId}/${it.name}`) }),
+  });
+  if (!res.ok) {
+    const err = new Error("delete files failed");
+    err.status = res.status;
+    throw err;
+  }
+  return items.length;
+}
+
+// Удаление записи клиента из базы (для оператора).
+export async function sbDeleteClient(token, id) {
+  const res = await fetch(`${cfg.url}/rest/v1/clients?id=eq.${id}`, {
+    method: "DELETE",
+    headers: { ...baseHeaders(token), Prefer: "return=minimal" },
+  });
+  if (!res.ok) {
+    const err = new Error("delete client failed");
+    err.status = res.status;
+    throw err;
+  }
+}
+
 // --- Таблица клиентов (только для оператора) ---------------------------------
 export async function sbListClients(token) {
   const res = await fetch(

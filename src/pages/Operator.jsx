@@ -8,6 +8,8 @@ import {
   sbSetPayment,
   sbListClientFiles,
   sbDownloadClientFile,
+  sbDeleteClientFiles,
+  sbDeleteClient,
   getOperatorToken,
   setOperatorToken,
 } from "../lib/supabase.js";
@@ -96,6 +98,31 @@ export default function Operator() {
       );
       if (e.status === 401) logout();
       else setError(`Не удалось обновить сумму клиента ${client.id}.`);
+    }
+  }
+
+  // Удаление клиента: сначала его файлы из хранилища, затем запись из базы.
+  // Подтверждение — на кнопке (действие необратимо).
+  async function removeClient(client) {
+    if (
+      !window.confirm(
+        `Удалить клиента ${client.id} (${client.email || "без email"}) и все его файлы? Действие необратимо.`
+      )
+    )
+      return;
+    setError("");
+    try {
+      await sbDeleteClientFiles(token, client.id).catch(() => {
+        /* файлов могло не быть или хранилище не настроено — запись всё равно удаляем */
+      });
+      await sbDeleteClient(token, client.id);
+      setClients((list) => list.filter((c) => c.id !== client.id));
+    } catch (e) {
+      if (e.status === 401) logout();
+      else
+        setError(
+          `Не удалось удалить клиента ${client.id}. Проверьте, что применена миграция docs/supabase-migration-operator-delete.sql.`
+        );
     }
   }
 
@@ -230,6 +257,13 @@ export default function Operator() {
                         </td>
                         <td>
                           <PaymentPicker client={c} onAssign={assignPayment} />
+                          <button
+                            type="button"
+                            className="op__clear op__delete"
+                            onClick={() => removeClient(c)}
+                          >
+                            Удалить клиента
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -291,6 +325,28 @@ function ClientFiles({ client, token }) {
     }
   }
 
+  // Удаление всех файлов клиента из хранилища (запись клиента остаётся).
+  async function removeAll() {
+    if (
+      !window.confirm(
+        `Удалить все файлы клиента ${client.id}? Действие необратимо.`
+      )
+    )
+      return;
+    setErr("");
+    setBusy(true);
+    try {
+      await sbDeleteClientFiles(token, client.id);
+      setItems([]);
+    } catch {
+      setErr(
+        "Не удалось удалить файлы. Проверьте, что применена миграция docs/supabase-migration-operator-delete.sql."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const fmtSize = (b) =>
     b > 1024 * 1024 ? (b / 1024 / 1024).toFixed(1) + " МБ" : Math.ceil(b / 1024) + " КБ";
 
@@ -318,6 +374,11 @@ function ClientFiles({ client, token }) {
               {f.metadata?.size ? ` (${fmtSize(f.metadata.size)})` : ""}
             </button>
           ))}
+          {items && items.length > 0 && !busy && (
+            <button type="button" className="op__clear" onClick={removeAll}>
+              Удалить все файлы
+            </button>
+          )}
         </div>
       )}
     </div>
