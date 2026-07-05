@@ -50,20 +50,46 @@ export function encodeCp1251(str) {
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
 
+// Структура файла НО_НДФЛ3 сверена с официальными XSD-схемами ФНС
+// (docs/fns-schemas/, версии 5.17–5.20) через npm run validate:xml.
 export function buildDeclarationXml(model) {
   const { person, calc, year } = model;
   const rules = yearRules(year);
   const guid = crypto.randomUUID().toUpperCase();
   const stamp = isoToday().replace(/-/g, "");
   const fileId = `NO_NDFL3_${person.ifns}_${person.ifns}_${person.inn}_${stamp}_${guid}`;
-  const version = rules.xmlVersion;
+
+  const social = model.social;
+  const ap = calc.applied;
+  const pr = model.property;
+  // Строки формы: суммы налога — целые рубли (xs:integer), суммы дохода и
+  // вычетов — рубли с копейками (xs:decimal 15.2).
+  const kop2 = (n) => kop(n);
+  const grp219 = ap.socialGroup; // лечение обычное + своё обучение + страхование (лимит года)
+  const socialTotalApplied = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
+
+  // Форма менялась по годам — три семейства схем (сверено с XSD ФНС):
+  const isOld = year <= 2023; // 2022–2023: идентификация через СведФЛ1, Прил7 без ДатаРегОб
+  const is2025 = year >= 2025; // 2025: ГрупДоход вместо ВидДоход, урезанные наборы полей, счёт без ВидСч
+
+  // Блок идентификации налогоплательщика внутри НПФЛ3 (после ФИОФЛ).
+  const identity = isOld
+    ? el(
+        "СведФЛ1",
+        // В СведФЛ1 ИНН, дата рождения и гражданство — атрибуты; паспорт — вложенный УдЛичн.
+        { ИННФЛ: person.inn, ДатаРожд: dateRu(person.birthDate), ОКСМ: CODES.country },
+        el("УдЛичн", {
+          КодВидДок: person.passport.code,
+          СерНомДок: `${person.passport.series} ${person.passport.number}`,
+        })
+      )
+    : el("ИННФЛ", {}, person.inn);
 
   const xml =
     `<?xml version="1.0" encoding="windows-1251"?>` +
     el(
       "Файл",
-      // ВерсПрог — обязательный атрибут корня (версия программы-формирователя).
-      { ИдФайл: fileId, ВерсПрог: "Nalog-Service 1.0", ВерсФорм: version, ТипИнф: "НО_НДФЛ3" },
+      { ИдФайл: fileId, ВерсПрог: "Nalog-Service 1.0", ВерсФорм: rules.xmlVersion },
       el(
         "Документ",
         {
@@ -73,121 +99,158 @@ export function buildDeclarationXml(model) {
           ОтчетГод: String(year),
           КодНО: person.ifns,
           НомКорр: "0",
-          ПоМесту: CODES.taxpayerCategory,
         },
+        // Сведения о налогоплательщике
         el(
           "СвНП",
-          { ОКТМО: person.oktmo, Тлф: person.phone },
+          {},
           el(
-            "НПФЛ",
-            {
-              ИННФЛ: person.inn,
-              СтатусФЛ: CODES.status,
-              ДатаРожд: dateRu(person.birthDate),
-              МестоРожд: person.birthPlace,
-              Гражд: "643",
-            },
-            el("ФИО", {
+            "НПФЛ3",
+            { ДокПредст: CODES.taxpayerCategory, Статус: CODES.status, Тлф: person.phone || undefined },
+            el("ФИОФЛ", {
               Фамилия: person.lastName,
               Имя: person.firstName,
-              Отчество: person.middleName,
+              Отчество: person.middleName || undefined,
             }),
-            el("УдЛичнФЛ", {
-              КодВидДок: person.passport.code,
-              СерНомДок: `${person.passport.series} ${person.passport.number}`,
-              ДатаДок: dateRu(person.passport.date),
-              ВыдДок: person.passport.issuer,
-            })
+            identity
           )
         ),
         el("Подписант", { ПрПодп: "1" }),
         el(
           "НДФЛ3",
           {},
+          // --- Раздел 1: суммы налога к уплате/возврату ---
           el(
-            "Раздел1",
+            "СумНалПу",
             {},
-            el("СведНал", {
-              КодРез: "2",
+            el("СумНалПуИскл227", {
               КБК: model.kbk,
               ОКТМО: person.oktmo,
-              НалУпл: "0",
-              НалВозвр: rub(model.refund),
-            }),
+              ПодлУпл: "0",
+              ПодлВозв: rub(model.refund),
+            })
+          ),
+          // Заявление о возврате (распоряжение положительным сальдо ЕНС)
+          model.refund > 0 &&
             el(
-              "ЗаявВозвр",
-              { НомЗаяв: "1", СумВозвр: rub(model.refund) },
-              el("СведСчет", {
+              "ЗаявРаспДС",
+              { Сумма: kop2(model.refund) },
+              el("СвСчБанк", {
                 БИК: model.bank.bik,
-                ВидСчета: model.bank.kind,
-                НомСчета: model.bank.account,
+                // Вид счёта убран из формата с 2025 года.
+                ВидСч: is2025 ? undefined : model.bank.kind,
+                НомСч: model.bank.account,
               })
-            )
-          ),
-          el("Раздел2", {
-            КодВидДох: CODES.incomeKind,
-            СумДохОбщ: kop(calc.totalIncome),
-            СумДохОблаг: kop(calc.totalIncome),
-            СумВычет: kop(calc.totalDeduction),
-            НалБаза: kop(calc.taxBase),
-            НалИсчисл: rub(calc.assessed),
-            НалУдерж: rub(calc.totalWithheld),
-            НалВозвр: rub(model.refund),
-          }),
+            ),
+          // --- Раздел 2: расчёт базы и налога (основная налоговая база) ---
           el(
-            "Прил1",
-            {},
-            ...model.incomes.map((inc) =>
-              el("ИстДохРФ", {
-                КодВидДох: CODES.incomeKind,
+            "НалБаза",
+            // ГрупДоход (группа доходов) с 2025 года заменил ВидДоход.
+            is2025 ? { ГрупДоход: "01" } : { ВидДоход: "10" },
+            el("РасчНалБаза", {
+              СумДох: kop2(calc.totalIncome),
+              СумДохНеНал: "0.00",
+              СумДохНал: kop2(calc.totalIncome),
+              СумНалВыч: kop2(calc.totalDeduction),
+              СумРасх: "0.00",
+              НалБаза: kop2(calc.taxBase),
+              // Эти три поля есть только до 2025 года.
+              "НалБаза2.1.224": is2025 ? undefined : "0.00",
+              "НалБаза3.1.224": is2025 ? undefined : "0.00",
+              СумИное: is2025 ? undefined : "0.00",
+            }),
+            el("РасчНалПУ", {
+              Исчисл: rub(calc.assessed),
+              Удерж: rub(calc.totalWithheld),
+              СумУдержИст224: is2025 ? undefined : "0", // убрано с 2025
+              СумУдержМат: "0",
+              ТСУплПерЗач: "0",
+              СумФиксАван: "0",
+              УплИнПодлЗач: "0",
+              УплПатентЗач: "0",
+              ПодлУпл: "0",
+              ПодлВозв: rub(model.refund),
+              СумВозвУпр: "0",
+            })
+          ),
+          // --- Приложение 1: доходы от источников в РФ ---
+          ...model.incomes.map((inc) =>
+            el(
+              "ДоходИстРФ",
+              {
+                // Код вида дохода: 2 цифры до 2025, 3 цифры с 2025.
+                ВидДоход: is2025 ? "010" : "07",
                 Ставка: String(model.ratePercent),
-                ИННИст: inc.inn,
-                КППИст: inc.kpp,
-                ОКТМОИст: inc.oktmo,
-                НаимИст: inc.name,
-                СумДоход: kop(inc.income),
+                ОКТМО: inc.oktmo,
+                Доход: kop2(inc.income),
                 НалУдерж: rub(inc.withheld),
-              })
+              },
+              el("ИстЮЛ", { Наим: inc.name, ИННЮЛ: inc.inn, КПП: inc.kpp })
             )
           ),
-          // Значения «применённые» (см. calc.js) — суммы Приложения 5
-          // сходятся с СумВычет Раздела 2 по контрольным соотношениям.
-          model.social &&
-            el("Прил5", {
-              ОбучДет: rub(calc.applied.childEducation),
-              ЛечДорог: rub(calc.applied.expensiveMedical),
-              ОбучСвое: rub(calc.lines.educationSelf),
-              Лечение: rub(calc.lines.medicalOrdinary),
-              СтрахЖизн: rub(calc.lines.insurance),
-              СоцВычОгр: rub(calc.applied.socialGroup),
-              СоцВычОбщ: rub(
-                calc.applied.socialGroup +
-                  calc.applied.childEducation +
-                  calc.applied.expensiveMedical
-              ),
-              ВычИИС: rub(calc.applied.iis),
-            }),
-          model.property &&
+          // --- Приложение 5: стандартные/социальные/инвестиционные вычеты ---
+          social &&
             el(
-              "Прил7",
+              "ВычСтандСоц",
+              { ВычСтандСоц: kop2(socialTotalApplied) },
+              // Стандартные — у нас нет, но блок обязателен.
+              el("РасчВычСтанд", { ОбщВычСтандДекл: "0.00" }),
+              // Соц. вычеты без ограничения (обучение детей, дорогостоящее лечение)
+              (ap.childEducation > 0 || ap.expensiveMedical > 0) &&
+                el("РасчВычСоцБез219.2", {
+                  СумОбуч: ap.childEducation > 0 ? kop2(ap.childEducation) : undefined,
+                  СумЛечен: ap.expensiveMedical > 0 ? kop2(ap.expensiveMedical) : undefined,
+                  ИтогВычСоциал: kop2(ap.childEducation + ap.expensiveMedical),
+                }),
+              // Соц. вычеты с ограничением (своё обучение, обычное лечение, страхование)
+              grp219 > 0 &&
+                el("РасчВычСоц219.2", {
+                  СумОбуч: calc.lines.educationSelf > 0 ? kop2(calc.lines.educationSelf) : undefined,
+                  СумМедУсл: calc.lines.medicalOrdinary > 0 ? kop2(calc.lines.medicalOrdinary) : undefined,
+                  СумЛичСтрах: calc.lines.insurance > 0 ? kop2(calc.lines.insurance) : undefined,
+                  ОбщВычСоциал: kop2(grp219),
+                }),
+              // Инвестиционный вычет по взносам на ИИС (тип А)
+              ap.iis > 0 &&
+                el("РасчИнвВыч", {
+                  СумИнвВыч219: kop2(ap.iis),
+                  ИнвВычПредВосст: "0.00",
+                  ИнвВычУпр: "0.00",
+                })
+            ),
+          // --- Приложение 7: имущественный вычет по приобретению жилья ---
+          pr &&
+            el(
+              "ИмущНалВычНов",
               {},
-              el("ПриобрИмущ", {
-                КодНаимОбъекта: "2",
-                ПризнНП: "01",
-                КодНомОбъекта: model.property.cadastral ? "1" : "4",
-                НомОбъекта: model.property.cadastral,
-                АдресОбъекта: model.property.address,
-                ДатаАкт: dateRu(model.property.dateAct),
-                ДатаРегИмущ: dateRu(model.property.dateReg),
-                СтоимОбъекта: rub(Math.min(model.property.cost, 2_000_000)),
-                СумПроц: rub(model.property.interestPaid),
-                ВычПредРасх: rub(model.property.priorDeduction),
-                ВычПредПроц: rub(model.property.priorInterest),
-                ВычГодРасх: rub(calc.applied.property),
-                ВычГодПроц: rub(calc.applied.interest),
-                ОстВычРасх: rub(calc.carryover.property),
-                ОстВычПроц: rub(calc.carryover.interest),
-              })
+              el(
+                "РасчИмущВыч",
+                {
+                  ВычНАУпр: ap.property > 0 ? kop2(ap.property) : undefined,
+                  РасхНовВычНД: ap.property > 0 ? kop2(ap.property) : undefined,
+                  ПроцВычНД: ap.interest > 0 ? kop2(ap.interest) : undefined,
+                  ОстИВБезПроц: kop2(calc.carryover.property),
+                  ОстИВУплПроц: kop2(calc.carryover.interest),
+                },
+                el(
+                  "СвОбъектРасх",
+                  {
+                    КодНаимОб: "2",
+                    ПризнакНП: "01",
+                    // Дата регистрации права появилась в СвОбъектРасх с 2024 года.
+                    ДатаРегОб: !isOld && pr.dateReg ? dateRu(pr.dateReg) : undefined,
+                    СумРасхФакт: pr.cost > 0 ? kop2(Math.min(pr.cost, 2_000_000)) : undefined,
+                    СумФактУплПроц: pr.interestPaid > 0 ? kop2(pr.interestPaid) : undefined,
+                  },
+                  el("СведОбъект", {
+                    // До 2024 объект задаётся кодом номера + номером; с 2024 —
+                    // способом приобретения + номером.
+                    КодНомерОб: isOld ? (pr.cadastral ? "1" : "4") : undefined,
+                    НомерОб: pr.cadastral || "0",
+                    СпособПриобр: isOld ? undefined : "1",
+                  })
+                )
+              )
             )
         )
       )

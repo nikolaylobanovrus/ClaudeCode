@@ -3,6 +3,3 @@ dist/
 preview-*.png
 *.local
 .DS_Store
-
-# XSD-схемы ФНС кладут локально (см. docs/fns-schemas/README.md)
-docs/fns-schemas/*.xsd
