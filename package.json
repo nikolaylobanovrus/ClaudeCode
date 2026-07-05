@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate:xml": "node scripts/validate-3ndfl-xml.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
