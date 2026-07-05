@@ -83,13 +83,27 @@ const DOCS_BUCKET = "client-docs";
 const encodePath = (path) =>
   path.split("/").map(encodeURIComponent).join("/");
 
+// Хранилище Supabase не принимает кириллицу в ключах объектов (InvalidKey) —
+// имя файла транслитерируется: «паспорт.pdf» → «pasport.pdf».
+// prettier-ignore
+const TRANSLIT = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+  и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+  с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh",
+  щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+};
+const toSafeKey = (s) =>
+  [...String(s).toLowerCase()]
+    .map((ch) => (ch in TRANSLIT ? TRANSLIT[ch] : ch))
+    .join("")
+    .replace(/[^a-z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "file";
+
 // Загрузка одного файла клиента. Возвращает имя объекта (без префикса клиента).
 export async function sbUploadClientFile(clientId, file, stamp) {
-  // Имя объекта: «ГГГГ-ММ-ДД ЧЧ-ММ имя.расш» — момент отправки виден оператору.
-  const safeName = String(file.name || "файл")
-    .replace(/[/\\:*?"<>|\u0000-\u001f]/g, "_")
-    .slice(-80);
-  const name = `${stamp} ${safeName}`;
+  // Имя объекта: «ГГГГ-ММ-ДД_ЧЧ-ММ_имя.расш» — момент отправки виден оператору.
+  const safeName = toSafeKey(file.name || "file").slice(-80);
+  const name = `${toSafeKey(stamp)}_${safeName}`;
   const res = await fetch(
     `${cfg.url}/storage/v1/object/${DOCS_BUCKET}/${encodePath(`${clientId}/${name}`)}`,
     {
