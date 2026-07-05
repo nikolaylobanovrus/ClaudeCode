@@ -62,7 +62,8 @@ export function buildDeclarationXml(model) {
     `<?xml version="1.0" encoding="windows-1251"?>` +
     el(
       "Файл",
-      { ИдФайл: fileId, ВерсФорм: version, ТипИнф: "НО_НДФЛ3" },
+      // ВерсПрог — обязательный атрибут корня (версия программы-формирователя).
+      { ИдФайл: fileId, ВерсПрог: "Nalog-Service 1.0", ВерсФорм: version, ТипИнф: "НО_НДФЛ3" },
       el(
         "Документ",
         {
