@@ -2,6 +2,7 @@
 // Отвечает за восстановление черновика и возврат со страницы оплаты ЮKassa
 // (?order=<id> в query до #), сам мастер — в WizardShell.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import {
@@ -16,6 +17,9 @@ import { PAYMENT_STEP } from "../data/wizard.js";
 function WizardBody() {
   const { dispatch } = useWizard();
   const [resumeOffer, setResumeOffer] = useState(null);
+  // Плашка вычета на лендинге передаёт свой slug через state роутера —
+  // анкета открывается с уже проставленной галочкой.
+  const preselect = useLocation().state?.deduction;
   // Черновик, прочитанный при заходе на страницу: «Продолжить» восстанавливает
   // именно его, а не повторное чтение localStorage (защита от перезаписи).
   const savedRef = useRef(null);
@@ -29,7 +33,10 @@ function WizardBody() {
 
   useEffect(() => {
     const saved = loadDraft();
-    if (!saved) return;
+    if (!saved) {
+      if (preselect) dispatch({ type: "TOGGLE_TYPE", slug: preselect });
+      return;
+    }
     savedRef.current = saved;
     if (returnedOrderId && saved.order?.id === returnedOrderId) {
       // Вернулись с оплаты: сразу на шаг оплаты, поллинг подтвердит платёж

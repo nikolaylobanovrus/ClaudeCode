@@ -141,16 +141,27 @@ export default function SelfService() {
               выберете их в анкете галочками.
             </p>
           </div>
-          <div className="deduction-grid">
+          {/* Плашки кликабельны: анкета открывается с уже выбранным вычетом */}
+          <div className="sd-grid">
             {wizardDeductions.map((d) => (
-              <div className="deduction" key={d.slug}>
-                <div className="deduction__icon" aria-hidden="true">
+              <Link
+                className="sd-tile"
+                key={d.slug}
+                to="/deklaraciya/anketa"
+                state={{ deduction: d.slug }}
+              >
+                <span className="sd-tile__icon" aria-hidden="true">
                   {d.icon}
-                </div>
-                <h3 className="deduction__title">{d.title}</h3>
-                <p className="deduction__text">{d.short}</p>
-                <span className="deduction__limit">{d.limit}</span>
-              </div>
+                </span>
+                <span className="sd-tile__body">
+                  <span className="sd-tile__title">{d.title}</span>
+                  <span className="sd-tile__text">{d.short}</span>
+                  <span className="sd-tile__foot">
+                    <span className="sd-tile__limit">{d.limit}</span>
+                    <span className="sd-tile__go">Выбрать →</span>
+                  </span>
+                </span>
+              </Link>
             ))}
           </div>
         </div>
