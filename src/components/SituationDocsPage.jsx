@@ -3,15 +3,15 @@ import { Link, useNavigate } from "react-router-dom";
 import Seo from "./Seo.jsx";
 import PageHero from "./PageHero.jsx";
 import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
+import { sbUploadClientFile } from "../lib/supabase.js";
 import GatedPayment from "./GatedPayment.jsx";
 
+// Письмо оператору — ТОЛЬКО текстовое (AJAX-эндпоинт): доставка проверена.
+// Файлы почтой не отправляем — письма с вложениями терялись молча; вместо
+// этого файлы уходят в защищённое хранилище (см. uploadAllFiles).
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
-// Вложения доставляются только нативной отправкой формы (multipart POST),
-// AJAX-эндпоинт FormSubmit файлы отбрасывает — поэтому письма с файлами
-// уходят через скрытый iframe.
-const FORM_ENDPOINT_NATIVE = "https://formsubmit.co/nalog-service@internet.ru";
-// Ограничение на суммарный размер вложений одного письма.
-const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+// Ограничение на суммарный размер файлов одной отправки.
+const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 const ACCEPT = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.heic,.heif";
 
 // Переключатель-«сегмент» из двух вариантов.
@@ -81,6 +81,7 @@ export default function SituationDocsPage({ config }) {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [failedFiles, setFailedFiles] = useState([]);
 
   const logged = isLoggedIn();
   useEffect(() => {
@@ -108,7 +109,35 @@ export default function SituationDocsPage({ config }) {
       .reduce((s, f) => s + f.size, 0);
   }
 
-  function buildFormData(kind) {
+  // Файлы клиента загружаются в защищённое хранилище (Supabase Storage),
+  // а письмо оператору уходит текстовым — почтовый сервис теряет вложения
+  // (простые письма доставляются, письма с файлами «глотаются» молча).
+  // Возвращает карту { ключПоля: { ok: [имена], failed: [имена] } }.
+  async function uploadAllFiles() {
+    const stamp = new Date()
+      .toISOString()
+      .slice(0, 16)
+      .replace("T", " ")
+      .replace(":", "-");
+    const result = {};
+    for (const f of fileFields) {
+      const list = files[f.key] || [];
+      if (!list.length) continue;
+      const ok = [];
+      const failed = [];
+      for (const file of list) {
+        try {
+          ok.push(await sbUploadClientFile(account.id, file, stamp));
+        } catch {
+          failed.push(file.name);
+        }
+      }
+      result[f.key] = { ok, failed };
+    }
+    return result;
+  }
+
+  function buildFormData(kind, uploads) {
     const fd = new FormData();
     fd.append(
       "_subject",
@@ -121,15 +150,24 @@ export default function SituationDocsPage({ config }) {
     if (account.phone) fd.append("Телефон клиента", account.phone);
 
     fileFields.forEach((f) => {
-      const list = files[f.key] || [];
+      const up = uploads[f.key];
       const text = (fieldTexts[f.key] || "").trim();
-      list.forEach((file, i) =>
-        fd.append(list.length > 1 ? `${f.label} (${i + 1})` : f.label, file, file.name)
-      );
-      if (text) {
-        fd.append(list.length ? `${f.label} — текстом` : f.label, text);
+      if (up?.ok?.length) {
+        fd.append(
+          f.label,
+          `Файлы в кабинете оператора (клиент ${account.id}): ${up.ok.join("; ")}`
+        );
       }
-      if (list.length === 0 && !text) {
+      if (up?.failed?.length) {
+        fd.append(
+          `${f.label} — НЕ ЗАГРУЗИЛИСЬ`,
+          `${up.failed.join("; ")} — запросите у клиента в мессенджере`
+        );
+      }
+      if (text) {
+        fd.append(up?.ok?.length ? `${f.label} — текстом` : f.label, text);
+      }
+      if (!up?.ok?.length && !up?.failed?.length && !text) {
         const prev = draftFileNames[f.key];
         if (prev?.length) {
           fd.append(f.label, `Отправлен ранее с черновиком: ${prev.join(", ")}`);
@@ -176,73 +214,22 @@ export default function SituationDocsPage({ config }) {
     return fd;
   }
 
-  // Нативная отправка multipart-формы в скрытый iframe: только так
-  // FormSubmit доставляет вложения. Ответ iframe кросс-доменный и
-  // нечитаем — считаем успехом событие load (плюс таймаут-страховка).
-  function submitNativeForm(fd) {
-    return new Promise((resolve, reject) => {
-      let iframe = document.getElementById("fs-sink");
-      if (!iframe) {
-        iframe = document.createElement("iframe");
-        iframe.id = "fs-sink";
-        iframe.name = "fs-sink";
-        iframe.style.display = "none";
-        document.body.appendChild(iframe);
-      }
-      const form = document.createElement("form");
-      form.action = FORM_ENDPOINT_NATIVE;
-      form.method = "POST";
-      form.enctype = "multipart/form-data";
-      form.target = "fs-sink";
-      form.style.display = "none";
-
-      for (const [name, value] of fd.entries()) {
-        if (value instanceof File) {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.name = name;
-          const dt = new DataTransfer();
-          dt.items.add(value);
-          input.files = dt.files;
-          form.appendChild(input);
-        } else {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = name;
-          input.value = value;
-          form.appendChild(input);
-        }
-      }
-
-      let settled = false;
-      const finish = (ok) => {
-        if (settled) return;
-        settled = true;
-        form.remove();
-        ok ? resolve() : reject(new Error("iframe timeout"));
-      };
-      iframe.addEventListener("load", () => finish(true), { once: true });
-      // Страховка: load мог не сработать (например, оффлайн)
-      setTimeout(() => finish(true), 12000);
-
-      document.body.appendChild(form);
-      form.submit();
-    });
-  }
-
+  // Отправка: сначала файлы в хранилище, затем текстовое письмо оператору
+  // (AJAX-эндпоинт с читаемым ответом — честное подтверждение доставки).
+  // Возвращает список файлов, которые загрузить не удалось.
   async function send(kind) {
-    const fd = buildFormData(kind);
-    const hasFiles = [...fd.values()].some((v) => v instanceof File);
-    if (hasFiles) {
-      await submitNativeForm(fd);
-      return;
-    }
+    const uploads = await uploadAllFiles();
+    const fd = buildFormData(kind, uploads);
     const res = await fetch(FORM_ENDPOINT, {
       method: "POST",
       headers: { Accept: "application/json" },
       body: fd,
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json().catch(() => null);
+    if (data && String(data.success) !== "true")
+      throw new Error(data.message || "form rejected");
+    return Object.values(uploads).flatMap((u) => u.failed || []);
   }
 
   function persistDraft() {
@@ -279,16 +266,18 @@ export default function SituationDocsPage({ config }) {
     setError("");
     setNotice("");
     if (totalSize() > MAX_TOTAL_BYTES) {
-      setError("Файлы слишком большие (суммарно до 15 МБ за раз). Сохраните часть файлов, затем добавьте остальные.");
+      setError("Файлы слишком большие (суммарно до 50 МБ за раз). Сохраните часть файлов, затем добавьте остальные.");
       return;
     }
     setSavingDraft(true);
     try {
-      await send("draft");
+      const failed = await send("draft");
       persistDraft();
       updateAccount({ situation: label, docsStatus: "draft" });
       setNotice(
-        "Черновик сохранён и отправлен нам. Заполненные данные сохранены — при следующем входе останется дозаполнить только пустые поля."
+        failed.length
+          ? `Черновик отправлен, но часть файлов не загрузилась (${failed.join(", ")}). Добавьте их снова и сохраните ещё раз — или пришлите нам в Telegram.`
+          : "Черновик сохранён и отправлен нам. Заполненные данные сохранены — при следующем входе останется дозаполнить только пустые поля."
       );
     } catch {
       setError("Не удалось отправить черновик. Проверьте соединение и попробуйте ещё раз.");
@@ -327,12 +316,13 @@ export default function SituationDocsPage({ config }) {
       return;
     }
     if (totalSize() > MAX_TOTAL_BYTES) {
-      setError("Файлы слишком большие (суммарно до 15 МБ за раз). Сначала нажмите «Сохранить» с частью файлов, затем добавьте остальные и отправьте.");
+      setError("Файлы слишком большие (суммарно до 50 МБ за раз). Сначала нажмите «Сохранить» с частью файлов, затем добавьте остальные и отправьте.");
       return;
     }
     setSubmitting(true);
     try {
-      await send("final");
+      const failed = await send("final");
+      setFailedFiles(failed);
       try {
         localStorage.removeItem(DRAFT_KEY);
       } catch {
@@ -401,6 +391,14 @@ export default function SituationDocsPage({ config }) {
                 документы: Декларация 3-НДФЛ и Заявление на налоговый вычет.
                 Оплата — после готовности и вашей проверки документов.
               </p>
+              {failedFiles.length > 0 && (
+                <p className="doc-note doc-note--err" style={{ textAlign: "left" }}>
+                  Не удалось загрузить: {failedFiles.join(", ")}. Пришлите эти
+                  файлы нам в{" "}
+                  <a href="https://t.me/+79127916470">Telegram</a> с указанием
+                  вашего ID {account.id} — остальные данные мы уже получили.
+                </p>
+              )}
               <div className="cta__actions">
                 <Link to="/kabinet" className="btn btn--primary">Личный кабинет</Link>
                 <Link to="/" className="btn btn--ghost">На главную</Link>

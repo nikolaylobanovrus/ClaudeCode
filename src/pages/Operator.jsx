@@ -6,9 +6,12 @@ import {
   sbOperatorLogin,
   sbListClients,
   sbSetPayment,
+  sbListClientFiles,
+  sbDownloadClientFile,
   getOperatorToken,
   setOperatorToken,
 } from "../lib/supabase.js";
+import { downloadBlob } from "../lib/share.js";
 import { tariffs } from "../data/content.js";
 
 const fmtDate = (iso) =>
@@ -208,6 +211,7 @@ export default function Operator() {
                       <th>Телефон</th>
                       <th>Ситуация</th>
                       <th>Дата</th>
+                      <th>Файлы</th>
                       <th>Тариф и сумма к оплате</th>
                     </tr>
                   </thead>
@@ -222,13 +226,16 @@ export default function Operator() {
                         <td>{c.situation || "—"}</td>
                         <td>{c.created_at ? fmtDate(c.created_at) : "—"}</td>
                         <td>
+                          <ClientFiles client={c} token={token} />
+                        </td>
+                        <td>
                           <PaymentPicker client={c} onAssign={assignPayment} />
                         </td>
                       </tr>
                     ))}
                     {filtered.length === 0 && (
                       <tr>
-                        <td colSpan="6" style={{ color: "var(--ink-500)" }}>
+                        <td colSpan="7" style={{ color: "var(--ink-500)" }}>
                           {busy
                             ? "Загружаем…"
                             : q
@@ -245,6 +252,75 @@ export default function Operator() {
         </div>
       </section>
     </>
+  );
+}
+
+// Файлы клиента из защищённого хранилища: список по клику, скачивание.
+function ClientFiles({ client, token }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(null); // null = ещё не загружали
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (items !== null) return;
+    setBusy(true);
+    setErr("");
+    try {
+      setItems(await sbListClientFiles(token, client.id));
+    } catch {
+      setErr("Не удалось получить список (проверьте миграцию хранилища).");
+      setItems([]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function download(name) {
+    setErr("");
+    try {
+      const blob = await sbDownloadClientFile(token, client.id, name);
+      downloadBlob(blob, name, blob.type || "application/octet-stream");
+    } catch {
+      setErr("Не удалось скачать файл.");
+    }
+  }
+
+  const fmtSize = (b) =>
+    b > 1024 * 1024 ? (b / 1024 / 1024).toFixed(1) + " МБ" : Math.ceil(b / 1024) + " КБ";
+
+  return (
+    <div className="op__files">
+      <button type="button" className="btn btn--ghost op__files-btn" onClick={toggle}>
+        {open ? "Скрыть" : busy ? "…" : "Показать"}
+      </button>
+      {open && (
+        <div className="op__files-list">
+          {busy && <span className="op__none">Загружаем…</span>}
+          {err && <span className="form__error">{err}</span>}
+          {items && items.length === 0 && !busy && !err && (
+            <span className="op__none">файлов нет</span>
+          )}
+          {items?.map((f) => (
+            <button
+              key={f.name}
+              type="button"
+              className="op__file"
+              title="Скачать"
+              onClick={() => download(f.name)}
+            >
+              ⬇ {f.name}
+              {f.metadata?.size ? ` (${fmtSize(f.metadata.size)})` : ""}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

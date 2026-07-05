@@ -73,6 +73,79 @@ export async function sbOperatorLogin(email, password) {
   return data.access_token;
 }
 
+// --- Хранилище документов клиентов (bucket client-docs) ----------------------
+// Файлы клиентов (паспорта, справки) НЕ отправляются почтой: почтовый сервис
+// теряет вложения. Клиент загружает их в приватный bucket (роль anon может
+// только записывать — ни читать, ни перечислять), оператор скачивает в своём
+// кабинете под ролью authenticated. Политики: docs/supabase-migration-storage.sql.
+const DOCS_BUCKET = "client-docs";
+
+const encodePath = (path) =>
+  path.split("/").map(encodeURIComponent).join("/");
+
+// Загрузка одного файла клиента. Возвращает имя объекта (без префикса клиента).
+export async function sbUploadClientFile(clientId, file, stamp) {
+  // Имя объекта: «ГГГГ-ММ-ДД ЧЧ-ММ имя.расш» — момент отправки виден оператору.
+  const safeName = String(file.name || "файл")
+    .replace(/[/\\:*?"<>|\u0000-\u001f]/g, "_")
+    .slice(-80);
+  const name = `${stamp} ${safeName}`;
+  const res = await fetch(
+    `${cfg.url}/storage/v1/object/${DOCS_BUCKET}/${encodePath(`${clientId}/${name}`)}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${cfg.anonKey}`,
+        "Content-Type": file.type || "application/octet-stream",
+        "x-upsert": "false",
+      },
+      body: file,
+    }
+  );
+  if (!res.ok) {
+    const err = new Error(`upload failed: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return name;
+}
+
+// Список файлов клиента (для оператора).
+export async function sbListClientFiles(token, clientId) {
+  const res = await fetch(`${cfg.url}/storage/v1/object/list/${DOCS_BUCKET}`, {
+    method: "POST",
+    headers: baseHeaders(token),
+    body: JSON.stringify({
+      prefix: `${clientId}/`,
+      limit: 200,
+      sortBy: { column: "created_at", order: "desc" },
+    }),
+  });
+  if (!res.ok) {
+    const err = new Error("list files failed");
+    err.status = res.status;
+    throw err;
+  }
+  const items = await res.json();
+  // Папки в ответе имеют id=null — оставляем только файлы.
+  return items.filter((it) => it.id);
+}
+
+// Скачивание файла клиента (для оператора). Возвращает Blob.
+export async function sbDownloadClientFile(token, clientId, name) {
+  const res = await fetch(
+    `${cfg.url}/storage/v1/object/${DOCS_BUCKET}/${encodePath(`${clientId}/${name}`)}`,
+    { headers: { apikey: cfg.anonKey, Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    const err = new Error("download failed");
+    err.status = res.status;
+    throw err;
+  }
+  return res.blob();
+}
+
 // --- Таблица клиентов (только для оператора) ---------------------------------
 export async function sbListClients(token) {
   const res = await fetch(

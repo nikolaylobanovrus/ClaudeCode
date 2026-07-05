@@ -2569,3 +2569,34 @@ h4 {
     transform: none;
   }
 }
+
+/* ============ Кабинет оператора: файлы клиента ============ */
+.op__files {
+  min-width: 120px;
+}
+.op__files-btn {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+.op__files-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 260px;
+}
+.op__file {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--blue-700);
+  cursor: pointer;
+  word-break: break-all;
+}
+.op__file:hover {
+  border-color: var(--blue-500);
+  background: var(--blue-50);
+}
