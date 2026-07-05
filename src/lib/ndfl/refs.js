@@ -19,16 +19,14 @@ export const RATE = 0.13;
 //  - progressiveThreshold: доход, выше которого действует повышенная
 //    ставка НДФЛ — расчёт по 13% становится приблизительным;
 //  - xmlVersion: версия формата файла обмена НО_НДФЛ3 (атрибут ВерсФорм).
-//    Подтверждена по официальному тексту приказа только для 2023 года
-//    (5.18, приказ 903@ в ред. 615@). Для остальных лет — предварительная
-//    оценка (`xmlVerified: false`): точное значение берётся из имени
-//    XSD-схемы NO_NDFL3_1_033_00_05_XX_YY на сайте ФНС. Поэтому XML
-//    помечен в интерфейсе как «бета», основной документ — PDF.
+//    Все значения сверены с подразделом «II. Описание файла обмена»
+//    соответствующего приказа ФНС (КонсультантПлюс) и с именами XSD-схем
+//    NO_NDFL3_1_033_00_05_XX_yy: 2022→5.17, 2023→5.18, 2024→5.19, 2025→5.20.
 export const YEAR_RULES = {
   2022: {
     order: "Приказ ФНС от 29.09.2022 № ЕД-7-11/880@",
     socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000,
-    xmlVersion: "5.05", xmlVerified: false,
+    xmlVersion: "5.17", xmlVerified: true,
   },
   2023: {
     order: "Приказ ФНС от 15.10.2021 № ЕД-7-11/903@ (ред. от 11.09.2023 № ЕД-7-11/615@)",
@@ -38,12 +36,12 @@ export const YEAR_RULES = {
   2024: {
     order: "Приказ ФНС от 19.09.2024 № ЕД-7-11/757@",
     socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 5_000_000,
-    xmlVersion: "5.19", xmlVerified: false,
+    xmlVersion: "5.19", xmlVerified: true,
   },
   2025: {
     order: "Приказ ФНС от 20.10.2025 № ЕД-7-11/913@",
     socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 2_400_000,
-    xmlVersion: "5.20", xmlVerified: false,
+    xmlVersion: "5.20", xmlVerified: true,
   },
 };
 
