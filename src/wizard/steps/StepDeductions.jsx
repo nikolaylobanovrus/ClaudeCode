@@ -2,11 +2,30 @@
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, HINTS } from "../../data/wizard.js";
-import { YEARS } from "../../lib/ndfl/refs.js";
+import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
+
+// Подпись о сроке возврата под выбором года: возврат возможен за три
+// последних года, за более старые налоговая откажет.
+function yearNote(year) {
+  const nowYear = new Date().getFullYear();
+  const deadline = refundDeadlineYear(year);
+  if (nowYear > deadline)
+    return {
+      kind: "err",
+      text: `Срок возврата за ${year} год истёк — вернуть налог можно только за три последних года. Исключение: пенсионеры по имущественному вычету.`,
+    };
+  if (nowYear === deadline)
+    return {
+      kind: "ok",
+      text: `${nowYear} — последний год, когда можно вернуть налог за ${year}. Успейте подать декларацию до конца года.`,
+    };
+  return null;
+}
 
 export default function StepDeductions({ errors }) {
   const { draft, dispatch } = useWizard();
+  const note = yearNote(draft.year);
 
   return (
     <div>
@@ -27,6 +46,11 @@ export default function StepDeductions({ errors }) {
             </button>
           ))}
         </div>
+        {note && (
+          <div className={"doc-note doc-note--" + note.kind} style={{ marginTop: 10 }}>
+            {note.text}
+          </div>
+        )}
       </div>
 
       <div className="form__field">

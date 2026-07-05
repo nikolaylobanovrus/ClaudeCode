@@ -6,7 +6,7 @@
 // дисклеймер печатается в подвале каждого листа.
 import { createDoc, makeSheet, drawFooter, drawSignature, mm } from "./pdfPage.js";
 import { fmtDate } from "./model.js";
-import { CODES } from "./refs.js";
+import { CODES, yearRules } from "./refs.js";
 
 const FORM_TITLE =
   "Налоговая декларация по налогу на доходы физических лиц (форма 3-НДФЛ)";
@@ -148,6 +148,8 @@ export async function buildDeclarationPdf(model) {
   if (model.social) {
     const so = model.social;
     const ap = calc.applied;
+    const rulesY = yearRules(year);
+    const limitStr = (n) => n.toLocaleString("ru-RU");
     const s = makeSheet(ctx, {
       inn: person.inn,
       pageNo: nextPage(),
@@ -157,14 +159,14 @@ export async function buildDeclarationPdf(model) {
     // Все значения — «применённые» (см. calc.js): суммы строк Приложения 5
     // сходятся со строкой 040 Раздела 2 даже при вычетах больше дохода.
     s.h2("Социальные вычеты, к которым не применяется ограничение");
-    s.line("100", "Обучение детей (не более 110 000 руб. на ребёнка), руб.", rub(ap.childEducation));
+    s.line("100", `Обучение детей (не более ${limitStr(rulesY.childEducation)} руб. на ребёнка), руб.`, rub(ap.childEducation));
     s.line("110", "Дорогостоящее лечение, руб.", rub(ap.expensiveMedical));
     s.line("120", "Итого по пункту, руб.", rub(ap.childEducation + ap.expensiveMedical));
-    s.h2("Социальные вычеты, к которым применяется ограничение 150 000 руб.");
+    s.h2(`Социальные вычеты, к которым применяется ограничение ${limitStr(rulesY.socialGroup)} руб.`);
     s.line("130", "Своё обучение, руб.", rub(calc.lines.educationSelf));
     s.line("140", "Лечение и лекарства (кроме дорогостоящего), руб.", rub(calc.lines.medicalOrdinary));
     s.line("150", "Страхование жизни (договоры от 5 лет), руб.", rub(calc.lines.insurance));
-    s.line("180", "Итого (в пределах 150 000 руб.), руб.", rub(ap.socialGroup));
+    s.line("180", `Итого (в пределах ${limitStr(rulesY.socialGroup)} руб.), руб.`, rub(ap.socialGroup));
     s.line(
       "190",
       "Общая сумма социальных вычетов, руб.",

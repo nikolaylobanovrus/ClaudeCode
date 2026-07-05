@@ -2,6 +2,7 @@
 // calc приходит из WizardShell — расчёт выполняется один раз на рендер.
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepIndex } from "../../data/wizard.js";
+import { yearRules } from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
 
 export default function StepReview({ calc }) {
@@ -29,7 +30,10 @@ export default function StepReview({ calc }) {
   const applied = [
     ["Имущественный вычет", calc.applied.property],
     ["Проценты по ипотеке", calc.applied.interest],
-    ["Лечение, обучение, страхование (лимит 150 000 ₽)", calc.applied.socialGroup],
+    [
+      `Лечение, обучение, страхование (лимит ${fmtRub(yearRules(draft.year).socialGroup)})`,
+      calc.applied.socialGroup,
+    ],
     ["Обучение детей", calc.applied.childEducation],
     ["Дорогостоящее лечение", calc.applied.expensiveMedical],
     ["ИИС", calc.applied.iis],

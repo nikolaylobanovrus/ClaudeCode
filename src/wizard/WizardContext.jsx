@@ -154,29 +154,31 @@ export function WizardProvider({ children }) {
   };
 
   // Автосохранение черновика с дебаунсом: паспорт и суммы не должны
-  // пропасть из-за случайно закрытой вкладки. Первый рендер пропускаем:
-  // пока пользователь не решил «Продолжить или заново», пустой начальный
-  // черновик не должен затереть сохранённый (иначе клик «Продолжить»
-  // спустя 400 мс восстановит уже затёртую пустышку).
+  // пропасть из-за случайно закрытой вкладки. Пишем ТОЛЬКО после реального
+  // изменения черновика в этой сессии (dirty): пустое начальное состояние
+  // не должно затереть сохранённый черновик — ни на маунте, ни при уходе
+  // со страницы, пока пользователь ничего не менял.
   const timer = useRef(0);
-  const mounted = useRef(false);
+  const dirty = useRef(false);
   const latest = useRef(draft);
+  const first = useRef(true);
   latest.current = draft;
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
+    if (first.current) {
+      first.current = false; // маунт — черновик ещё не менялся
       return undefined;
     }
+    dirty.current = true;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => persist(latest.current), 400);
     return () => clearTimeout(timer.current);
   }, [draft]);
 
   // Страховка от дебаунса: при уходе со страницы (закрытие вкладки,
-  // редирект на страницу оплаты) сбрасываем черновик немедленно.
+  // редирект на страницу оплаты) сбрасываем изменённый черновик немедленно.
   useEffect(() => {
     const flushOnLeave = () => {
-      if (mounted.current) persist(latest.current);
+      if (dirty.current) persist(latest.current);
     };
     window.addEventListener("pagehide", flushOnLeave);
     return () => window.removeEventListener("pagehide", flushOnLeave);

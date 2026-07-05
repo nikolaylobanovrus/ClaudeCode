@@ -3,7 +3,7 @@
 // NO_NDFL3_{ИФНС}_{ИФНС}_{ИНН}_{ГГГГММДД}_{GUID}.xml.
 // ВНИМАНИЕ: ЛК ФНС жёстко проверяет файл по XSD актуального приказа —
 // функция помечена в интерфейсе как «бета», основной документ — PDF.
-import { CODES, XML_FORMAT_VERSION } from "./refs.js";
+import { CODES, yearRules } from "./refs.js";
 import { fmtDate as dateRu } from "./model.js";
 
 const kop = (n) => (Math.max(0, Number(n) || 0)).toFixed(2);
@@ -55,7 +55,7 @@ export function buildDeclarationXml(model) {
   const guid = crypto.randomUUID().toUpperCase();
   const stamp = isoToday().replace(/-/g, "");
   const fileId = `NO_NDFL3_${person.ifns}_${person.ifns}_${person.inn}_${stamp}_${guid}`;
-  const version = XML_FORMAT_VERSION[year] || Object.values(XML_FORMAT_VERSION).pop();
+  const version = yearRules(year).xmlVersion;
 
   const xml =
     `<?xml version="1.0" encoding="windows-1251"?>` +

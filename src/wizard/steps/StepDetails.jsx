@@ -3,7 +3,7 @@
 import { useWizard } from "../WizardContext.jsx";
 import { HINTS } from "../../data/wizard.js";
 import { Field, TextInput, MoneyInput, DateInput } from "../fields.jsx";
-import { LIMITS } from "../../lib/ndfl/refs.js";
+import { yearRules } from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
 
 export default function StepDetails({ errors }) {
@@ -97,7 +97,7 @@ export default function StepDetails({ errors }) {
               } />
           </Field>
           <div className="form__field">
-            <label>Обучение детей (до {fmtRub(LIMITS.childEducation)} на ребёнка)</label>
+            <label>Обучение детей (до {fmtRub(yearRules(draft.year).childEducation)} на ребёнка за {draft.year} год)</label>
             {draft.education.children.map((c, i) => (
               <div className="wiz__child" key={i}>
                 <MoneyInput value={c.amount} aria-label={`Обучение ребёнка ${i + 1}, ₽`}

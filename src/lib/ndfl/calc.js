@@ -6,7 +6,7 @@
 // лимитом, и остатком годового дохода. Поэтому суммы листов Приложений всегда
 // сходятся с Разделом 2 (иначе ФНС отклоняет декларацию по контрольным
 // соотношениям).
-import { LIMITS, RATE, PROGRESSIVE_THRESHOLD } from "./refs.js";
+import { LIMITS, RATE, yearRules, refundDeadlineYear } from "./refs.js";
 import { fmtRub } from "../format.js";
 
 const num = (v) => {
@@ -19,28 +19,42 @@ const num = (v) => {
 export function computeDeclaration(draft) {
   const types = draft.types || [];
   const has = (t) => types.includes(t);
+  const rules = yearRules(draft.year);
   const warnings = [];
+
+  // Срок возврата: налог за год X возвращают при подаче до конца года X+3.
+  const nowYear = new Date().getFullYear();
+  if (nowYear > refundDeadlineYear(draft.year)) {
+    warnings.push(
+      `Срок возврата налога за ${draft.year} год истёк (вернуть можно только за три последних года). Декларацию сформируем, но налоговая, скорее всего, откажет в возврате — исключение действует для пенсионеров по имущественному вычету.`
+    );
+  } else if (nowYear === refundDeadlineYear(draft.year)) {
+    warnings.push(
+      `${nowYear} — последний год, когда можно вернуть налог за ${draft.year}. Подайте декларацию до конца года.`
+    );
+  }
 
   const totalIncome = (draft.incomes || []).reduce((s, i) => s + num(i.income), 0);
   const totalWithheld = (draft.incomes || []).reduce((s, i) => s + num(i.withheld), 0);
 
   // --- Заявляемые суммы (в пределах лимитов, но ещё без учёта дохода) --------
-  // Группа с общим лимитом 150 000 ₽: обычное лечение + своё обучение +
-  // страхование жизни. Дорогостоящее лечение и обучение детей — вне лимита.
+  // Группа с общим лимитом по году (rules.socialGroup): обычное лечение +
+  // своё обучение + страхование жизни. Дорогостоящее лечение и обучение
+  // детей — вне этого лимита.
   const groupSpent =
     (has("lechenie") ? num(draft.medical?.ordinary) : 0) +
     (has("obuchenie") ? num(draft.education?.self) : 0) +
     (has("strahovanie") ? num(draft.insurance?.amount) : 0);
-  const groupEligible = Math.min(groupSpent, LIMITS.socialGroup);
-  if (groupSpent > LIMITS.socialGroup) {
+  const groupEligible = Math.min(groupSpent, rules.socialGroup);
+  if (groupSpent > rules.socialGroup) {
     warnings.push(
-      `Расходы на лечение, своё обучение и страхование (${fmtRub(groupSpent)}) превышают общий лимит ${fmtRub(LIMITS.socialGroup)} — к вычету принята сумма в пределах лимита.`
+      `Расходы на лечение, своё обучение и страхование (${fmtRub(groupSpent)}) превышают общий лимит ${fmtRub(rules.socialGroup)} — к вычету принята сумма в пределах лимита.`
     );
   }
 
   const childEligible = has("obuchenie")
     ? (draft.education?.children || []).reduce(
-        (s, c) => s + Math.min(num(c.amount), LIMITS.childEducation),
+        (s, c) => s + Math.min(num(c.amount), rules.childEducation),
         0
       )
     : 0;
@@ -124,8 +138,7 @@ export function computeDeclaration(draft) {
       `К возврату не может быть больше удержанного за год налога (${fmtRub(totalWithheld)}).`
     );
   }
-  const threshold = PROGRESSIVE_THRESHOLD[draft.year] || Infinity;
-  if (totalIncome > threshold) {
+  if (totalIncome > rules.progressiveThreshold) {
     warnings.push(
       "Часть вашего дохода облагается по повышенной ставке — расчёт по 13% приблизителен, итоговую сумму уточнит налоговая."
     );
