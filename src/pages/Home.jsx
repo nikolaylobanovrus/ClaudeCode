@@ -11,6 +11,7 @@ import {
   tariffs,
   reviews,
   team,
+  showSocialProof,
   stats,
   selfService,
 } from "../data/content.js";
@@ -251,56 +252,60 @@ export default function Home() {
         </div>
       </section>
 
-      {/* REVIEWS */}
-      <section className="section section--soft">
-        <div className="container">
-          <div className="section__head">
-            <span className="eyebrow">Отзывы</span>
-            <h2 className="section__title">Что клиенты говорят о нас</h2>
-          </div>
-          <div className="reviews">
-            {reviews.map((r) => (
-              <article className="review" key={r.name}>
-                <div className="review__stars" aria-label="5 из 5">
-                  ★★★★★
-                </div>
-                <p className="review__text">{r.text}</p>
-                <div className="review__author">
-                  <div className="review__avatar" aria-hidden="true">
-                    {initials(r.name)}
+      {/* REVIEWS — временно скрыты (showSocialProof в content.js) */}
+      {showSocialProof && (
+        <section className="section section--soft">
+          <div className="container">
+            <div className="section__head">
+              <span className="eyebrow">Отзывы</span>
+              <h2 className="section__title">Что клиенты говорят о нас</h2>
+            </div>
+            <div className="reviews">
+              {reviews.map((r) => (
+                <article className="review" key={r.name}>
+                  <div className="review__stars" aria-label="5 из 5">
+                    ★★★★★
                   </div>
-                  <div>
-                    <div className="review__name">{r.name}</div>
-                    <div className="review__date">{r.date}</div>
+                  <p className="review__text">{r.text}</p>
+                  <div className="review__author">
+                    <div className="review__avatar" aria-hidden="true">
+                      {initials(r.name)}
+                    </div>
+                    <div>
+                      <div className="review__name">{r.name}</div>
+                      <div className="review__date">{r.date}</div>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* TEAM */}
-      <section className="section">
-        <div className="container">
-          <div className="section__head">
-            <span className="eyebrow">Наша команда</span>
-            <h2 className="section__title">Доверьте документы экспертам</h2>
-          </div>
-          <div className="team">
-            {team.map((m) => (
-              <div className="team__card" key={m.name}>
-                <div className="team__avatar" aria-hidden="true">
-                  {initials(m.name)}
+      {/* TEAM — временно скрыта (showSocialProof в content.js) */}
+      {showSocialProof && (
+        <section className="section">
+          <div className="container">
+            <div className="section__head">
+              <span className="eyebrow">Наша команда</span>
+              <h2 className="section__title">Доверьте документы экспертам</h2>
+            </div>
+            <div className="team">
+              {team.map((m) => (
+                <div className="team__card" key={m.name}>
+                  <div className="team__avatar" aria-hidden="true">
+                    {initials(m.name)}
+                  </div>
+                  <div className="team__name">{m.name}</div>
+                  <div className="team__role">{m.role}</div>
+                  <div className="team__exp">Опыт: {m.exp}</div>
                 </div>
-                <div className="team__name">{m.name}</div>
-                <div className="team__role">{m.role}</div>
-                <div className="team__exp">Опыт: {m.exp}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* FAQ */}
       <section className="section section--muted">
