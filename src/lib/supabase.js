@@ -37,6 +37,38 @@ export async function sbRpc(fn, args, timeoutMs = 8000) {
   }
 }
 
+// RPC под токеном оператора (роль authenticated) — для функций, к которым
+// у anon нет доступа (например, operator_paid_order). Ошибки несут HTTP-код
+// в err.status, чтобы UI мог отличить «сессия истекла» (401/403).
+export async function sbRpcOp(fn, args, timeoutMs = 8000) {
+  if (!sbConfigured()) return null;
+  const token = getOperatorToken();
+  if (!token) {
+    const err = new Error("no operator token");
+    err.status = 401;
+    throw err;
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: baseHeaders(token),
+      body: JSON.stringify(args ?? {}),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const err = new Error(`Supabase RPC ${fn}: HTTP ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // --- Сессия оператора --------------------------------------------------------
 const OP_TOKEN_KEY = "ns.op.token";
 

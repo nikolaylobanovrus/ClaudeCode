@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
 import {
@@ -218,6 +219,9 @@ export default function Operator() {
                 >
                   {busy ? "Обновляем…" : "Обновить"}
                 </button>
+                <Link className="btn btn--ghost" to="/deklaraciya/anketa">
+                  Создать декларацию в мастере
+                </Link>
                 <button className="btn btn--ghost" onClick={logout}>
                   Выйти
                 </button>

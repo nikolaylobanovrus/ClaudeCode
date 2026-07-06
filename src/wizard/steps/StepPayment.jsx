@@ -14,10 +14,12 @@ import { fmtRub } from "../../lib/format.js";
 import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
 import {
   createOrder,
+  createOperatorPaidOrder,
   payMockOrder,
   fetchOrderStatus,
   isTestPayment,
 } from "../../lib/payments.js";
+import { getOperatorToken } from "../../lib/supabase.js";
 
 export default function StepPayment({ onPaid }) {
   const { draft, dispatch, flushDraft } = useWizard();
@@ -87,6 +89,36 @@ export default function StepPayment({ onPaid }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.id, order?.status]);
+
+  // Режим оператора: сотрудник вошёл на /operator (токен Supabase Auth в
+  // браузере) — документы формируются без оплаты. Заказ создаётся в базе
+  // сразу оплаченным (RPC доступна только роли authenticated), поэтому
+  // серверная проверка на шаге «Документы» проходит как обычно.
+  const operator = Boolean(getOperatorToken());
+  const [opExpired, setOpExpired] = useState(false);
+
+  const startOperator = async () => {
+    if (hash === null) return;
+    setBusy(true);
+    setError("");
+    setOpExpired(false);
+    try {
+      const created = await createOperatorPaidOrder();
+      dispatch({
+        type: "SET_ORDER",
+        order: { ...created, draftHash: hash, snapshot: draftSnapshot(draft) },
+      });
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) setOpExpired(true);
+      else
+        setError(
+          "Не получилось создать заказ оператора. Проверьте интернет и что миграция operator-orders применена в Supabase." +
+            (import.meta.env.DEV ? ` (${e.message})` : "")
+        );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const start = async () => {
     if (hash === null) return; // хеш ещё считается
@@ -176,6 +208,38 @@ export default function StepPayment({ onPaid }) {
     order?.status === "waiting" &&
     order?.draftHash === hash;
   const changedAfterPayment = (draft.purchases || []).length > 0;
+
+  // Оператор: вместо карточки оплаты — формирование без оплаты.
+  if (operator) {
+    return (
+      <div>
+        <div className="wiz__pay card">
+          <h3 className="card__title">Режим оператора</h3>
+          <p className="card__text">
+            Вы вошли как оператор — оплата не требуется. Комплект документов
+            будет сформирован по текущим данным анкеты; заказ останется в базе
+            с пометкой «operator» (0 ₽).
+          </p>
+          <button
+            type="button"
+            className="btn btn--primary btn--lg btn--block"
+            disabled={busy}
+            onClick={startOperator}
+          >
+            {busy ? "Создаём заказ…" : "Сформировать документы без оплаты"}
+          </button>
+          {opExpired && (
+            <div className="doc-note doc-note--err" style={{ marginTop: 12 }}>
+              Сессия оператора истекла. Войдите заново в{" "}
+              <Link to="/operator">кабинет оператора</Link> и вернитесь сюда —
+              анкета сохранится.
+            </div>
+          )}
+          {error && <div className="form__error">{error}</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
