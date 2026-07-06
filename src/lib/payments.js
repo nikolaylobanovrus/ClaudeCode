@@ -8,7 +8,7 @@
 // Документы открываются ТОЛЬКО по статусу paid из базы — фронт сам себе
 // статус не назначает (кроме офлайн-режима без Supabase).
 import { supabase as cfg, selfService } from "../data/content.js";
-import { sbConfigured, sbRpc } from "./supabase.js";
+import { sbConfigured, sbRpc, sbRpcOp } from "./supabase.js";
 
 const PROVIDER = import.meta.env.VITE_PAY_PROVIDER || "mock";
 
@@ -76,6 +76,17 @@ export async function payMockOrder(order) {
     }
   }
   return { ...order, status: "paid" };
+}
+
+// Режим оператора: вошедший на /operator сотрудник создаёт заказ сразу
+// со статусом paid (amount = 0) через RPC operator_paid_order — функция
+// доступна только роли authenticated (миграция
+// docs/supabase-migration-operator-orders.sql). Серверная проверка оплаты
+// на шаге «Документы» проходит честно: заказ реально оплачен в базе.
+export async function createOperatorPaidOrder() {
+  const id = await sbRpcOp("operator_paid_order", {});
+  if (!id) throw new Error("operator_paid_order: пустой ответ");
+  return { id, provider: "operator", amount: 0, status: "paid" };
 }
 
 // Актуальный статус заказа из базы: pending | waiting | paid | canceled.
