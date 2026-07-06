@@ -35,6 +35,9 @@ jobs:
         env:
           VITE_BASE: "./"
           VITE_HASH_ROUTER: "1"
+          # Боевая оплата ЮKassa (Supabase Edge Functions задеплоены,
+          # секреты заданы) — см. docs/yookassa-setup.md.
+          VITE_PAY_PROVIDER: "yookassa"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -74,8 +74,9 @@ export default function StepPersonal({ errors }) {
           <TextInput value={p.oktmo} error={errors.oktmo} inputMode="numeric" maxLength={11}
             placeholder="8 или 11 цифр" onChange={(v) => set({ oktmo: v.replace(/\D/g, "") })} />
         </Field>
-        <Field label="Телефон">
+        <Field label="Телефон" error={errors["phone"]}>
           <TextInput value={p.phone} autoComplete="tel" placeholder="+7 (900) 000-00-00"
+            error={errors["phone"]}
             onChange={(v) => set({ phone: maskRuPhone(v, p.phone) })} />
         </Field>
       </div>

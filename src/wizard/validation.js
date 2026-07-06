@@ -37,6 +37,15 @@ export function validateKpp(value) {
   return "";
 }
 
+// Телефон обязателен: печатается на титуле декларации и попадает в чек
+// 54-ФЗ при оплате (ЮKassa требует контакт покупателя).
+export function validatePhone(value) {
+  const d = digits(value);
+  if (!d) return "Укажите номер телефона";
+  if (!/^[78]\d{10}$/.test(d)) return "Телефон — 11 цифр, начиная с +7 или 8";
+  return "";
+}
+
 export function validateBik(value) {
   const bik = digits(value);
   if (!bik) return "Укажите БИК банка";
@@ -154,6 +163,7 @@ export function validateStep(stepKey, draft) {
     put(e, "passportIssuer", validateName(p.passportIssuer, "кем выдан паспорт"));
     put(e, "oktmo", validateOktmo(p.oktmo));
     put(e, "ifns", validateIfns(p.ifns));
+    put(e, "phone", validatePhone(p.phone));
   }
 
   if (stepKey === "income") {
