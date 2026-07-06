@@ -1,22 +1,15 @@
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
-import { tariffs, selfService } from "../data/content.js";
+import { tariffs } from "../data/content.js";
 import { faq } from "../data/faq.jsx";
 import Faq from "../components/Faq.jsx";
 
 export default function Pricing() {
+  // «Сам онлайн» (99 ₽) намеренно не показывается на странице тарифов:
+  // сервис самозаполнения рекламируется отдельным лендингом /deklaraciya,
+  // чтобы не перетягивать клиентов основных тарифов (решение владельца).
   const jsonLd = [
-    // Самостоятельное заполнение — тоже оффер, участвует в rich snippets.
-    {
-      "@context": "https://schema.org",
-      "@type": "Offer",
-      name: `Тариф «Сам онлайн» — ${selfService.name}`,
-      price: String(selfService.price),
-      priceCurrency: "RUB",
-      description: selfService.description,
-      availability: "https://schema.org/InStock",
-    },
     ...tariffs.map((t) => ({
       "@context": "https://schema.org",
       "@type": "Offer",
@@ -32,7 +25,7 @@ export default function Pricing() {
     <>
       <Seo
         title="Тарифы и цены на подготовку декларации 3-НДФЛ | Налог-сервис"
-        description="Стоимость подготовки декларации 3-НДФЛ — от 99 ₽: самостоятельное заполнение онлайн или тарифы «Базовый», «Оптимальный» и «Премиум» под ключ. Оплата по факту, гарантия качества."
+        description="Стоимость подготовки декларации 3-НДФЛ под ключ — тарифы «Базовый», «Оптимальный» и «Премиум». Оплата по факту готовности документов, гарантия качества."
         path="/tarify"
         jsonLd={jsonLd}
       />
@@ -46,29 +39,6 @@ export default function Pricing() {
       <section className="section">
         <div className="container">
           <div className="tariffs">
-            {/* Самостоятельное заполнение — самый доступный вариант */}
-            <div className="tariff">
-              <div className="tariff__name">Сам онлайн</div>
-              <div className="tariff__caption">Заполняете анкету сами — документы сразу</div>
-              <div className="tariff__price">{selfService.price.toLocaleString("ru-RU")} ₽</div>
-              <div className="tariff__term">Срок — 15 минут</div>
-              <ul className="tariff__features">
-                {[
-                  "Декларация 3-НДФЛ (PDF)",
-                  "Файл для Личного кабинета ФНС",
-                  "Заявление на возврат налога",
-                  "Подсказки к каждому полю",
-                ].map((f) => (
-                  <li key={f}>
-                    <span className="tariff__check">✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/deklaraciya" className="btn btn--block btn--ghost">
-                Заполнить самому
-              </Link>
-            </div>
             {tariffs.map((t) => (
               <div className={"tariff" + (t.highlight ? " tariff--hot" : "")} key={t.name}>
                 {t.highlight && <div className="tariff__badge">Хит продаж</div>}

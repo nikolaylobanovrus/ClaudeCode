@@ -13,7 +13,6 @@ import {
   team,
   showSocialProof,
   stats,
-  selfService,
 } from "../data/content.js";
 import { faq } from "../data/faq.jsx";
 
@@ -35,7 +34,7 @@ export default function Home() {
       url: company.site,
       telephone: company.phoneRaw,
       email: company.email,
-      priceRange: "от 99 ₽",
+      priceRange: "от 990 ₽",
       areaServed: "RU",
       address: {
         "@type": "PostalAddress",
@@ -89,14 +88,10 @@ export default function Home() {
               <Link to="/registraciya" className="btn btn--green btn--lg">
                 Сформировать декларацию онлайн
               </Link>
-              <Link to="/deklaraciya" className="btn btn--light btn--lg">
-                Заполнить самому — {selfService.price.toLocaleString("ru-RU")} ₽
-              </Link>
             </div>
             <div className="hero__trust">
-              {/* Телефон возвращён в первый экран: раньше он был кнопкой
-                  (её место занял «Заполнить самому»), а описание страницы
-                  обещает бесплатную консультацию по телефону. */}
+              {/* Описание страницы обещает бесплатную консультацию
+                  по телефону — телефон остаётся в первом экране. */}
               <a href={`tel:${company.phoneRaw}`}>📞 {company.phone}</a>
               <span>✅ Гарантия качества</span>
               <span>🔒 Конфиденциально</span>

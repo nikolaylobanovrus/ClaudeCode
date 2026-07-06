@@ -190,6 +190,26 @@ export default function SelfService() {
         </div>
       </section>
 
+      {/* АПСЕЛЛ: лестница вверх — «сделаем за вас» вместо самозаполнения */}
+      <section className="section section--muted">
+        <div className="container">
+          <div className="section__head">
+            <span className="eyebrow">Не хочется разбираться самому?</span>
+            <h2 className="section__title">Сделаем всё за вас — от 990 ₽</h2>
+            <p className="section__subtitle">
+              Специалист подготовит декларацию по вашим документам, проверит
+              каждую цифру и подскажет, как подать. Оплата — только по факту
+              готовности документов.
+            </p>
+          </div>
+          <div className="section__head" style={{ margin: "0 auto" }}>
+            <Link to="/tarify" className="btn btn--primary btn--lg">
+              Посмотреть тарифы «под ключ»
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="section">
         <div className="container">
