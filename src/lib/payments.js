@@ -15,7 +15,9 @@ const PROVIDER = import.meta.env.VITE_PAY_PROVIDER || "mock";
 export const isTestPayment = () => PROVIDER !== "yookassa";
 
 // Создать заказ. Возвращает { id, provider, amount, status, confirmationUrl? }.
-export async function createOrder(clientId) {
+// contact = { phone?, email? } — попадает в чек 54-ФЗ (обязателен при
+// включённой фискализации магазина ЮKassa).
+export async function createOrder(clientId, contact = {}) {
   if (PROVIDER === "yookassa") {
     const res = await fetch(`${cfg.url}/functions/v1/create-payment`, {
       method: "POST",
@@ -23,7 +25,11 @@ export async function createOrder(clientId) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${cfg.anonKey}`,
       },
-      body: JSON.stringify({ clientId: clientId ?? null }),
+      body: JSON.stringify({
+        clientId: clientId ?? null,
+        phone: contact.phone || "",
+        email: contact.email || "",
+      }),
     });
     if (!res.ok) throw new Error(`create-payment: HTTP ${res.status}`);
     const data = await res.json();

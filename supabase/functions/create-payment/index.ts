@@ -2,8 +2,12 @@
 // Секретный ключ магазина живёт только здесь (env), фронтенд его не видит.
 // Деплой и настройка: docs/yookassa-setup.md.
 //
-// Вход:  POST { clientId?: number }
+// Вход:  POST { clientId?: number, phone?: string, email?: string }
 // Выход: { orderId, confirmationUrl, amount }
+//
+// Если передан контакт (телефон/email), в платёж добавляется чек 54-ФЗ
+// (receipt) — обязателен для магазинов с включённой фискализацией.
+// НДС в чеке: vat_code 1 («без НДС», подходит для УСН).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SHOP_ID = Deno.env.get("YOOKASSA_SHOP_ID") ?? "";
@@ -31,12 +35,18 @@ Deno.serve(async (req) => {
     return json({ error: "payment provider is not configured" }, 503);
 
   let clientId: number | null = null;
+  let phone = "";
+  let email = "";
   try {
     const body = await req.json();
     clientId = body?.clientId ?? null;
+    phone = String(body?.phone ?? "");
+    email = String(body?.email ?? "");
   } catch {
     /* пустое тело — допустимо */
   }
+  // Телефон в формат ITU E.164: только цифры, ведущая 8 → 7.
+  const phoneDigits = phone.replace(/\D/g, "").replace(/^8/, "7");
 
   // Цена берётся из БД (self_service_price) — клиент её не диктует.
   const { data: price, error: priceErr } = await supabase.rpc("self_service_price");
@@ -54,6 +64,35 @@ Deno.serve(async (req) => {
   // с тем же заказом не создаст второй платёж.
   // return_url: ?order= ДО решётки — параметр читается при любом роутере.
   const returnUrl = `${SITE_URL}/?order=${order.id}#/deklaraciya/anketa`;
+  const description = "Самостоятельное заполнение декларации 3-НДФЛ";
+  const payload: Record<string, unknown> = {
+    amount: { value: `${price}.00`, currency: "RUB" },
+    capture: true,
+    confirmation: { type: "redirect", return_url: returnUrl },
+    description,
+    metadata: { orderId: order.id },
+  };
+  // Чек 54-ФЗ: обязателен, если у магазина включена фискализация.
+  const customer = email
+    ? { email }
+    : phoneDigits
+      ? { phone: phoneDigits }
+      : null;
+  if (customer) {
+    payload.receipt = {
+      customer,
+      items: [
+        {
+          description,
+          quantity: "1.00",
+          amount: { value: `${price}.00`, currency: "RUB" },
+          vat_code: 1, // без НДС (УСН)
+          payment_subject: "service",
+          payment_mode: "full_payment",
+        },
+      ],
+    };
+  }
   const ykRes = await fetch("https://api.yookassa.ru/v3/payments", {
     method: "POST",
     headers: {
@@ -61,17 +100,21 @@ Deno.serve(async (req) => {
       "Idempotence-Key": order.id,
       Authorization: "Basic " + btoa(`${SHOP_ID}:${SECRET_KEY}`),
     },
-    body: JSON.stringify({
-      amount: { value: `${price}.00`, currency: "RUB" },
-      capture: true,
-      confirmation: { type: "redirect", return_url: returnUrl },
-      description: "Самостоятельное заполнение декларации 3-НДФЛ",
-      metadata: { orderId: order.id },
-    }),
+    body: JSON.stringify(payload),
   });
   if (!ykRes.ok) {
     await supabase.from("orders").update({ status: "canceled" }).eq("id", order.id);
-    return json({ error: `yookassa: HTTP ${ykRes.status}` }, 502);
+    // Описание ошибки ЮKassa возвращаем для диагностики (без секретов).
+    const yk = await ykRes.json().catch(() => null);
+    return json(
+      {
+        error: `yookassa: HTTP ${ykRes.status}`,
+        ykCode: yk?.code ?? null,
+        ykDescription: yk?.description ?? null,
+        ykParameter: yk?.parameter ?? null,
+      },
+      502
+    );
   }
   const payment = await ykRes.json();
 

@@ -61,7 +61,10 @@ export default function StepPayment({ onPaid }) {
       }
       let current = order;
       if (!current || current.status === "canceled") {
-        current = await createOrder(getAccount()?.id);
+        current = await createOrder(getAccount()?.id, {
+          phone: draft.personal.phone,
+          email: getAccount()?.email,
+        });
         dispatch({ type: "SET_ORDER", order: current });
       }
       if (current.provider === "yookassa") {
