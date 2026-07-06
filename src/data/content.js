@@ -19,7 +19,7 @@ export const company = {
   phoneRaw: "+79208379193",
   phone2: "+7 (912) 791-64-70",
   phone2Raw: "+79127916470",
-  telegram: "https://t.me/+79127916470",
+  telegram: "https://t.me/+79208379193",
   // Персональная ссылка профиля в Max — открывает чат прямо в приложении
   max: "https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA",
   site: "https://nalog-service.online",
