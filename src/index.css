@@ -2624,6 +2624,8 @@ h4 {
 .op__file:hover {
   border-color: var(--blue-500);
   background: var(--blue-50);
+}
+
 /* ============ Чат помощи (плавающий виджет справа снизу) ============ */
 .chatw {
   position: fixed;
