@@ -1,118 +1,18 @@
-// Печать декларации за 2025 год на ПОДЛИННОМ бланке ФНС.
-//
-// Страницы официального машиночитаемого бланка (приказ ФНС от 20.10.2025
-// № ЕД-7-11/913@, форма КНД 1151020) встраиваются в документ как есть — со
-// штрихкодами, реперными квадратами и сеткой знакомест, — а значения
-// печатаются моноширинным шрифтом точно в клетки, как это делает ПО ФНС.
-// Бланк — официальный документ государственного органа и не является
-// объектом авторского права (ст. 1259 ГК РФ).
-//
-// Координаты знакомест извлечены программно из официального PDF ФНС:
-// единицы — пункты (pt), начало координат — левый нижний угол листа,
-// шаг клетки 14.17 pt (5 мм), высота ряда 17 pt.
-import { PDFDocument, rgb } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
+// Декларация за 2025 год на подлинном бланке ФНС (приказ от 20.10.2025
+// № ЕД-7-11/913@, КНД 1151020). Движок и правила печати — blankPdf.js;
+// происхождение бланка и метод извлечения координат — docs/fns-blank-2025.md.
 import blankUrl from "../../assets/ndfl/blank-2025.pdf?url";
-import monoUrl from "../../assets/fonts/LiberationMono-Bold.ttf?url";
+import { assembleOnBlank, fillRows, chunk } from "./blankPdf.js";
 import { CODES } from "./refs.js";
 import { digits } from "../format.js";
-
-const CELL = 14.17; // шаг знакоместа
-const A4 = [595.275, 841.889];
-const BLACK = rgb(0, 0, 0);
-const SIZE = 10.5; // кегль значений в клетках
 
 // Индексы страниц внутри blank-2025.pdf (порядок задан при нарезке бланка).
 const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7 };
 
-// Бланк и шрифт грузятся один раз на сессию (как шрифты в pdfPage.js).
-let assetsPromise = null;
-function loadAssets() {
-  assetsPromise ||= Promise.all(
-    [blankUrl, monoUrl].map((u) => fetch(u).then((r) => r.arrayBuffer()))
-  );
-  return assetsPromise;
-}
-
-// Деньги: рубли и копейки раздельно (в формах они в разных группах клеток).
-const rubKop = (n) => {
-  const v = Math.max(0, Number(n) || 0);
-  return { rub: String(Math.trunc(v)), kop: String(Math.round((v % 1) * 100)).padStart(2, "0") };
-};
-
-// «Перо» одной страницы: печать символов по знакоместам.
-function makePen(page, font) {
-  const put = (ch, x, y) => {
-    const w = font.widthOfTextAtSize(ch, SIZE);
-    page.drawText(ch, { x: x + (CELL - w) / 2, y: y + 4.9, size: SIZE, font, color: BLACK });
-  };
-  return {
-    // Текст слева направо (коды, ИНН, КБК, ФИО и т.п.), капсом — как в форме.
-    left(text, x, y, n) {
-      const chars = [...String(text ?? "").toUpperCase()].slice(0, n);
-      chars.forEach((ch, i) => ch !== " " && put(ch, x + i * CELL, y));
-    },
-    // Числа с выравниванием по правому знакоместу (порядок заполнения ФНС
-    // для программной печати).
-    right(text, x, y, n) {
-      const chars = [...String(text ?? "")].slice(-n);
-      const off = n - chars.length;
-      chars.forEach((ch, i) => ch !== " " && put(ch, x + (off + i) * CELL, y));
-    },
-    // Сумма «руб . коп»: рубли вправо к напечатанной в бланке точке,
-    // копейки — в две клетки за ней (слот точки шириной в одну клетку).
-    money(n, x, y, rubCells) {
-      const { rub, kop } = rubKop(n);
-      this.right(rub, x, y, rubCells);
-      this.left(kop, x + (rubCells + 1) * CELL, y, 2);
-    },
-    // Целые рубли без копеечной части.
-    int(n, x, y, cells) {
-      this.right(String(Math.max(0, Math.round(Number(n) || 0))), x, y, cells);
-    },
-    // Дата дд.мм.гггг: группы 2/2/4 клетки, между ними слоты под точки.
-    date(iso, x, y) {
-      if (!iso) return;
-      const [Y, M, D] = String(iso).split("-");
-      if (!Y || !M || !D) return;
-      this.left(D, x, y, 2);
-      this.left(M, x + 3 * CELL, y, 2);
-      this.left(Y, x + 6 * CELL, y, 4);
-    },
-    // Обычный текст вне знакомест (фамилия и инициалы в шапке листов).
-    text(str, x, y, size = SIZE) {
-      page.drawText(String(str), { x, y, size, font, color: BLACK });
-    },
-  };
-}
-
-// Длинный текст по рядам клеток (наименование источника, адрес объекта).
-function fillRows(pen, text, x, rowsY, cellsPerRow) {
-  const up = String(text || "").toUpperCase().replace(/\s+/g, " ").trim();
-  let rest = up;
-  for (const y of rowsY) {
-    if (!rest) break;
-    pen.left(rest.slice(0, cellsPerRow), x, y, cellsPerRow);
-    rest = rest.slice(cellsPerRow).trimStart();
-  }
-}
-
-const chunk = (arr, size) => {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-};
-
 export async function buildOfficialPdf2025(model) {
-  const [blankBytes, monoBytes] = await loadAssets();
-  const doc = await PDFDocument.create();
-  doc.registerFontkit(fontkit);
-  const mono = await doc.embedFont(monoBytes, { subset: true });
-
   const { person, calc } = model;
   const ap = calc.applied;
 
-  // --- Состав листов ---------------------------------------------------------
   const sheets = [
     { tpl: PG.title, fill: fillTitle },
     { tpl: PG.r1, fill: fillR1 },
@@ -128,28 +28,7 @@ export async function buildOfficialPdf2025(model) {
   if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   const total = sheets.length;
 
-  // Каждый уникальный лист бланка встраивается один раз и переиспользуется.
-  const uniq = [...new Set(sheets.map((s) => s.tpl))];
-  const embedded = await doc.embedPdf(blankBytes, uniq);
-  const tplPage = new Map(uniq.map((idx, i) => [idx, embedded[i]]));
-
-  sheets.forEach((sheet, i) => {
-    const page = doc.addPage(A4);
-    page.drawPage(tplPage.get(sheet.tpl));
-    const pen = makePen(page, mono);
-    // Шапка каждого листа: ИНН; со 2-го листа — номер страницы (на титуле
-    // «001» предпечатан в бланке) и «Фамилия И. О.» на линиях.
-    pen.left(person.inn, 184.5, 810, 12);
-    if (i > 0) {
-      pen.left(String(i + 1).padStart(3, "0"), 340.4, 788, 3);
-      pen.text((person.lastName || "").toUpperCase(), 103, 764.5, 10);
-      if (person.firstName) pen.text(person.firstName[0].toUpperCase() + ".", 472, 764.5, 10);
-      if (person.middleName) pen.text(person.middleName[0].toUpperCase() + ".", 529, 764.5, 10);
-    }
-    sheet.fill(pen);
-  });
-
-  return doc.save();
+  return assembleOnBlank({ blankUrl, person, sheets });
 
   // --- Титульный лист --------------------------------------------------------
   function fillTitle(pen) {
