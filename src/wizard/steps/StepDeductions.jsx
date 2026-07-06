@@ -35,7 +35,8 @@ export default function StepDeductions({ errors }) {
           <Hint text={HINTS.year} />
         </label>
         <div className="calc__types">
-          {YEARS.map((y) => (
+          {/* по возрастанию: 2022 → 2025 (в YEARS годы от свежего к старому) */}
+          {[...YEARS].reverse().map((y) => (
             <button
               key={y}
               type="button"
