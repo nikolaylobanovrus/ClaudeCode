@@ -3,6 +3,7 @@ import { Outlet, useLocation, Link } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Footer from "./Footer.jsx";
 import CookieBanner from "./CookieBanner.jsx";
+import ChatWidget from "./ChatWidget.jsx";
 import { company } from "../data/content.js";
 
 export default function Layout() {
@@ -20,6 +21,8 @@ export default function Layout() {
       </main>
       <Footer />
       <CookieBanner />
+      {/* Чат помощи — на всех страницах, кроме служебной операторской */}
+      {pathname !== "/operator" && <ChatWidget />}
 
       {/* Липкая мобильная панель конверсии (на странице документов — своя) */}
       {!pathname.startsWith("/situaciya") && (
