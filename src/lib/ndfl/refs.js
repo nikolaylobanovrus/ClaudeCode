@@ -71,3 +71,50 @@ export const CODES = {
   incomeKind: "10", // код вида дохода (Раздел 2 / Приложение 1) — по трудовым договорам и пр.
   accountKind: "02", // вид счёта в заявлении о возврате — текущий
 };
+
+// --- Приложение 7: справочники строк 010/020/030 -----------------------------
+// Значения сверены с официальными XSD ФНС (docs/fns-schemas): перечисления
+// КодНаимОб, ПризнакНП и СпособПриобр по каждому году.
+
+// Вид объекта (строка 010, КодНаимОб). В анкете храним смысл (value),
+// код формы зависит от года: 2022/2023 — коды 1–7; в форме за 2024 год
+// нет кода 7 («дом с участком» указывается кодом 6); в форме за 2025 год
+// нет кода 4 — доля перенумерована в код 8.
+export const PROPERTY_OBJECTS = [
+  { value: "flat", label: "Квартира" },
+  { value: "house", label: "Жилой дом" },
+  { value: "room", label: "Комната" },
+  { value: "share", label: "Доля в квартире, доме или комнате" },
+  { value: "land", label: "Земельный участок под строительство (ИЖС)" },
+  { value: "landHouse", label: "Земельный участок с купленным домом" },
+  { value: "houseLand", label: "Жилой дом вместе с земельным участком" },
+];
+const OBJECT_CODES = {
+  house: "1", flat: "2", room: "3", share: "4",
+  land: "5", landHouse: "6", houseLand: "7",
+};
+export function propertyObjectCode(kind, year) {
+  const k = kind in OBJECT_CODES ? kind : "flat";
+  if (year >= 2025 && k === "share") return "8";
+  if (year === 2024 && k === "houseLand") return "6";
+  return OBJECT_CODES[k];
+}
+
+// Строка 030 «Способ приобретения жилого дома» заполняется только для домов.
+export const propertyIsHouse = (kind) => kind === "house" || kind === "houseLand";
+
+// Признак налогоплательщика (строка 020, ПризнакНП). Пары «обычный/пенсионер»:
+// второй код — то же лицо, заявляющее перенос остатка вычета на прошлые годы
+// (п. 10 ст. 220 НК, доступно пенсионерам). Пары соответствуют порядку
+// перечисления в XSD: 01/11, 02/12, 03/13, 04/14, 23/24.
+export const PROPERTY_OWNERS = [
+  { value: "self", label: "Я (собственник)", code: "01", pensionerCode: "11" },
+  { value: "spouse", label: "Мой супруг / моя супруга", code: "02", pensionerCode: "12" },
+  { value: "child", label: "Мой несовершеннолетний ребёнок", code: "03", pensionerCode: "13" },
+  { value: "meChild", label: "Я и мой ребёнок (долевая собственность)", code: "04", pensionerCode: "14" },
+  { value: "spouseChild", label: "Супруг(а) и мой ребёнок (долевая)", code: "23", pensionerCode: "24" },
+];
+export function propertySignCode(owner, pensioner) {
+  const o = PROPERTY_OWNERS.find((x) => x.value === owner) || PROPERTY_OWNERS[0];
+  return pensioner ? o.pensionerCode : o.code;
+}

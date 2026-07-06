@@ -2364,6 +2364,24 @@ h4 {
   gap: 8px;
   margin-bottom: 8px;
 }
+/* Строка с чекбоксом (пенсионер, перенос вычета) */
+.wiz__checkline {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 14px;
+  font-size: 14.5px;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.wiz__checkline input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--blue-600);
+  flex: none;
+  cursor: pointer;
+}
 .wiz__child input {
   max-width: 220px;
 }

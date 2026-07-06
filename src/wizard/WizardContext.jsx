@@ -30,6 +30,10 @@ export function initialDraft() {
     },
     incomes: [emptyIncome()],
     property: {
+      objectKind: "flat", // вид объекта (строка 010 Приложения 7)
+      owner: "self", // кто собственник (строка 020, признак налогоплательщика)
+      pensioner: false, // перенос вычета на прошлые годы (п. 10 ст. 220 НК)
+      buildMethod: "bought", // для домов: построили или купили (строка 030)
       address: "",
       cadastral: "",
       cost: "",

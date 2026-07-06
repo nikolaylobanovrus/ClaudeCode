@@ -52,7 +52,7 @@ const MAP_22_23 = {
   },
   app5b: { 130: 696, 140: 666, 160: 491, 180: 347, 190: 276, 200: 247, 210: 204 },
   app7: {
-    obj: [159.0, 705], sign: [357.4, 705], numCode: [468.0, 682],
+    obj: [159.0, 705], sign: [357.4, 705], numCode: [468.0, 682], build: [227.0, 682],
     cadastralY: [652, 631], addressY: [594, 571, 548, 525, 502, 478, 455],
     dateAct: [122.2, 430], dateReg: [439.7, 430],
     x: 425.5, cost: 370, interest: 342, prior: 309, priorInt: 285,
@@ -95,7 +95,7 @@ const MAPS = {
     app5b: { 140: 716, 160: 550, 180: 411, 190: 317, 200: 288, 210: 242 },
     // Приложение 7 формы 757@ свёрстано как в 913@ (сверено по сеткам).
     app7: {
-      obj: [156.2, 699], sign: [354.6, 699],
+      obj: [156.2, 699], sign: [354.6, 699], build: [354.6, 674],
       cadastralY: [646], addressY: [610, 586, 563, 540, 517, 493, 470],
       dateAct: [425.5, 445], dateReg: [425.5, 421],
       x: 425.5, cost: 396, interest: 369, prior: 336, priorInt: 312,
@@ -226,8 +226,9 @@ export async function buildOfficialPdfLegacy(model) {
   // --- Приложение 7: имущественный вычет -------------------------------------------
   function fillApp7(pen) {
     const pr = model.property, A = M.app7;
-    pen.left("2", ...A.obj, 1); // 010 объект — квартира
-    pen.left("01", ...A.sign, 2); // 020 признак — собственник
+    pen.left(pr.codes.object, ...A.obj, 1); // 010 код наименования объекта
+    pen.left(pr.codes.sign, ...A.sign, 2); // 020 признак налогоплательщика
+    if (pr.codes.build) pen.left(pr.codes.build, ...A.build, 1); // 030 способ (дом)
     if (A.numCode) {
       // 2022/2023: 031 код номера объекта (1 — кадастровый, 2 — нет номера)
       pen.left(pr.cadastral ? "1" : "2", ...A.numCode, 1);

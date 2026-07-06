@@ -132,8 +132,9 @@ export async function buildOfficialPdf2025(model) {
   // --- Приложение 7: имущественный вычет ---------------------------------------
   function fillApp7(pen) {
     const pr = model.property;
-    pen.left("2", 156.2, 699, 1); // 010 объект — квартира
-    pen.left("01", 354.6, 699, 2); // 020 признак — собственник
+    pen.left(pr.codes.object, 156.2, 699, 1); // 010 код наименования объекта
+    pen.left(pr.codes.sign, 354.6, 699, 2); // 020 признак налогоплательщика
+    if (pr.codes.build) pen.left(pr.codes.build, 354.6, 674, 1); // 030 способ (дом)
     if (pr.cadastral) pen.left(pr.cadastral, 14.5, 646, 40); // 032 кадастровый №
     else fillRows(pen, pr.address, 14.5, [610, 586, 563, 540, 517, 493, 470], 40); // 033
     pen.date(pr.dateAct, 425.5, 445); // 040 дата акта о передаче

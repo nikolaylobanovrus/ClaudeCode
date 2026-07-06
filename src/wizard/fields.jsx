@@ -81,3 +81,21 @@ export function DateInput({ value, onChange, error, ...rest }) {
     />
   );
 }
+
+// Выпадающий список: options = [{ value, label }].
+export function SelectInput({ value, onChange, options, error, ...rest }) {
+  return (
+    <select
+      className={error ? "is-error" : ""}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      {...rest}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}

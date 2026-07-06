@@ -2,8 +2,13 @@
 // выбранных на шаге 1 ситуаций.
 import { useWizard } from "../WizardContext.jsx";
 import { HINTS } from "../../data/wizard.js";
-import { Field, TextInput, MoneyInput, DateInput } from "../fields.jsx";
-import { yearRules } from "../../lib/ndfl/refs.js";
+import { Field, TextInput, MoneyInput, DateInput, SelectInput, Hint } from "../fields.jsx";
+import {
+  yearRules,
+  PROPERTY_OBJECTS,
+  PROPERTY_OWNERS,
+  propertyIsHouse,
+} from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
 
 export default function StepDetails({ errors }) {
@@ -16,6 +21,59 @@ export default function StepDetails({ errors }) {
       {(has("kvartira") || has("ipoteka")) && (
         <section className="wiz__block">
           <h3 className="wiz__subhead">🏠 Жильё</h3>
+          <div className="wiz__row">
+            <Field label="Что купили" hint={HINTS.objectKind}>
+              <SelectInput
+                value={draft.property.objectKind || "flat"}
+                options={PROPERTY_OBJECTS}
+                onChange={(v) => setP({ objectKind: v })}
+              />
+            </Field>
+            <Field label="Кто собственник по документам" hint={HINTS.owner}>
+              <SelectInput
+                value={draft.property.owner || "self"}
+                options={PROPERTY_OWNERS}
+                onChange={(v) => setP({ owner: v })}
+              />
+            </Field>
+          </div>
+          {propertyIsHouse(draft.property.objectKind) && (
+            <div className="form__field">
+              <label>
+                Как приобрели дом
+                <Hint text={HINTS.buildMethod} />
+              </label>
+              <div className="calc__types">
+                {[
+                  { v: "bought", t: "Купили готовый" },
+                  { v: "new", t: "Построили (новое строительство)" },
+                ].map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    className={
+                      "calc__chip" +
+                      ((draft.property.buildMethod || "bought") === o.v ? " is-active" : "")
+                    }
+                    onClick={() => setP({ buildMethod: o.v })}
+                  >
+                    {o.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <label className="wiz__checkline">
+            <input
+              type="checkbox"
+              checked={Boolean(draft.property.pensioner)}
+              onChange={(e) => setP({ pensioner: e.target.checked })}
+            />
+            <span>
+              Я пенсионер и заявляю вычет с переносом на прошлые годы
+              <Hint text={HINTS.pensioner} />
+            </span>
+          </label>
           <Field label="Адрес объекта" error={errors["property.address"]}>
             <TextInput value={draft.property.address} error={errors["property.address"]}
               placeholder="г. Москва, ул. Ленина, д. 1, кв. 2"

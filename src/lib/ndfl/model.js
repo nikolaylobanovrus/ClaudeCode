@@ -2,7 +2,14 @@
 // питает PDF (pdf3ndfl.js, zayavlenie.js) и XML (xml3ndfl.js) — так данные
 // в документах гарантированно совпадают.
 import { computeDeclaration } from "./calc.js";
-import { CODES, KBK, RATE } from "./refs.js";
+import {
+  CODES,
+  KBK,
+  RATE,
+  propertyObjectCode,
+  propertySignCode,
+  propertyIsHouse,
+} from "./refs.js";
 import { digits } from "../format.js";
 
 const trim = (s) => String(s || "").trim();
@@ -76,6 +83,19 @@ export function buildDeclarationModel(draft) {
             priorDeduction: num(pr.priorDeduction),
             priorInterest: num(pr.priorInterest),
             interestPaid: num(pr.interestPaid),
+            // Коды Приложения 7 (строки 010/020/030). Значения из анкеты
+            // семантические; номер кода зависит от года формы. Черновики,
+            // созданные до появления этих полей, получают прежние значения
+            // по умолчанию: квартира, собственник — сам налогоплательщик.
+            codes: {
+              object: propertyObjectCode(pr.objectKind || "flat", draft.year),
+              sign: propertySignCode(pr.owner || "self", Boolean(pr.pensioner)),
+              build: propertyIsHouse(pr.objectKind)
+                ? pr.buildMethod === "new"
+                  ? "1"
+                  : "2"
+                : "",
+            },
           }
         : null,
     // Приложение 5 (социальные и ИИС)

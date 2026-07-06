@@ -235,19 +235,20 @@ export function buildDeclarationXml(model) {
                 el(
                   "СвОбъектРасх",
                   {
-                    КодНаимОб: "2",
-                    ПризнакНП: "01",
+                    КодНаимОб: pr.codes.object,
+                    ПризнакНП: pr.codes.sign,
                     // Дата регистрации права появилась в СвОбъектРасх с 2024 года.
                     ДатаРегОб: !isOld && pr.dateReg ? dateRu(pr.dateReg) : undefined,
                     СумРасхФакт: pr.cost > 0 ? kop2(Math.min(pr.cost, 2_000_000)) : undefined,
                     СумФактУплПроц: pr.interestPaid > 0 ? kop2(pr.interestPaid) : undefined,
                   },
                   el("СведОбъект", {
-                    // До 2024 объект задаётся кодом номера + номером; с 2024 —
-                    // способом приобретения + номером.
+                    // До 2024 объект задаётся кодом номера + номером.
                     КодНомерОб: isOld ? (pr.cadastral ? "1" : "4") : undefined,
                     НомерОб: pr.cadastral || "0",
-                    СпособПриобр: isOld ? undefined : "1",
+                    // Способ приобретения — только для жилых домов (строка 030
+                    // формы); атрибут опционален в схемах всех лет.
+                    СпособПриобр: pr.codes.build || undefined,
                   })
                 )
               )
