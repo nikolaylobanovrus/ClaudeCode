@@ -1,11 +1,17 @@
 // Шаг 7: оплата услуги. Документы откроются автоматически после оплаты —
 // шаг опрашивает статус заказа в базе (без действий оператора).
+//
+// Оплата привязана к содержимому анкеты (draftHash): одна оплата — один
+// комплект документов для одного состояния данных. Изменение года или
+// любых полей после оплаты требует новой оплаты; возврат тех же данных
+// снова открывает уже оплаченный комплект (purchases в черновике).
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
 import { selfService } from "../../data/content.js";
 import { getAccount } from "../../lib/account.js";
 import { fmtRub } from "../../lib/format.js";
+import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
 import {
   createOrder,
   payMockOrder,
@@ -17,16 +23,50 @@ export default function StepPayment({ onPaid }) {
   const { draft, dispatch, flushDraft } = useWizard();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [hash, setHash] = useState(null); // null = ещё считается
   const order = draft.order;
-  const paid = order?.status === "paid";
   const canceled = order?.status === "canceled";
+
+  // Хеш текущей анкеты (асинхронный — до готовности ничего не решаем).
+  useEffect(() => {
+    let alive = true;
+    computeDraftHash(draft).then((h) => alive && setHash(h));
+    return () => {
+      alive = false;
+    };
+  }, [draft]);
+
+  const purchase = findPurchase(draft, hash);
+  const paidOrder = order?.status === "paid";
+
+  // Заказ оплачен (поллинг или возврат с ЮKassa) → фиксируем покупку.
+  // Хеш и снимок данных записаны в заказ при его создании — покупка всегда
+  // соответствует данным, за которые клиент реально заплатил, даже если
+  // анкету успели изменить, пока шла оплата.
+  useEffect(() => {
+    if (!paidOrder || hash === null) return;
+    dispatch({
+      type: "ADD_PURCHASE",
+      purchase: {
+        id: order.id,
+        provider: order.provider,
+        // status нужен fetchOrderStatus для local-заказов (без базы);
+        // для mock/yookassa статус всё равно перепроверяется в базе.
+        status: "paid",
+        amount: order.amount,
+        paidAt: new Date().toISOString(),
+        draftHash: order.draftHash || hash,
+        snapshot: order.snapshot || draftSnapshot(draft),
+      },
+    });
+  }, [paidOrder, hash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Поллинг статуса: после редиректа с ЮKassa (или в соседней вкладке)
   // заказ становится paid — открываем документы автоматически.
   // paid и canceled — терминальные статусы, дальше не опрашиваем.
   const timer = useRef(0);
   useEffect(() => {
-    if (!order || paid || canceled || order.provider === "local") return undefined;
+    if (!order || paidOrder || canceled || order.provider === "local") return undefined;
     let alive = true;
     const tick = async () => {
       try {
@@ -49,36 +89,59 @@ export default function StepPayment({ onPaid }) {
   }, [order?.id, order?.status]);
 
   const start = async () => {
+    if (hash === null) return; // хеш ещё считается
     setBusy(true);
     setError("");
     try {
-      // Незавершённый платёж ЮKassa: снова открываем ту же платёжную
-      // страницу, а не создаём дубль заказа.
-      if (order?.provider === "yookassa" && order.status === "waiting" && order.confirmationUrl) {
+      let current = order;
+      // Существующий заказ создан для других данных — он недействителен.
+      if (current && current.draftHash && current.draftHash !== hash) {
+        if (
+          current.provider === "yookassa" &&
+          current.status === "waiting" &&
+          !window.confirm(
+            "Данные анкеты изменились. Прежний неоплаченный счёт станет недействительным — не оплачивайте его. Создать новый счёт?"
+          )
+        ) {
+          setBusy(false);
+          return;
+        }
+        current = null;
+      }
+      // Незавершённый платёж ЮKassa с теми же данными: снова открываем ту же
+      // платёжную страницу, а не создаём дубль заказа.
+      if (
+        current?.provider === "yookassa" &&
+        current.status === "waiting" &&
+        current.confirmationUrl
+      ) {
         flushDraft();
-        window.location.href = order.confirmationUrl;
+        window.location.href = current.confirmationUrl;
         return;
       }
-      let current = order;
-      if (!current || current.status === "canceled") {
-        current = await createOrder(getAccount()?.id, {
+      if (!current || current.status === "canceled" || current.status === "paid") {
+        const created = await createOrder(getAccount()?.id, {
           phone: draft.personal.phone,
           email: getAccount()?.email,
         });
+        // Хеш и снимок анкеты фиксируются в заказе: оплата действует именно
+        // для этих данных, что бы ни происходило с черновиком дальше.
+        current = { ...created, draftHash: hash, snapshot: draftSnapshot(draft) };
         dispatch({ type: "SET_ORDER", order: current });
       }
       if (current.provider === "yookassa") {
         if (!current.confirmationUrl)
           throw new Error("платёжная страница не получена");
         // Черновик с id заказа должен лечь в localStorage ДО ухода со
-        // страницы — иначе возврат с оплаты не найдёт заказ.
-        flushDraft();
+        // страницы — иначе возврат с оплаты не найдёт заказ. Передаём заказ
+        // явно: диспатч мог ещё не отрендериться.
+        flushDraft({ order: current });
         window.location.href = current.confirmationUrl;
         return;
       }
       // Тестовый режим: имитируем успешную оплату.
-      const paidOrder = await payMockOrder(current);
-      dispatch({ type: "SET_ORDER", order: paidOrder });
+      const paidMock = await payMockOrder(current);
+      dispatch({ type: "SET_ORDER", order: paidMock });
     } catch (e) {
       setError(
         "Не получилось создать оплату. Проверьте интернет и попробуйте ещё раз." +
@@ -89,7 +152,13 @@ export default function StepPayment({ onPaid }) {
     }
   };
 
-  if (paid) {
+  // Хеш ещё считается — нейтральное состояние, чтобы не мигать плашками.
+  if (hash === null) {
+    return <p className="wiz__note">Проверяем оплату…</p>;
+  }
+
+  // Текущее состояние анкеты уже оплачено (покупка найдена по хешу).
+  if (purchase || (paidOrder && (order.draftHash || hash) === hash)) {
     return (
       <div>
         <div className="doc-note doc-note--ok">
@@ -102,7 +171,11 @@ export default function StepPayment({ onPaid }) {
     );
   }
 
-  const waiting = order?.provider === "yookassa" && order?.status === "waiting";
+  const waiting =
+    order?.provider === "yookassa" &&
+    order?.status === "waiting" &&
+    order?.draftHash === hash;
+  const changedAfterPayment = (draft.purchases || []).length > 0;
 
   return (
     <div>
@@ -110,6 +183,13 @@ export default function StepPayment({ onPaid }) {
         <div className="doc-note doc-note--err">
           Тестовый режим: оплата имитируется, деньги не списываются. Перед запуском
           рекламы подключим ЮKassa — кнопка останется той же.
+        </div>
+      )}
+      {changedAfterPayment && (
+        <div className="doc-note doc-note--err">
+          Анкета изменилась после оплаты. Каждая декларация — за один год и на
+          одного человека — оплачивается отдельно. Прежние оплаченные документы
+          останутся доступны, если вернуть прежние данные.
         </div>
       )}
       {canceled && (
@@ -121,7 +201,7 @@ export default function StepPayment({ onPaid }) {
       <div className="wiz__pay card">
         <h3 className="card__title">{selfService.name}</h3>
         <p className="card__text">{selfService.description}</p>
-        <div className="wiz__pay-price">{fmtRub(order?.amount ?? selfService.price)}</div>
+        <div className="wiz__pay-price">{fmtRub(selfService.price)}</div>
         <button
           type="button"
           className="btn btn--primary btn--lg btn--block"
@@ -142,6 +222,11 @@ export default function StepPayment({ onPaid }) {
           </p>
         )}
         {error && <div className="form__error">{error}</div>}
+        <p className="wiz__note">
+          Оплата действует для текущих данных анкеты: одна декларация — один год,
+          один человек. Изменение данных после оплаты — новая декларация и новая
+          оплата.
+        </p>
       </div>
 
       <p className="wiz__note">

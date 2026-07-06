@@ -4,14 +4,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWizard } from "../WizardContext.jsx";
 import { fetchOrderStatus } from "../../lib/payments.js";
+import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
 
 const PDF_MIME = "application/pdf";
 
 export default function StepDocuments({ onUnpaid }) {
-  const { draft } = useWizard();
+  const { draft, dispatch } = useWizard();
   const [docs, setDocs] = useState(null); // [{key,title,note,filename,bytes,mime,beta}]
-  const [state, setState] = useState("checking"); // checking | building | ready | denied | error
+  // denied — оплаты нет; changed — анкета изменилась после оплаты
+  const [state, setState] = useState("checking"); // checking | building | ready | denied | changed | error
   const [shareOk, setShareOk] = useState(null);
 
   // File-объекты создаются один раз: new File копирует мегабайтные буферы,
@@ -28,9 +30,19 @@ export default function StepDocuments({ onUnpaid }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      // 1. Серверная проверка оплаты (localStorage не доверяем).
+      // 1. Покупка для ТЕКУЩЕГО состояния анкеты: оплата привязана к данным
+      // (draftHash). Изменение года или полей после оплаты = другая
+      // декларация = отдельная оплата.
+      const hash = await computeDraftHash(draft);
+      if (!alive) return;
+      const purchase = findPurchase(draft, hash);
+      if (!purchase) {
+        setState((draft.purchases || []).length ? "changed" : "denied");
+        return;
+      }
+      // 2. Серверная проверка оплаты (localStorage не доверяем).
       try {
-        const status = await fetchOrderStatus(draft.order);
+        const status = await fetchOrderStatus(purchase);
         if (!alive) return;
         if (status !== "paid") {
           setState("denied");
@@ -41,7 +53,9 @@ export default function StepDocuments({ onUnpaid }) {
         setState("denied");
         return;
       }
-      // 2. Генерация всех трёх документов в браузере.
+      // 3. Генерация всех трёх документов в браузере — из СНИМКА данных,
+      // за которые заплачено (совпадает с текущей анкетой по хешу).
+      const source = purchase.snapshot || draft;
       setState("building");
       try {
         const [{ buildDeclarationModel }, { buildDeclarationPdf }, { buildRefundApplicationPdf }, { buildDeclarationXml }] =
@@ -51,7 +65,7 @@ export default function StepDocuments({ onUnpaid }) {
             import("../../lib/ndfl/zayavlenie.js"),
             import("../../lib/ndfl/xml3ndfl.js"),
           ]);
-        const model = buildDeclarationModel(draft);
+        const model = buildDeclarationModel(source);
         const [declPdf, appPdf] = await Promise.all([
           buildDeclarationPdf(model),
           buildRefundApplicationPdf(model),
@@ -61,10 +75,10 @@ export default function StepDocuments({ onUnpaid }) {
         setDocs([
           {
             key: "decl",
-            title: `Декларация 3-НДФЛ за ${draft.year} год`,
+            title: `Декларация 3-НДФЛ за ${source.year} год`,
             note:
               "Напечатана на официальном бланке ФНС за выбранный год — как из программы налоговой. Заявление о возврате уже внутри (Приложение к Разделу 1).",
-            filename: `Декларация 3-НДФЛ ${draft.year}.pdf`,
+            filename: `Декларация 3-НДФЛ ${source.year}.pdf`,
             bytes: declPdf,
             mime: PDF_MIME,
           },
@@ -82,7 +96,7 @@ export default function StepDocuments({ onUnpaid }) {
             key: "app",
             title: "Заявление на возврат налога",
             note: "Понадобится, если налоговая попросит отдельное заявление после проверки декларации.",
-            filename: `Заявление на возврат ${draft.year}.pdf`,
+            filename: `Заявление на возврат ${source.year}.pdf`,
             bytes: appPdf,
             mime: PDF_MIME,
           },
@@ -111,6 +125,19 @@ export default function StepDocuments({ onUnpaid }) {
         </div>
         <button type="button" className="btn btn--ghost" onClick={onUnpaid}>
           ← К оплате
+        </button>
+      </div>
+    );
+  if (state === "changed")
+    return (
+      <div>
+        <div className="doc-note doc-note--err">
+          Анкета изменилась после оплаты. Каждая декларация — за один год и на
+          одного человека — оплачивается отдельно. Верните прежние данные, чтобы
+          снова открыть оплаченные документы, или оплатите новую декларацию.
+        </div>
+        <button type="button" className="btn btn--primary" onClick={onUnpaid}>
+          Оплатить новую декларацию
         </button>
       </div>
     );
@@ -205,6 +232,20 @@ export default function StepDocuments({ onUnpaid }) {
         <li>Подпишите неквалифицированной ЭП (создаётся там же) и отправьте.</li>
         <li>Возврат придёт на ваш счёт после камеральной проверки — до 3 месяцев.</li>
       </ol>
+
+      <div className="doc-actions" style={{ marginTop: 18 }}>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => dispatch({ type: "RESET_KEEP_PERSONAL" })}
+        >
+          Заполнить ещё одну декларацию — за другой год или с новыми данными
+        </button>
+      </div>
+      <p className="wiz__note">
+        Каждая декларация оплачивается отдельно. Ваши личные данные и счёт
+        сохранятся, анкета начнётся заново.
+      </p>
     </div>
   );
 }

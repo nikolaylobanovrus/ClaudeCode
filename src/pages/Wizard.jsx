@@ -37,11 +37,35 @@ function WizardBody() {
       if (preselect) dispatch({ type: "TOGGLE_TYPE", slug: preselect });
       return;
     }
+    // Легаси-черновики: paid-заказ времён до появления покупок превращаем
+    // в покупку со снимком сохранённых данных — оплаченное не пропадает.
+    if (saved.order?.status === "paid" && !(saved.purchases || []).length) {
+      import("../lib/draftHash.js").then(async ({ computeDraftHash, draftSnapshot }) => {
+        const hash = await computeDraftHash(saved);
+        dispatch({
+          type: "ADD_PURCHASE",
+          purchase: {
+            id: saved.order.id,
+            provider: saved.order.provider,
+            amount: saved.order.amount,
+            paidAt: saved.savedAt || null,
+            draftHash: hash,
+            snapshot: draftSnapshot(saved),
+          },
+        });
+      });
+    }
     savedRef.current = saved;
     if (returnedOrderId && saved.order?.id === returnedOrderId) {
       // Вернулись с оплаты: сразу на шаг оплаты, поллинг подтвердит платёж
       // и автоматически откроет документы.
       dispatch({ type: "RESTORE", draft: { ...saved, step: PAYMENT_STEP } });
+      return;
+    }
+    // Черновик с оплаченным содержимым восстанавливаем сразу: случайная
+    // правка пустой анкеты под баннером затёрла бы оплаченный доступ.
+    if ((saved.purchases || []).length || saved.order?.status === "paid") {
+      dispatch({ type: "RESTORE", draft: saved });
       return;
     }
     if (saved.types?.length || saved.personal?.lastName) {

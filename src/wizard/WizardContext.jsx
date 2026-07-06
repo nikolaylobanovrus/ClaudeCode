@@ -48,7 +48,11 @@ export function initialDraft() {
     iis: { contribution: "" },
     insurance: { amount: "" },
     bank: { bik: "", account: "" },
-    order: null, // { id, provider, amount, status, confirmationUrl? }
+    order: null, // { id, provider, amount, status, confirmationUrl?, draftHash? }
+    // Оплаченные комплекты: { id, provider, amount, paidAt, draftHash, snapshot }.
+    // Одна оплата = один комплект для одного состояния анкеты (draftHash);
+    // snapshot — данные анкеты на момент оплаты, из него генерируются документы.
+    purchases: [],
   };
 }
 
@@ -112,8 +116,28 @@ function reducer(state, action) {
       return { ...state, step: action.step };
     case "SET_ORDER":
       return { ...state, order: action.order };
+    // Оплата подтверждена: заказ становится покупкой (со снимком данных),
+    // поле order освобождается под следующий заказ.
+    case "ADD_PURCHASE": {
+      const exists = (state.purchases || []).some((p) => p.id === action.purchase.id);
+      return {
+        ...state,
+        order: null,
+        purchases: exists ? state.purchases : [...(state.purchases || []), action.purchase],
+      };
+    }
+    // Покупки переживают сброс: клиент не должен потерять оплаченное.
     case "RESET":
-      return initialDraft();
+      return { ...initialDraft(), purchases: state.purchases || [] };
+    // «Заполнить ещё одну декларацию»: личные данные и счёт остаются,
+    // остальное — с чистого листа (другой год/новые данные = новая оплата).
+    case "RESET_KEEP_PERSONAL":
+      return {
+        ...initialDraft(),
+        personal: state.personal,
+        bank: state.bank,
+        purchases: state.purchases || [],
+      };
     case "RESTORE":
       return action.draft;
     default:
@@ -127,6 +151,7 @@ export function loadDraft() {
     if (!raw) return null;
     const draft = JSON.parse(raw);
     if (draft?.v !== 1) return null;
+    if (!Array.isArray(draft.purchases)) draft.purchases = [];
     return draft;
   } catch {
     return null;
@@ -188,8 +213,15 @@ export function WizardProvider({ children }) {
     return () => window.removeEventListener("pagehide", flushOnLeave);
   }, []);
 
+  // flushDraft(patch) — немедленная запись; patch применяется поверх
+  // актуального состояния (диспатч мог ещё не отрендериться — например,
+  // SET_ORDER перед редиректом на страницу оплаты).
   const value = useMemo(
-    () => ({ draft, dispatch, flushDraft: () => persist(latest.current) }),
+    () => ({
+      draft,
+      dispatch,
+      flushDraft: (patch) => persist({ ...latest.current, ...(patch || {}) }),
+    }),
     [draft]
   );
   return <WizardCtx.Provider value={value}>{children}</WizardCtx.Provider>;

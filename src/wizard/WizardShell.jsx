@@ -32,7 +32,11 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const [errors, setErrors] = useState({});
   const step = STEPS[draft.step] || STEPS[0];
   const Step = COMPONENTS[step.key];
-  const paid = draft.order?.status === "paid";
+  // Для навигации «оплачено» = есть хоть одна покупка или оплаченный заказ.
+  // Соответствие покупки ТЕКУЩИМ данным проверяют сами шаги (по хешу анкеты):
+  // если данные изменились, шаг «Документы» объяснит и отправит к оплате.
+  const paid =
+    draft.order?.status === "paid" || (draft.purchases || []).length > 0;
 
   const calc = useMemo(() => computeDeclaration(draft), [draft]);
 
