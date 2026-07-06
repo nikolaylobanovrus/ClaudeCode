@@ -6,15 +6,22 @@ import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
 
 // Подпись о сроке возврата под выбором года: возврат возможен за три
-// последних года, за более старые налоговая откажет.
-function yearNote(year) {
+// последних года, за более старые налоговая откажет. Для пенсионера с
+// переносом имущественного вычета (п. 10 ст. 220 НК) — не ошибка.
+function yearNote(year, pensionerTransfer) {
   const nowYear = new Date().getFullYear();
   const deadline = refundDeadlineYear(year);
-  if (nowYear > deadline)
+  if (nowYear > deadline) {
+    if (pensionerTransfer)
+      return {
+        kind: "ok",
+        text: `Вы отметили, что вы пенсионер: возврат за ${year} год по имущественному вычету возможен — остаток переносится на прошлые годы (п. 10 ст. 220 НК).`,
+      };
     return {
       kind: "err",
-      text: `Срок возврата за ${year} год истёк — вернуть налог можно только за три последних года. Исключение: пенсионеры по имущественному вычету.`,
+      text: `Срок возврата за ${year} год истёк — вернуть налог можно только за три последних года. Исключение: пенсионеры по имущественному вычету (отметка «Я пенсионер» — дальше, на шаге «Расходы»).`,
     };
+  }
   if (nowYear === deadline)
     return {
       kind: "ok",
@@ -25,7 +32,10 @@ function yearNote(year) {
 
 export default function StepDeductions({ errors }) {
   const { draft, dispatch } = useWizard();
-  const note = yearNote(draft.year);
+  const pensionerTransfer =
+    Boolean(draft.property?.pensioner) &&
+    (draft.types.includes("kvartira") || draft.types.includes("ipoteka"));
+  const note = yearNote(draft.year, pensionerTransfer);
 
   return (
     <div>
