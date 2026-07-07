@@ -26,6 +26,7 @@ import NotFound from "./pages/NotFound.jsx";
 // маркетинговые страницы.
 const SelfService = lazy(() => import("./pages/SelfService.jsx"));
 const SelfServiceTariffs = lazy(() => import("./pages/SelfServiceTariffs.jsx"));
+const SelfServiceContacts = lazy(() => import("./pages/SelfServiceContacts.jsx"));
 const Wizard = lazy(() => import("./pages/Wizard.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
 
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="operator" element={<Operator />} />
         <Route path="deklaraciya" element={lazyPage(<SelfService />)} />
         <Route path="deklaraciya/tarify" element={lazyPage(<SelfServiceTariffs />)} />
+        <Route path="deklaraciya/kontakty" element={lazyPage(<SelfServiceContacts />)} />
         <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />

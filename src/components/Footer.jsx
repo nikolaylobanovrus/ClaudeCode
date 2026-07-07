@@ -14,7 +14,7 @@ const SELF_SECTIONS = [
   { to: "/deklaraciya", scrollTo: "sd-vychety", label: "Виды вычетов" },
   { to: "/deklaraciya", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },
-  { to: "/deklaraciya/anketa", label: "Заполнить декларацию" },
+  { to: "/deklaraciya/kontakty", label: "Контакты" },
 ];
 
 export default function Footer() {
