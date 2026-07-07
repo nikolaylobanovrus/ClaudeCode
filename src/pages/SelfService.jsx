@@ -1,7 +1,8 @@
 // Лендинг услуги «Заполнить декларацию самому»: отдельная точка входа для
 // рекламы (Авито, директ) — свой оффер, цена и CTA, дизайн — общий с сайтом.
 // Сам мастер — на /deklaraciya/anketa.
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import Faq from "../components/Faq.jsx";
 import { company, selfService } from "../data/content.js";
@@ -59,6 +60,21 @@ const WIZARD_FAQ = [
 ];
 
 export default function SelfService() {
+  // Переход из шапки авто-вычета на пункт-секцию («Виды вычетов», «Как
+  // работаем») с другой страницы раздела: прокручиваем к нужной секции
+  // после загрузки лендинга (id передан в state роутера).
+  const { state } = useLocation();
+  useEffect(() => {
+    const id = state?.scrollTo;
+    if (!id) return;
+    // rAF ×2: даём Layout выполнить свой scrollTo(0,0) и странице отрендериться.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      })
+    );
+  }, [state]);
+
   const jsonLd = [
     {
       "@context": "https://schema.org",
@@ -137,7 +153,7 @@ export default function SelfService() {
       </section>
 
       {/* Какие вычеты */}
-      <section className="section">
+      <section className="section" id="sd-vychety">
         <div className="container">
           <div className="section__head">
             <span className="eyebrow">Подходит для</span>
@@ -174,7 +190,7 @@ export default function SelfService() {
       </section>
 
       {/* Как это работает */}
-      <section className="section section--muted">
+      <section className="section section--muted" id="sd-kak-rabotaem">
         <div className="container">
           <div className="section__head">
             <span className="eyebrow">Как это работает</span>

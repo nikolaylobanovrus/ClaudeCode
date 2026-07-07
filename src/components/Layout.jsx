@@ -24,15 +24,22 @@ export default function Layout() {
       {/* Чат помощи — на всех страницах, кроме служебной операторской */}
       {pathname !== "/operator" && <ChatWidget />}
 
-      {/* Липкая мобильная панель конверсии (на странице документов — своя) */}
+      {/* Липкая мобильная панель конверсии (на странице документов — своя).
+          В разделе авто-вычета ведёт к заполнению, а не в основной сайт. */}
       {!pathname.startsWith("/situaciya") && (
         <div className="mobile-cta">
           <a href={`tel:${company.phoneRaw}`} className="btn btn--ghost">
             Позвонить
           </a>
-          <Link to="/kontakty" className="btn btn--primary">
-            Заявка
-          </Link>
+          {pathname.startsWith("/deklaraciya") ? (
+            <Link to="/deklaraciya/anketa" className="btn btn--primary">
+              Заполнить
+            </Link>
+          ) : (
+            <Link to="/kontakty" className="btn btn--primary">
+              Заявка
+            </Link>
+          )}
         </div>
       )}
     </div>
