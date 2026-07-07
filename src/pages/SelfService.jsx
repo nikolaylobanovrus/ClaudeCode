@@ -112,7 +112,7 @@ export default function SelfService() {
               <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
                 Начать заполнение
               </Link>
-              <Link to="/tarify" className="btn btn--light btn--lg">
+              <Link to="/deklaraciya/tarify" className="btn btn--light btn--lg">
                 Лучше сделайте за меня
               </Link>
             </div>
@@ -205,7 +205,7 @@ export default function SelfService() {
             </p>
           </div>
           <div className="section__head" style={{ margin: "0 auto" }}>
-            <Link to="/tarify" className="btn btn--primary btn--lg">
+            <Link to="/deklaraciya/tarify" className="btn btn--primary btn--lg">
               Посмотреть тарифы «под ключ»
             </Link>
           </div>
