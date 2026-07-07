@@ -117,6 +117,11 @@ export default function SelfServiceTariffs() {
                 >
                   Заказать
                 </button>
+                {/* Вторичный путь: клиент, который уже готов, регистрируется
+                    и сам загружает документы в личный кабинет. */}
+                <span className="tariff__alt">
+                  или <Link to="/registraciya">загрузить документы самому</Link>
+                </span>
               </div>
             ))}
           </div>
@@ -127,13 +132,40 @@ export default function SelfServiceTariffs() {
       <section className="section section--soft" ref={formRef}>
         <div className="container">
           <div className="section__head">
-            <span className="eyebrow">Заявка</span>
-            <h2 className="section__title">Оставьте заявку — сделаем всё сами</h2>
+            <span className="eyebrow">Как заказать</span>
+            <h2 className="section__title">Два способа доверить нам декларацию</h2>
             <p className="section__subtitle">
-              Перезвоним, уточним вашу ситуацию и подберём тариф. Консультация
-              бесплатна.
+              Оставьте заявку — и мы всё уточним, — или сразу загрузите
+              документы в личный кабинет, если готовы.
             </p>
           </div>
+
+          {/* Две дорожки: перезвоним ИЛИ клиент сам загружает документы. */}
+          <div className="order-ways">
+            <div className="order-way">
+              <div className="order-way__icon" aria-hidden="true">📞</div>
+              <div className="order-way__title">Оставьте заявку</div>
+              <p className="order-way__text">
+                Перезвоним, уточним вашу ситуацию, подберём тариф и подскажем,
+                какие документы нужны. Консультация бесплатна.
+              </p>
+              <button type="button" className="btn btn--green btn--block" onClick={toForm}>
+                Оставить заявку
+              </button>
+            </div>
+            <div className="order-way">
+              <div className="order-way__icon" aria-hidden="true">📎</div>
+              <div className="order-way__title">Уже готовы? Загрузите документы</div>
+              <p className="order-way__text">
+                Зарегистрируйтесь в личном кабинете и приложите справки и
+                договоры — специалист сразу возьмёт вашу декларацию в работу.
+              </p>
+              <Link to="/registraciya" className="btn btn--primary btn--block">
+                Загрузить документы
+              </Link>
+            </div>
+          </div>
+
           <div className="auth">
             <LeadForm title="Заявка на подготовку декларации" />
           </div>

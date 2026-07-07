@@ -666,6 +666,59 @@ h4 {
   font-weight: 800;
   flex-shrink: 0;
 }
+/* Мелкая вторичная ссылка под кнопкой «Заказать»: «уже готовы —
+   загрузите документы сами». Не конкурирует с основным CTA. */
+.tariff__alt {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--ink-500);
+}
+.tariff__alt a {
+  color: var(--blue-700);
+  font-weight: 600;
+}
+
+/* Две дорожки «как заказать» рядом с формой заявки: перезвоним ИЛИ
+   загрузите документы сами в кабинет. */
+.order-ways {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+  margin-bottom: 32px;
+}
+.order-way {
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 26px 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+.order-way__icon {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.order-way__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.order-way__text {
+  color: var(--ink-500);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .order-ways {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ============ Reviews ============ */
 .reviews {
