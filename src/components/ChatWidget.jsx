@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { company } from "../data/content.js";
+import { ymGoal } from "../lib/metrika.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
@@ -49,6 +50,7 @@ export default function ChatWidget() {
         }),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
+      ymGoal("chat_question");
       setSent(true);
     } catch {
       setError("Не удалось отправить. Напишите нам в мессенджер или позвоните.");
@@ -87,6 +89,7 @@ export default function ChatWidget() {
               href={company.telegram}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => ymGoal("chat_messenger", { messenger: "telegram" })}
             >
               Написать в Telegram
             </a>
@@ -96,6 +99,7 @@ export default function ChatWidget() {
             href={company.max}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => ymGoal("chat_messenger", { messenger: "max" })}
           >
             Написать в Max
           </a>
@@ -154,7 +158,7 @@ export default function ChatWidget() {
         className={"chatw__fab" + (open ? " is-open" : "")}
         aria-label={open ? "Закрыть чат помощи" : "Открыть чат помощи"}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((v) => { if (!v) ymGoal("chat_open"); return !v; })}
       >
         {open ? "✕" : "💬"}
       </button>

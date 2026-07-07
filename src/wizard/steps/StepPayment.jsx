@@ -20,6 +20,7 @@ import {
   isTestPayment,
 } from "../../lib/payments.js";
 import { getOperatorToken } from "../../lib/supabase.js";
+import { ymGoal } from "../../lib/metrika.js";
 
 export default function StepPayment({ onPaid }) {
   const { draft, dispatch, flushDraft } = useWizard();
@@ -47,6 +48,7 @@ export default function StepPayment({ onPaid }) {
   // анкету успели изменить, пока шла оплата.
   useEffect(() => {
     if (!paidOrder || hash === null) return;
+    if (order.provider !== "operator") ymGoal("wizard_paid", { amount: order.amount });
     dispatch({
       type: "ADD_PURCHASE",
       purchase: {
@@ -159,6 +161,7 @@ export default function StepPayment({ onPaid }) {
         // Хеш и снимок анкеты фиксируются в заказе: оплата действует именно
         // для этих данных, что бы ни происходило с черновиком дальше.
         current = { ...created, draftHash: hash, snapshot: draftSnapshot(draft) };
+        ymGoal("wizard_order", { provider: current.provider });
         dispatch({ type: "SET_ORDER", order: current });
       }
       if (current.provider === "yookassa") {

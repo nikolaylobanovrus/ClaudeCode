@@ -5,6 +5,7 @@ import PageHero from "./PageHero.jsx";
 import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import { sbUploadClientFile } from "../lib/supabase.js";
 import GatedPayment from "./GatedPayment.jsx";
+import { ymGoal } from "../lib/metrika.js";
 
 // Письмо оператору — ТОЛЬКО текстовое (AJAX-эндпоинт): доставка проверена.
 // Файлы почтой не отправляем — письма с вложениями терялись молча; вместо
@@ -334,6 +335,7 @@ export default function SituationDocsPage({ config }) {
         // Рекомендуемый тариф: подаём мы — «Премиум», иначе «Оптимальный».
         tariff: account.tariff || (sendMode === "us" ? "Премиум" : "Оптимальный"),
       });
+      ymGoal("docs_sent", { situation: label });
       setDone(true);
       window.scrollTo(0, 0);
     } catch {

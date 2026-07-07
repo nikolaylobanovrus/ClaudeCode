@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
+import { ymGoal } from "../lib/metrika.js";
 import PageHero from "../components/PageHero.jsx";
 import {
   getAccount,
@@ -91,6 +92,7 @@ export default function Register() {
       } catch {
         /* база недоступна — не мешаем регистрации */
       }
+      ymGoal("register");
       navigate("/vyberite-situaciyu");
     } catch {
       setSendError(

@@ -5,12 +5,14 @@ import Footer from "./Footer.jsx";
 import CookieBanner from "./CookieBanner.jsx";
 import ChatWidget from "./ChatWidget.jsx";
 import { company } from "../data/content.js";
+import { ymHit } from "../lib/metrika.js";
 
 export default function Layout() {
   const { pathname } = useLocation();
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    ymHit(window.location.href);
   }, [pathname]);
 
   return (
