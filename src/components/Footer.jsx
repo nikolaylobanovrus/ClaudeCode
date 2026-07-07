@@ -1,19 +1,51 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { company } from "../data/content.js";
 import Logo from "./Logo.jsx";
 
+// Разделы подвала — свои для основного сайта и для авто-вычета (как в шапке):
+// внутри /deklaraciya/* ссылки ведут по разделу, а не в основной сайт.
+const MAIN_SECTIONS = [
+  { to: "/vychety", label: "Виды вычетов" },
+  { to: "/kak-rabotaem", label: "Как работаем" },
+  { to: "/tarify", label: "Тарифы" },
+  { to: "/kontakty", label: "Контакты" },
+];
+const SELF_SECTIONS = [
+  { to: "/deklaraciya", scrollTo: "sd-vychety", label: "Виды вычетов" },
+  { to: "/deklaraciya", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
+  { to: "/deklaraciya/tarify", label: "Тарифы" },
+  { to: "/deklaraciya/anketa", label: "Заполнить декларацию" },
+];
+
 export default function Footer() {
   const year = new Date().getFullYear();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const isSelf = pathname.startsWith("/deklaraciya");
+  const sections = isSelf ? SELF_SECTIONS : MAIN_SECTIONS;
+
+  // Ссылка-секция лендинга: прокрутка (если уже на лендинге) или переход
+  // на лендинг с id секции — там сработает scrollTo (см. SelfService.jsx).
+  const onSectionClick = (e, link) => {
+    if (!link.scrollTo) return;
+    e.preventDefault();
+    if (pathname === "/deklaraciya") {
+      document.getElementById(link.scrollTo)?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      navigate("/deklaraciya", { state: { scrollTo: link.scrollTo } });
+    }
+  };
 
   return (
     <footer className="footer">
       <div className="container">
         <div className="footer__grid">
           <div>
-            <div className="footer__brand">
+            <Link to={isSelf ? "/deklaraciya" : "/"} className="footer__brand">
               <Logo />
               Налог-сервис
-            </div>
+            </Link>
             <p className="footer__tagline">
               Онлайн-сервис профессиональной помощи по заполнению декларации
               3-НДФЛ и оформлению налогового вычета.
@@ -22,10 +54,11 @@ export default function Footer() {
 
           <nav className="footer__col">
             <h4 className="footer__title">Разделы</h4>
-            <Link to="/vychety">Виды вычетов</Link>
-            <Link to="/kak-rabotaem">Как работаем</Link>
-            <Link to="/tarify">Тарифы</Link>
-            <Link to="/kontakty">Контакты</Link>
+            {sections.map((l) => (
+              <Link key={l.label} to={l.to} onClick={(e) => onSectionClick(e, l)}>
+                {l.label}
+              </Link>
+            ))}
           </nav>
 
           <nav className="footer__col">
