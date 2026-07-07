@@ -96,7 +96,7 @@ export default function SelfServiceTariffs() {
         <div className="container">
           <div className="section__head">
             <span className="eyebrow">Заявка</span>
-            <h2 className="section__title">Оставьте заявку — рассчитаем стоимость</h2>
+            <h2 className="section__title">Оставьте заявку — сделаем всё сами</h2>
             <p className="section__subtitle">
               Перезвоним, уточним вашу ситуацию и подберём тариф. Консультация
               бесплатна.
