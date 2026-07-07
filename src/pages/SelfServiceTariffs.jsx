@@ -129,7 +129,7 @@ export default function SelfServiceTariffs() {
       </section>
 
       {/* Заявка прямо здесь — клиент не уходит с раздела авто-вычета. */}
-      <section className="section section--soft" ref={formRef}>
+      <section className="section section--soft">
         <div className="container">
           <div className="section__head">
             <span className="eyebrow">Как заказать</span>
@@ -166,7 +166,7 @@ export default function SelfServiceTariffs() {
             </div>
           </div>
 
-          <div className="auth">
+          <div className="auth" ref={formRef}>
             <LeadForm title="Заявка на подготовку декларации" />
           </div>
         </div>
