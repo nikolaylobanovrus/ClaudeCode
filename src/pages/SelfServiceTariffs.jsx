@@ -55,6 +55,30 @@ export default function SelfServiceTariffs() {
       <section className="section">
         <div className="container">
           <div className="tariffs">
+            {/* Самый доступный вариант — заполнить самому за 99 ₽. Показываем
+                первым, чтобы у клиента перед глазами были все тарифы. */}
+            <div className="tariff">
+              <div className="tariff__name">Сам онлайн</div>
+              <div className="tariff__caption">Заполняете анкету сами — документы сразу</div>
+              <div className="tariff__price">{fmtRub(selfService.price)}</div>
+              <div className="tariff__term">Срок — 15 минут</div>
+              <ul className="tariff__features">
+                {[
+                  "Декларация 3-НДФЛ (PDF)",
+                  "Файл для Личного кабинета ФНС",
+                  "Заявление на возврат налога",
+                  "Подсказки к каждому полю",
+                ].map((f) => (
+                  <li key={f}>
+                    <span className="tariff__check">✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/deklaraciya/anketa" className="btn btn--block btn--ghost">
+                Заполнить самому
+              </Link>
+            </div>
             {tariffs.map((t) => (
               <div
                 className={"tariff" + (t.highlight ? " tariff--hot" : "")}
