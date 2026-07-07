@@ -120,7 +120,7 @@ export default function SelfServiceTariffs() {
                 {/* Вторичный путь: клиент, который уже готов, регистрируется
                     и сам загружает документы в личный кабинет. */}
                 <span className="tariff__alt">
-                  или <Link to="/registraciya">загрузить документы самому</Link>
+                  <Link to="/registraciya">Загрузить документы</Link>
                 </span>
               </div>
             ))}
