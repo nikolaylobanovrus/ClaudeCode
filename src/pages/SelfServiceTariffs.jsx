@@ -60,7 +60,15 @@ export default function SelfServiceTariffs() {
             <div className="tariff">
               <div className="tariff__name">Сам онлайн</div>
               <div className="tariff__caption">Заполняете анкету сами — документы сразу</div>
-              <div className="tariff__price">{fmtRub(selfService.price)}</div>
+              <div className="tariff__price">
+                {fmtRub(selfService.price)}{" "}
+                {/* У этого тарифа старой цены нет — скрытый плейсхолдер
+                    резервирует ту же строку, что и у платных карточек, чтобы
+                    «Срок» и списки стояли в одну линию. */}
+                <span className="tariff__old" aria-hidden="true" style={{ visibility: "hidden" }}>
+                  0 ₽
+                </span>
+              </div>
               <div className="tariff__term">Срок — 15 минут</div>
               <ul className="tariff__features">
                 {[

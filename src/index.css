@@ -619,7 +619,11 @@ h4 {
 .tariff__caption {
   color: var(--ink-500);
   font-size: 14px;
+  line-height: 1.4;
   margin-top: 4px;
+  /* Резерв под 2 строки: подписи разной длины не должны смещать цену —
+     тогда большие цифры цен всех тарифов стоят в одну линию. */
+  min-height: calc(2 * 1.4 * 14px);
 }
 .tariff__price {
   margin: 18px 0 4px;
@@ -632,9 +636,12 @@ h4 {
   text-decoration: line-through;
   font-size: 18px;
   font-weight: 600;
-  /* Карточек четыре, они уже: старая цена не должна рваться посреди числа */
+  /* Старая цена — всегда отдельной строкой под ценой: одинаково у всех
+     тарифов независимо от длины числа, поэтому «Срок» и списки стоят в
+     одну линию (у «Сам онлайн» строка зарезервирована скрытым плейсхолдером). */
   white-space: nowrap;
-  display: inline-block;
+  display: block;
+  margin-top: 6px;
 }
 .tariff__term {
   color: var(--ink-500);
