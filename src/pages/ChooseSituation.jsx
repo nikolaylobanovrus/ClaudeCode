@@ -5,6 +5,7 @@ import PageHero from "../components/PageHero.jsx";
 import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import { situationArts } from "../components/SituationArt.jsx";
 import { sbRpc } from "../lib/supabase.js";
+import { ymGoal } from "../lib/metrika.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
@@ -42,6 +43,7 @@ export default function ChooseSituation() {
   if (!account || !logged) return null;
 
   function choose(s) {
+    ymGoal("situation", { situation: s.label });
     setSelected(s.label);
     updateAccount({ situation: s.label });
     // Сообщаем менеджеру о выборе клиента (не блокируем интерфейс).

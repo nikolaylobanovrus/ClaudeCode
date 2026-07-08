@@ -3,6 +3,7 @@ import { getAccount, updateAccount } from "../lib/account.js";
 import { company } from "../data/content.js";
 import qrAlfa from "../assets/sbp-qr-alfa.png";
 import qrSber from "../assets/sbp-qr-sber.png";
+import { ymGoal } from "../lib/metrika.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const fmt = (n) => Number(n || 0).toLocaleString("ru-RU") + " ₽";
@@ -75,6 +76,7 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       updateAccount({ paymentStatus: "reported" });
+      ymGoal("paid_reported", { amount });
       setReported(true);
     } catch {
       setError("Не удалось отправить подтверждение. Попробуйте ещё раз или позвоните нам.");

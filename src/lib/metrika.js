@@ -1,26 +1,31 @@
-// Яндекс.Метрика: безопасные обёртки. Счётчик подключается в index.html;
-// здесь — цели воронки. Если скрипт не загрузился (блокировщик, оффлайн),
-// вызовы молча игнорируются и не ломают работу сайта.
-export const METRIKA_ID = 110487569;
+// Яндекс Метрика: безопасные обёртки. Счётчик подключён в index.html;
+// если скрипт заблокирован (адблок) или не загрузился — вызовы молча
+// игнорируются и не ломают сайт.
+const ID = 110487569;
 
-// Цели (тип «JavaScript-событие» в интерфейсе Метрики):
-//   wizard_open      — открыл анкету самозаполнения
-//   payment_step     — дошёл до шага оплаты
-//   pay_click        — нажал «Оплатить» (создание заказа)
-//   payment_success  — оплата подтверждена (главная конверсия, 99 ₽)
-//   lead_submit      — отправил заявку «сделаем за вас» (апселл)
-export function reachGoal(goal, params) {
+// Цель (конверсия). Имена целей создаются в Метрике: Настройки → Цели →
+// «JavaScript-событие» с тем же идентификатором.
+export function ymGoal(name, params) {
   try {
-    if (typeof window !== "undefined" && typeof window.ym === "function") {
-      window.ym(METRIKA_ID, "reachGoal", goal, params);
-    }
+    window.ym?.(ID, "reachGoal", name, params);
   } catch {
-    /* аналитика не должна влиять на функциональность */
+    /* ignore */
   }
 }
 
-// Электронная коммерция: покупка комплекта документов (доход в отчётах).
-export function trackPurchase(orderId, amount) {
+// Просмотр страницы в SPA: роутер меняет URL без перезагрузки, без этого
+// Метрика видит только первый экран сессии.
+export function ymHit(url) {
+  try {
+    window.ym?.(ID, "hit", url);
+  } catch {
+    /* ignore */
+  }
+}
+
+// Электронная коммерция (init: ecommerce:"dataLayer"): покупка комплекта
+// документов — доход попадает в отчёты «Электронная коммерция».
+export function ymPurchase(orderId, amount) {
   try {
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
@@ -40,6 +45,6 @@ export function trackPurchase(orderId, amount) {
       },
     });
   } catch {
-    /* см. выше */
+    /* ignore */
   }
 }

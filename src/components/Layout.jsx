@@ -1,16 +1,25 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Footer from "./Footer.jsx";
 import CookieBanner from "./CookieBanner.jsx";
 import ChatWidget from "./ChatWidget.jsx";
 import { company } from "../data/content.js";
+import { ymHit } from "../lib/metrika.js";
 
 export default function Layout() {
   const { pathname } = useLocation();
 
+  // Первый просмотр уже отправлен init-ом счётчика в index.html —
+  // хитом сопровождаем только последующие смены роута, иначе задвоение.
+  const firstHit = useRef(true);
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (firstHit.current) {
+      firstHit.current = false;
+      return;
+    }
+    ymHit(window.location.href);
   }, [pathname]);
 
   return (

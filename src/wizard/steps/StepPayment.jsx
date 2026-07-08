@@ -20,7 +20,7 @@ import {
   isTestPayment,
 } from "../../lib/payments.js";
 import { getOperatorToken } from "../../lib/supabase.js";
-import { reachGoal, trackPurchase } from "../../lib/metrika.js";
+import { ymGoal, ymPurchase } from "../../lib/metrika.js";
 
 export default function StepPayment({ onPaid }) {
   const { draft, dispatch, flushDraft } = useWizard();
@@ -44,7 +44,7 @@ export default function StepPayment({ onPaid }) {
 
   // Цель Метрики: клиент дошёл до шага оплаты (низ воронки перед деньгами).
   useEffect(() => {
-    reachGoal("payment_step");
+    ymGoal("wizard_payment_step");
   }, []);
 
   // Заказ оплачен (поллинг или возврат с ЮKassa) → фиксируем покупку.
@@ -53,10 +53,13 @@ export default function StepPayment({ onPaid }) {
   // анкету успели изменить, пока шла оплата.
   useEffect(() => {
     if (!paidOrder || hash === null) return;
-    // Цель Метрики: оплата подтверждена — главная конверсия воронки.
+    // Цель Метрики: оплата подтверждена — главная конверсия воронки
+    // (+ покупка в e-commerce). Оператор — не конверсия, не считаем.
     // ADD_PURCHASE очищает order, поэтому цель не задублируется при ремаунте.
-    reachGoal("payment_success", { provider: order.provider, amount: order.amount });
-    trackPurchase(order.id, order.amount);
+    if (order.provider !== "operator") {
+      ymGoal("wizard_paid", { amount: order.amount });
+      ymPurchase(order.id, order.amount);
+    }
     dispatch({
       type: "ADD_PURCHASE",
       purchase: {
@@ -132,8 +135,6 @@ export default function StepPayment({ onPaid }) {
 
   const start = async () => {
     if (hash === null) return; // хеш ещё считается
-    // Цель Метрики: нажал «Оплатить» (намерение платить, до ухода на ЮKassa).
-    reachGoal("pay_click");
     setBusy(true);
     setError("");
     try {
@@ -171,6 +172,7 @@ export default function StepPayment({ onPaid }) {
         // Хеш и снимок анкеты фиксируются в заказе: оплата действует именно
         // для этих данных, что бы ни происходило с черновиком дальше.
         current = { ...created, draftHash: hash, snapshot: draftSnapshot(draft) };
+        ymGoal("wizard_order", { provider: current.provider });
         dispatch({ type: "SET_ORDER", order: current });
       }
       if (current.provider === "yookassa") {
