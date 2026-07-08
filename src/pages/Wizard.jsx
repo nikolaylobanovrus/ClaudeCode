@@ -13,6 +13,7 @@ import {
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
 import { PAYMENT_STEP } from "../data/wizard.js";
+import { reachGoal } from "../lib/metrika.js";
 
 function WizardBody() {
   const { dispatch } = useWizard();
@@ -30,6 +31,11 @@ function WizardBody() {
     () => new URLSearchParams(window.location.search).get("order"),
     []
   );
+
+  // Цель Метрики: пользователь открыл анкету (вершина воронки самозаполнения).
+  useEffect(() => {
+    reachGoal("wizard_open");
+  }, []);
 
   useEffect(() => {
     const saved = loadDraft();

@@ -20,6 +20,7 @@ import {
   isTestPayment,
 } from "../../lib/payments.js";
 import { getOperatorToken } from "../../lib/supabase.js";
+import { reachGoal, trackPurchase } from "../../lib/metrika.js";
 
 export default function StepPayment({ onPaid }) {
   const { draft, dispatch, flushDraft } = useWizard();
@@ -41,12 +42,21 @@ export default function StepPayment({ onPaid }) {
   const purchase = findPurchase(draft, hash);
   const paidOrder = order?.status === "paid";
 
+  // Цель Метрики: клиент дошёл до шага оплаты (низ воронки перед деньгами).
+  useEffect(() => {
+    reachGoal("payment_step");
+  }, []);
+
   // Заказ оплачен (поллинг или возврат с ЮKassa) → фиксируем покупку.
   // Хеш и снимок данных записаны в заказ при его создании — покупка всегда
   // соответствует данным, за которые клиент реально заплатил, даже если
   // анкету успели изменить, пока шла оплата.
   useEffect(() => {
     if (!paidOrder || hash === null) return;
+    // Цель Метрики: оплата подтверждена — главная конверсия воронки.
+    // ADD_PURCHASE очищает order, поэтому цель не задублируется при ремаунте.
+    reachGoal("payment_success", { provider: order.provider, amount: order.amount });
+    trackPurchase(order.id, order.amount);
     dispatch({
       type: "ADD_PURCHASE",
       purchase: {
@@ -122,6 +132,8 @@ export default function StepPayment({ onPaid }) {
 
   const start = async () => {
     if (hash === null) return; // хеш ещё считается
+    // Цель Метрики: нажал «Оплатить» (намерение платить, до ухода на ЮKassa).
+    reachGoal("pay_click");
     setBusy(true);
     setError("");
     try {

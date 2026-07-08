@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { deductions } from "../data/content.js";
 import { maskRuPhone, isCompleteRuPhone } from "../lib/phone.js";
+import { reachGoal } from "../lib/metrika.js";
 
 const EMPTY = { name: "", phone: "", situation: deductions[0].title, comment: "" };
 
@@ -65,6 +66,8 @@ export default function LeadForm({ compact = false, title = "Оставьте з
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
+      // Цель Метрики: заявка «сделаем за вас» отправлена (конверсия апселла).
+      reachGoal("lead_submit");
       setSent(true);
       setForm(EMPTY);
       setConsent(false);
