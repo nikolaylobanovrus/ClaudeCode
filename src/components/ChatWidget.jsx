@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { company } from "../data/content.js";
 import { ymGoal } from "../lib/metrika.js";
+import { sendFormEmail } from "../lib/mailer.js";
 
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
 // Плавающий чат помощи (справа снизу): кнопки перехода в Telegram/Max —
 // клиент пишет из своего мессенджера, сообщения приходят оператору нативно —
@@ -37,19 +37,11 @@ export default function ChatWidget() {
     }
     setSending(true);
     try {
-      const res = await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          _subject: "Вопрос из чата на сайте",
-          _template: "table",
-          _captcha: "false",
-          "Телефон": phone.trim(),
-          "Вопрос": question.trim() || "—",
-          "Страница": window.location.hash || window.location.pathname,
-        }),
+      await sendFormEmail("Вопрос из чата на сайте", {
+        "Телефон": phone.trim(),
+        "Вопрос": question.trim() || "—",
+        "Страница": window.location.hash || window.location.pathname,
       });
-      if (!res.ok) throw new Error("HTTP " + res.status);
       ymGoal("chat_question");
       setSent(true);
     } catch {

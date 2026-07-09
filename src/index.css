@@ -2818,3 +2818,53 @@ h4 {
     max-height: calc(100vh - 170px);
   }
 }
+
+/* ============ Оператор: заявки-резерв (почта была недоступна) ============ */
+.op__leads {
+  margin: 14px 0;
+  display: grid;
+  gap: 10px;
+}
+.op__leads-title {
+  font-size: 16px;
+  color: #b45309;
+}
+.op__lead {
+  border: 1px solid #f3d9a4;
+  background: #fffaf0;
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+.op__lead-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.op__lead-date {
+  color: var(--ink-500);
+  font-size: 13px;
+}
+.op__lead-fields {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.op__lead-fields div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.op__lead-fields dt {
+  color: var(--ink-500);
+  min-width: 160px;
+}
+.op__lead-fields dd {
+  font-weight: 600;
+  word-break: break-word;
+}
+.op__lead .btn {
+  justify-self: start;
+}

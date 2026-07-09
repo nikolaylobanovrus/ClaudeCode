@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import { ymGoal } from "../lib/metrika.js";
+import { sendFormEmail } from "../lib/mailer.js";
 import PageHero from "../components/PageHero.jsx";
 import {
   getAccount,
@@ -13,7 +14,6 @@ import {
 import { maskRuPhone, isCompleteRuPhone } from "../lib/phone.js";
 import { sbRpc } from "../lib/supabase.js";
 
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -58,19 +58,13 @@ export default function Register() {
     try {
       // Пароль в письмо намеренно не включается — открытая передача паролей
       // по почте небезопасна.
-      const res = await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          _subject: `Регистрация нового клиента — ID ${id}`,
-          _template: "table",
-          _captcha: "false",
-          "ID клиента": String(id),
-          "Email (логин)": form.email,
-          "Телефон": form.phone || "не указан",
-        }),
+      // Пароль в письмо намеренно не включается. При сбое почты заявка
+      // сохраняется в базу — регистрация не блокируется.
+      await sendFormEmail(`Регистрация нового клиента — ID ${id}`, {
+        "ID клиента": String(id),
+        "Email (логин)": form.email,
+        "Телефон": form.phone || "не указан",
       });
-      if (!res.ok) throw new Error("HTTP " + res.status);
       saveAccount({
         id,
         email: form.email,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import PageHero from "../components/PageHero.jsx";
+import { sendFormEmail } from "../lib/mailer.js";
 import {
   getAccount,
   updateAccount,
@@ -11,6 +12,7 @@ import {
 } from "../lib/account.js";
 
 const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
+// eslint-disable-next-line no-unused-vars — прямой fetch остаётся для смены пароля
 
 // Логин — почта или ID клиента.
 function matchesAccount(account, login) {
@@ -76,19 +78,10 @@ export default function Login() {
     // Кабинет на другом устройстве/браузере — заявка специалисту.
     setBusy(true);
     try {
-      const res = await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          _subject: "Запрос восстановления пароля",
-          _template: "table",
-          _captcha: "false",
-          "Логин (почта или ID)": login.trim(),
-        }),
+      // Письмо, а при сбое почты — резервная запись в базу.
+      await sendFormEmail("Запрос восстановления пароля", {
+        "Логин (почта или ID)": login.trim(),
       });
-      // Без этой проверки сбой почтового сервиса выглядел бы как успех,
-      // а заявка молча терялась.
-      if (!res.ok) throw new Error("HTTP " + res.status);
       setMode("requested");
     } catch {
       setError(

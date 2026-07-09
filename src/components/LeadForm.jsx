@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import { deductions } from "../data/content.js";
 import { maskRuPhone, isCompleteRuPhone } from "../lib/phone.js";
 import { ymGoal } from "../lib/metrika.js";
+import { sendFormEmail } from "../lib/mailer.js";
 
 const EMPTY = { name: "", phone: "", situation: deductions[0].title, comment: "" };
 
 // Куда уходят заявки: FormSubmit.co пересылает POST-запросы на email
 // без собственного бэкенда (сайт хостится статически).
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const FORM_SUBJECT = "Консультация с сайта 2";
 
 // Форма заявки с валидацией и согласием на обработку ПДн.
@@ -50,9 +50,6 @@ export default function LeadForm({ compact = false, title = "Оставьте з
     setSendError("");
     try {
       const payload = {
-        _subject: FORM_SUBJECT,
-        _template: "table",
-        _captcha: "false",
         "Имя": form.name,
         "Телефон": form.phone,
       };
@@ -60,12 +57,8 @@ export default function LeadForm({ compact = false, title = "Оставьте з
         payload["Ситуация"] = form.situation;
         if (form.comment.trim()) payload["Комментарий"] = form.comment;
       }
-      const res = await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+      // Письмо, а при сбое почты — резервная запись в базу (заявка не теряется).
+      await sendFormEmail(FORM_SUBJECT, payload);
       ymGoal("lead");
       setSent(true);
       setForm(EMPTY);

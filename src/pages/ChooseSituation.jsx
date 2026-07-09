@@ -6,8 +6,8 @@ import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import { situationArts } from "../components/SituationArt.jsx";
 import { sbRpc } from "../lib/supabase.js";
 import { ymGoal } from "../lib/metrika.js";
+import { sendFormEmail } from "../lib/mailer.js";
 
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 
 const SITUATIONS = [
   { slug: "kvartira", label: "Купили квартиру или дом" },
@@ -47,17 +47,10 @@ export default function ChooseSituation() {
     setSelected(s.label);
     updateAccount({ situation: s.label });
     // Сообщаем менеджеру о выборе клиента (не блокируем интерфейс).
-    fetch(FORM_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        _subject: `Клиент выбрал ситуацию — ID ${account.id}`,
-        _template: "table",
-        _captcha: "false",
-        "ID клиента": String(account.id),
-        "Email": account.email,
-        "Ситуация": s.label,
-      }),
+    sendFormEmail(`Клиент выбрал ситуацию — ID ${account.id}`, {
+      "ID клиента": String(account.id),
+      "Email": account.email,
+      "Ситуация": s.label,
     }).catch(() => {
       /* дублирующее уведомление; выбор уже сохранён в кабинете */
     });
