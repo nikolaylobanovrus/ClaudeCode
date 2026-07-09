@@ -76,7 +76,7 @@ export default function Login() {
     // Кабинет на другом устройстве/браузере — заявка специалисту.
     setBusy(true);
     try {
-      await fetch(FORM_ENDPOINT, {
+      const res = await fetch(FORM_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -86,9 +86,14 @@ export default function Login() {
           "Логин (почта или ID)": login.trim(),
         }),
       });
+      // Без этой проверки сбой почтового сервиса выглядел бы как успех,
+      // а заявка молча терялась.
+      if (!res.ok) throw new Error("HTTP " + res.status);
       setMode("requested");
     } catch {
-      setError("Не удалось отправить запрос. Позвоните нам: +7 (920) 837-91-93.");
+      setError(
+        "Не удалось отправить запрос — почтовый сервис временно недоступен. Позвоните нам: +7 (920) 837-91-93 или напишите в Telegram/Max (кнопка чата справа внизу)."
+      );
     } finally {
       setBusy(false);
     }

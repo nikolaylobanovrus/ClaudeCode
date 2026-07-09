@@ -2066,10 +2066,13 @@ h4 {
    отступы, чтобы строка помещалась без переноса. */
 @media (min-width: 1151px) and (max-width: 1270px) {
   .navbar__inner {
-    gap: 12px;
+    gap: 10px;
   }
   .navbar__link {
-    padding: 8px 7px;
+    padding: 8px 5px;
+  }
+  .navbar__nav {
+    gap: 2px;
   }
 }
 
