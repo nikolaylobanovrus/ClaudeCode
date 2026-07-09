@@ -25,5 +25,5 @@ Allow: /
 User-agent: YandexAdditional
 Allow: /
 
-Sitemap: https://nalog-service.online/sitemap.xml
-Host: https://nalog-service.online
+Sitemap: https://налог-сервис.рф/sitemap.xml
+Host: https://налог-сервис.рф
