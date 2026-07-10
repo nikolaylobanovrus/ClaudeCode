@@ -87,7 +87,7 @@ export default function SelfServiceContacts() {
             </div>
 
             <div>
-              <LeadForm title="Оставьте заявку" />
+              <LeadForm title="Оставьте заявку" goal="lead_deklaraciya" />
             </div>
           </div>
         </div>

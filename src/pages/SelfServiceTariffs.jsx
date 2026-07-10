@@ -167,7 +167,7 @@ export default function SelfServiceTariffs() {
           </div>
 
           <div className="auth" ref={formRef}>
-            <LeadForm title="Заявка на подготовку декларации" />
+            <LeadForm title="Заявка на подготовку декларации" goal="lead_deklaraciya" />
           </div>
         </div>
       </section>

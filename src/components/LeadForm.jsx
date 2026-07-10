@@ -13,7 +13,10 @@ const FORM_SUBJECT = "Консультация с сайта 2";
 
 // Форма заявки с валидацией и согласием на обработку ПДн.
 // Данные отправляются на email через FormSubmit.co.
-export default function LeadForm({ compact = false, title = "Оставьте заявку" }) {
+// goal — идентификатор цели Метрики при отправке. По умолчанию «lead»
+// (основной сайт); раздел авто-вычета передаёт «lead_deklaraciya», чтобы
+// заявки рекламного трафика считались отдельной целью.
+export default function LeadForm({ compact = false, title = "Оставьте заявку", goal = "lead" }) {
   // Уникальные id полей: на странице может быть несколько форм одновременно.
   const uid = useId();
   const [form, setForm] = useState(EMPTY);
@@ -59,7 +62,7 @@ export default function LeadForm({ compact = false, title = "Оставьте з
       }
       // Письмо, а при сбое почты — резервная запись в базу (заявка не теряется).
       await sendFormEmail(FORM_SUBJECT, payload);
-      ymGoal("lead");
+      ymGoal(goal);
       setSent(true);
       setForm(EMPTY);
       setConsent(false);
