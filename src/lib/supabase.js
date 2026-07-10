@@ -255,3 +255,32 @@ export async function sbSetPayment(token, id, { tariff, amount }) {
     throw err;
   }
 }
+
+// --- Заявки с сайта (резервный канал при сбое почты) --------------------------
+// Таблица leads: docs/supabase-migration-leads.sql. Оператор видит невзятые
+// заявки и отмечает их обработанными.
+export async function sbListLeads(token) {
+  const res = await fetch(
+    `${cfg.url}/rest/v1/leads?select=*&processed=eq.false&order=created_at.desc&limit=200`,
+    { headers: baseHeaders(token) }
+  );
+  if (!res.ok) {
+    const err = new Error("leads list failed");
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+export async function sbMarkLeadProcessed(token, id) {
+  const res = await fetch(`${cfg.url}/rest/v1/leads?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { ...baseHeaders(token), Prefer: "return=minimal" },
+    body: JSON.stringify({ processed: true }),
+  });
+  if (!res.ok) {
+    const err = new Error("lead update failed");
+    err.status = res.status;
+    throw err;
+  }
+}

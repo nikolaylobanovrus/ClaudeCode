@@ -4,8 +4,8 @@ import { company } from "../data/content.js";
 import qrAlfa from "../assets/sbp-qr-alfa.png";
 import qrSber from "../assets/sbp-qr-sber.png";
 import { ymGoal } from "../lib/metrika.js";
+import { sendFormEmail } from "../lib/mailer.js";
 
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/nalog-service@internet.ru";
 const fmt = (n) => Number(n || 0).toLocaleString("ru-RU") + " ₽";
 
 // Блок оплаты с ФИКСИРОВАННОЙ суммой, назначенной оператором.
@@ -60,21 +60,13 @@ export default function PaymentBlock({ title = "Оплата услуг", tariff
     setBusy(true);
     setError("");
     try {
-      const res = await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          _subject: `Клиент сообщил об оплате — ID ${account.id}`,
-          _template: "table",
-          _captcha: "false",
-          "ID клиента": String(account.id),
-          "Email": account.email,
-          "Тариф": tariffName || "—",
-          "Сумма": priceStr,
-          "Способ оплаты": pay.method,
-        }),
+      await sendFormEmail(`Клиент сообщил об оплате — ID ${account.id}`, {
+        "ID клиента": String(account.id),
+        "Email": account.email,
+        "Тариф": tariffName || "—",
+        "Сумма": priceStr,
+        "Способ оплаты": pay.method,
       });
-      if (!res.ok) throw new Error("HTTP " + res.status);
       updateAccount({ paymentStatus: "reported" });
       ymGoal("paid_reported", { amount });
       setReported(true);

@@ -11,6 +11,8 @@ import {
   sbDownloadClientFile,
   sbDeleteClientFiles,
   sbDeleteClient,
+  sbListLeads,
+  sbMarkLeadProcessed,
   getOperatorToken,
   setOperatorToken,
 } from "../lib/supabase.js";
@@ -36,6 +38,7 @@ export default function Operator() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [clients, setClients] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +55,9 @@ export default function Operator() {
       setError("");
       try {
         setClients(await sbListClients(t));
+        // Заявки-резерв (почта лежала): таблица может отсутствовать, если
+        // миграция leads не применена — тогда просто пустой блок.
+        setLeads(await sbListLeads(t).catch(() => []));
       } catch (e) {
         if (e.status === 401) logout();
         else setError("Не удалось загрузить базу. Попробуйте обновить страницу.");
@@ -226,6 +232,46 @@ export default function Operator() {
                   Выйти
                 </button>
               </div>
+
+              {leads.length > 0 && (
+                <div className="op__leads">
+                  <h3 className="op__leads-title">
+                    Заявки с сайта (почта была недоступна) — {leads.length}
+                  </h3>
+                  {leads.map((l) => (
+                    <div className="op__lead" key={l.id}>
+                      <div className="op__lead-head">
+                        <strong>{l.kind}</strong>
+                        <span className="op__lead-date">
+                          {new Date(l.created_at).toLocaleString("ru-RU")}
+                        </span>
+                      </div>
+                      <dl className="op__lead-fields">
+                        {Object.entries(l.payload || {}).map(([k, v]) => (
+                          <div key={k}>
+                            <dt>{k}</dt>
+                            <dd>{String(v)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <button
+                        type="button"
+                        className="btn btn--ghost"
+                        onClick={async () => {
+                          try {
+                            await sbMarkLeadProcessed(token, l.id);
+                            setLeads((cur) => cur.filter((x) => x.id !== l.id));
+                          } catch {
+                            setError("Не удалось отметить заявку. Обновите страницу.");
+                          }
+                        }}
+                      >
+                        ✓ Обработано
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {error && (
                 <p className="doc-note doc-note--err" role="alert">

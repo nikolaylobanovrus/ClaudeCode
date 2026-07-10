@@ -6,6 +6,7 @@ import { getAccount, updateAccount, isLoggedIn } from "../lib/account.js";
 import { sbUploadClientFile } from "../lib/supabase.js";
 import GatedPayment from "./GatedPayment.jsx";
 import { ymGoal } from "../lib/metrika.js";
+import { sbRpc } from "../lib/supabase.js";
 
 // Письмо оператору — ТОЛЬКО текстовое (AJAX-эндпоинт): доставка проверена.
 // Файлы почтой не отправляем — письма с вложениями терялись молча; вместо
@@ -221,15 +222,27 @@ export default function SituationDocsPage({ config }) {
   async function send(kind) {
     const uploads = await uploadAllFiles();
     const fd = buildFormData(kind, uploads);
-    const res = await fetch(FORM_ENDPOINT, {
-      method: "POST",
-      headers: { Accept: "application/json" },
-      body: fd,
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json().catch(() => null);
-    if (data && String(data.success) !== "true")
-      throw new Error(data.message || "form rejected");
+    try {
+      const res = await fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: fd,
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json().catch(() => null);
+      if (data && String(data.success) !== "true")
+        throw new Error(data.message || "form rejected");
+    } catch (mailError) {
+      // Почтовый сервис лежит — заявка сохраняется в базу (кабинет
+      // оператора, блок «Заявки с сайта»), файлы уже в хранилище.
+      const fields = {};
+      for (const [k, v] of fd.entries()) {
+        if (!k.startsWith("_")) fields[k] = String(v);
+      }
+      const subject = fd.get("_subject") || "Документы по ситуации";
+      const id = await sbRpc("submit_lead", { p_kind: subject, p_payload: fields }).catch(() => null);
+      if (!id) throw mailError;
+    }
     return Object.values(uploads).flatMap((u) => u.failed || []);
   }
 
