@@ -140,24 +140,34 @@ export async function sbUploadClientFile(clientId, file, stamp) {
   const safeName = toSafeKey(file.name || "file").slice(-80);
   const token = Math.random().toString(36).slice(2, 8);
   const name = `${toSafeKey(stamp)}_${token}_${safeName}`;
-  const res = await fetch(
-    `${cfg.url}/storage/v1/object/${DOCS_BUCKET}/${encodePath(`${clientId}/${name}`)}`,
-    {
-      method: "POST",
-      headers: {
-        apikey: cfg.anonKey,
-        Authorization: `Bearer ${cfg.anonKey}`,
-        "Content-Type": file.type || "application/octet-stream",
-        "x-upsert": "false",
-      },
-      body: file,
+  const url = `${cfg.url}/storage/v1/object/${DOCS_BUCKET}/${encodePath(`${clientId}/${name}`)}`;
+  const opts = {
+    method: "POST",
+    headers: {
+      apikey: cfg.anonKey,
+      Authorization: `Bearer ${cfg.anonKey}`,
+      "Content-Type": file.type || "application/octet-stream",
+      "x-upsert": "false",
+    },
+    body: file,
+  };
+
+  // Обрыв соединения (ERR_CONNECTION_ABORTED, таймаут) на нестабильной сети —
+  // разовый. Повторяем сетевой сбой до 3 раз с нарастающей паузой; ошибку
+  // сервера (HTTP-ответ пришёл) НЕ повторяем — она детерминирована.
+  let netErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, attempt * 800));
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      netErr = e; // Failed to fetch — сеть не дошла до сервера, пробуем ещё
+      continue;
     }
-  );
-  if (!res.ok) {
-    // Тело ответа (причину) НЕ проглатываем: без неё «не загрузился файл»
-    // невозможно диагностировать — 413 (размер), 400 (MIME), 409 (дубль),
-    // 403 (RLS) выглядят одинаково. Причина уходит в письмо оператору и в
-    // консоль браузера.
+    if (res.ok) return name;
+    // Пришёл HTTP-ответ: причину НЕ проглатываем (413 размер / 400 MIME /
+    // 409 дубль / 403 RLS выглядят одинаково) и НЕ повторяем.
     let detail = "";
     try {
       detail = (await res.text()).slice(0, 300);
@@ -169,7 +179,10 @@ export async function sbUploadClientFile(clientId, file, stamp) {
     err.detail = detail;
     throw err;
   }
-  return name;
+  const err = new Error(`upload failed: ${netErr?.message || "network error"}`);
+  err.status = 0;
+  err.detail = "нет связи с хранилищем (соединение оборвано/таймаут)";
+  throw err;
 }
 
 // Список файлов клиента (для оператора).
