@@ -55,7 +55,7 @@ export default function SelfServiceTariffs() {
       <section className="section">
         <div className="container">
           <div className="tariffs">
-            {/* Самый доступный вариант — заполнить самому за 99 ₽. Показываем
+            {/* Самый доступный вариант — заполнить самому за 199 ₽. Показываем
                 первым, чтобы у клиента перед глазами были все тарифы. */}
             <div className="tariff">
               <div className="tariff__name">Сам онлайн</div>
