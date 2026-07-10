@@ -127,14 +127,21 @@ export default function SituationDocsPage({ config }) {
       if (!list.length) continue;
       const ok = [];
       const failed = [];
+      const errors = [];
       for (const file of list) {
         try {
           ok.push(await sbUploadClientFile(account.id, file, stamp));
-        } catch {
+        } catch (e) {
           failed.push(file.name);
+          // Причину видно и в консоли клиента, и в письме оператору —
+          // чтобы «не загрузился файл» перестало быть загадкой.
+          const sizeMb = (file.size / 1048576).toFixed(1);
+          const reason = `${file.name} (${sizeMb} МБ): HTTP ${e?.status || "?"} ${e?.detail || e?.message || ""}`.trim();
+          console.error("[upload]", reason);
+          errors.push(reason);
         }
       }
-      result[f.key] = { ok, failed };
+      result[f.key] = { ok, failed, errors };
     }
     return result;
   }
@@ -163,7 +170,8 @@ export default function SituationDocsPage({ config }) {
       if (up?.failed?.length) {
         fd.append(
           `${f.label} — НЕ ЗАГРУЗИЛИСЬ`,
-          `${up.failed.join("; ")} — запросите у клиента в мессенджере`
+          `${up.failed.join("; ")} — запросите у клиента в мессенджере` +
+            (up.errors?.length ? `\nПричины: ${up.errors.join(" || ")}` : "")
         );
       }
       if (text) {

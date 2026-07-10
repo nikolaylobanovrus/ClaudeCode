@@ -133,9 +133,13 @@ const toSafeKey = (s) =>
 
 // Загрузка одного файла клиента. Возвращает имя объекта (без префикса клиента).
 export async function sbUploadClientFile(clientId, file, stamp) {
-  // Имя объекта: «ГГГГ-ММ-ДД_ЧЧ-ММ_имя.расш» — момент отправки виден оператору.
+  // Имя объекта: «ГГГГ-ММ-ДД_ЧЧ-ММ_токен_имя.расш» — момент отправки виден
+  // оператору. Метка времени минутная (одинакова у пачки файлов и у повторной
+  // отправки), а x-upsert:false падает на дубле ключа (409) — короткий
+  // случайный токен делает ключ уникальным для каждой попытки.
   const safeName = toSafeKey(file.name || "file").slice(-80);
-  const name = `${toSafeKey(stamp)}_${safeName}`;
+  const token = Math.random().toString(36).slice(2, 8);
+  const name = `${toSafeKey(stamp)}_${token}_${safeName}`;
   const res = await fetch(
     `${cfg.url}/storage/v1/object/${DOCS_BUCKET}/${encodePath(`${clientId}/${name}`)}`,
     {
@@ -150,8 +154,19 @@ export async function sbUploadClientFile(clientId, file, stamp) {
     }
   );
   if (!res.ok) {
-    const err = new Error(`upload failed: HTTP ${res.status}`);
+    // Тело ответа (причину) НЕ проглатываем: без неё «не загрузился файл»
+    // невозможно диагностировать — 413 (размер), 400 (MIME), 409 (дубль),
+    // 403 (RLS) выглядят одинаково. Причина уходит в письмо оператору и в
+    // консоль браузера.
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      /* тело недоступно */
+    }
+    const err = new Error(`upload failed: HTTP ${res.status}${detail ? " " + detail : ""}`);
     err.status = res.status;
+    err.detail = detail;
     throw err;
   }
   return name;
