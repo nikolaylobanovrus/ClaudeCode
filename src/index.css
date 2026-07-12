@@ -363,7 +363,15 @@ h4 {
   font-size: clamp(32px, 5vw, 56px);
   line-height: 1.08;
 }
+/* Для длинных заголовков (лендинг авто-вычета): чуть меньше кегль, чтобы
+   текст занимал 3 строки и правая карточка не уезжала вниз. */
+.hero__title--long {
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.14;
+}
 .hero__accent {
+  /* «3-НДФЛ» не должно рваться переносом по дефису */
+  white-space: nowrap;
   background: linear-gradient(100deg, #7ef0b0, #35d07f);
   -webkit-background-clip: text;
   background-clip: text;

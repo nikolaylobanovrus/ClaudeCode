@@ -115,7 +115,7 @@ export default function SelfService() {
             <span className="eyebrow hero__eyebrow">
               Онлайн · Автоматически · {fmtRub(selfService.price)}
             </span>
-            <h1 className="hero__title">
+            <h1 className="hero__title hero__title--long">
               Просто заполните данные за 10 минут и{" "}
               <span className="hero__accent">3-НДФЛ</span> сформируется
               автоматически
