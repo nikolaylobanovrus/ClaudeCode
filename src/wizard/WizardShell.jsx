@@ -3,6 +3,7 @@
 // после оплаты (гейтинг дублируется внутри StepDocuments серверной проверкой).
 import { useMemo, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
+import { useFeatureFlag } from "../lib/featureFlags.js";
 import { STEPS, PAYMENT_STEP, DOCUMENTS_STEP } from "../data/wizard.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
@@ -30,6 +31,7 @@ const COMPONENTS = {
 
 export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const { draft, dispatch } = useWizard();
+  const autofillOn = useFeatureFlag("doc_autofill");
   const [errors, setErrors] = useState({});
   const step = STEPS[draft.step] || STEPS[0];
   const Step = COMPONENTS[step.key];
@@ -143,10 +145,12 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
                 : "Заполните доходы и расходы — сумма посчитается сама"}
             </div>
           </div>
+          {/* При включённом автозаполнении «не отправляются на сервер» —
+              уже не вся правда: загруженные файлы распознаются на сервере. */}
           <p className="wiz__aside-note">
-            Черновик сохраняется на этом устройстве автоматически. Паспортные
-            данные не отправляются на сервер — документы формируются прямо в
-            вашем браузере.
+            {autofillOn
+              ? "Черновик сохраняется на этом устройстве автоматически. Документы формируются прямо в вашем браузере; файлы, загруженные для автозаполнения, распознаются на сервере и сразу удаляются — мы их не храним."
+              : "Черновик сохраняется на этом устройстве автоматически. Паспортные данные не отправляются на сервер — документы формируются прямо в вашем браузере."}
           </p>
         </aside>
       </div>

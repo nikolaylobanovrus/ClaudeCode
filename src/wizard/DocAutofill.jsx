@@ -7,7 +7,7 @@
 // анкета работает как обычно). Отключение — docs/anthropic-setup.md.
 import { useEffect, useRef, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
-import { sbRpc } from "../lib/supabase.js";
+import { useFeatureFlag } from "../lib/featureFlags.js";
 import { parseDocuments, mergePatch, DocParseError, MAX_FILES } from "../lib/docParse.js";
 import { ymGoal } from "../lib/metrika.js";
 
@@ -15,7 +15,7 @@ const ACCEPT = "image/*,.pdf,.heic,.heif";
 
 export default function DocAutofill() {
   const { draft, dispatch } = useWizard();
-  const [enabled, setEnabled] = useState(false);
+  const enabled = useFeatureFlag("doc_autofill");
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -23,12 +23,10 @@ export default function DocAutofill() {
   const [applied, setApplied] = useState(null); // string[] — что подставили
   const [warnings, setWarnings] = useState([]);
   const alive = useRef(true);
+  const opened = useRef(false); // цель autofill_open — один раз за визит
 
   useEffect(() => {
     alive.current = true;
-    sbRpc("feature_enabled", { p_key: "doc_autofill" })
-      .then((on) => alive.current && setEnabled(on === true))
-      .catch(() => {});
     return () => {
       alive.current = false;
     };
@@ -49,6 +47,7 @@ export default function DocAutofill() {
     setError("");
     setApplied(null);
     setWarnings([]);
+    ymGoal("autofill_try", { files: files.length });
     try {
       const { patch, warnings: w } = await parseDocuments(files, {
         year: draft.year,
@@ -79,7 +78,15 @@ export default function DocAutofill() {
       <button
         type="button"
         className="autofill__head"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() =>
+          setOpen((v) => {
+            if (!v && !opened.current) {
+              opened.current = true;
+              ymGoal("autofill_open");
+            }
+            return !v;
+          })
+        }
         aria-expanded={open}
       >
         <span className="autofill__title">

@@ -1,6 +1,7 @@
 // Шаг 1: отчётный год и виды вычетов. Несколько вычетов объединяются
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
 import { useWizard } from "../WizardContext.jsx";
+import AutofillTeaser from "../AutofillTeaser.jsx";
 import { wizardDeductions, HINTS } from "../../data/wizard.js";
 import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
@@ -98,6 +99,7 @@ export default function StepDeductions({ errors }) {
         Все выбранные вычеты попадут в одну декларацию — так требует налоговая:
         одна 3-НДФЛ на один год.
       </p>
+      <AutofillTeaser />
     </div>
   );
 }

@@ -9,8 +9,10 @@ import Seo from "../components/Seo.jsx";
 import LeadForm from "../components/LeadForm.jsx";
 import { tariffs, selfService } from "../data/content.js";
 import { fmtRub } from "../lib/format.js";
+import { useFeatureFlag } from "../lib/featureFlags.js";
 
 export default function SelfServiceTariffs() {
+  const autofillOn = useFeatureFlag("doc_autofill");
   const formRef = useRef(null);
   const toForm = () =>
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -76,6 +78,8 @@ export default function SelfServiceTariffs() {
                   "Файл для Личного кабинета ФНС",
                   "Заявление на возврат налога",
                   "Подсказки к каждому полю",
+                  // Пункт про фичу — только при включённом флаге doc_autofill
+                  ...(autofillOn ? ["Автозаполнение по фото документов"] : []),
                 ].map((f) => (
                   <li key={f}>
                     <span className="tariff__check">✓</span>
