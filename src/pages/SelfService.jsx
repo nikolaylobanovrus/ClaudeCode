@@ -134,8 +134,12 @@ export default function SelfService() {
       <section className="hero">
         <div className="hero__inner container">
           <div>
+            {/* Промо фичи — в eyebrow (свап одной строки, вёрстка не прыгает):
+                4-й буллет доверия не влезал в две строки и ронял hero ниже. */}
             <span className="eyebrow hero__eyebrow">
-              Онлайн · Автоматически · {fmtRub(selfService.price)}
+              {autofillOn
+                ? `Онлайн · По фото документов · ${fmtRub(selfService.price)}`
+                : `Онлайн · Автоматически · ${fmtRub(selfService.price)}`}
             </span>
             <h1 className="hero__title hero__title--long">
               Просто заполните данные за 10 минут и{" "}
@@ -164,8 +168,7 @@ export default function SelfService() {
                   ? "🔒 Данные нигде не сохраняются"
                   : "🔒 Данные не покидают ваш браузер"}
               </span>
-              <span>💾 Черновик сохраняется</span>
-              {autofillOn && <span>📷 Автозаполнение по фото документов</span>}
+              <span>💾 Черновик хранится только на вашем устройстве</span>
             </div>
           </div>
           <div className="hero__card">
