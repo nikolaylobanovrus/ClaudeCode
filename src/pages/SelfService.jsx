@@ -116,8 +116,9 @@ export default function SelfService() {
               Онлайн · Автоматически · {fmtRub(selfService.price)}
             </span>
             <h1 className="hero__title">
-              Заполните <span className="hero__accent">3-НДФЛ сами</span> за 15
-              минут — мы всё посчитаем
+              Просто заполните данные за 10 минут и{" "}
+              <span className="hero__accent">3-НДФЛ</span> сформируется
+              автоматически
             </h1>
             <p className="hero__subtitle">
               Отвечаете на простые вопросы — получаете готовую декларацию, файл
