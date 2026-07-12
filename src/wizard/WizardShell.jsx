@@ -15,6 +15,7 @@ import StepBank from "./steps/StepBank.jsx";
 import StepReview from "./steps/StepReview.jsx";
 import StepPayment from "./steps/StepPayment.jsx";
 import StepDocuments from "./steps/StepDocuments.jsx";
+import DocAutofill from "./DocAutofill.jsx";
 
 const COMPONENTS = {
   types: StepDeductions,
@@ -101,6 +102,9 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
       <div className="wiz__grid">
         <div className="wiz__main">
           <h2 className="wiz__heading">{step.heading}</h2>
+          {/* Автозаполнение из документов — на первом шаге с полями.
+              Показывается только при включённом серверном флаге. */}
+          {step.key === "personal" && <DocAutofill />}
           <Step
             errors={errors}
             calc={calc}

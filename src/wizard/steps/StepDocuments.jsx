@@ -2,6 +2,7 @@
 // подгружаются лениво только здесь — в основной бандл сайта не входят.
 // Доступ строго по оплаченному заказу: статус перепроверяется в базе.
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
@@ -58,17 +59,19 @@ export default function StepDocuments({ onUnpaid }) {
       const source = purchase.snapshot || draft;
       setState("building");
       try {
-        const [{ buildDeclarationModel }, { buildDeclarationPdf }, { buildRefundApplicationPdf }, { buildDeclarationXml }] =
+        const [{ buildDeclarationModel }, { buildDeclarationPdf }, { buildRefundApplicationPdf }, { buildDeclarationXml }, { buildInstructionPdf }] =
           await Promise.all([
             import("../../lib/ndfl/model.js"),
             import("../../lib/ndfl/pdf3ndfl.js"),
             import("../../lib/ndfl/zayavlenie.js"),
             import("../../lib/ndfl/xml3ndfl.js"),
+            import("../../lib/ndfl/instrukciya.js"),
           ]);
         const model = buildDeclarationModel(source);
-        const [declPdf, appPdf] = await Promise.all([
+        const [declPdf, appPdf, instrPdf] = await Promise.all([
           buildDeclarationPdf(model),
           buildRefundApplicationPdf(model),
+          buildInstructionPdf({ year: source.year, types: source.types }),
         ]);
         const xml = buildDeclarationXml(model);
         if (!alive) return;
@@ -98,6 +101,15 @@ export default function StepDocuments({ onUnpaid }) {
             note: "Понадобится, если налоговая попросит отдельное заявление после проверки декларации.",
             filename: `Заявление на возврат ${source.year}.pdf`,
             bytes: appPdf,
+            mime: PDF_MIME,
+          },
+          {
+            key: "instr",
+            title: "Инструкция по подаче (PDF)",
+            note:
+              "Три способа подачи шаг за шагом — ЛК ФНС, почтой, лично — и список подтверждающих документов под ваши вычеты. Можно распечатать или переслать.",
+            filename: `Как подать 3-НДФЛ ${source.year}.pdf`,
+            bytes: instrPdf,
             mime: PDF_MIME,
           },
         ]);
@@ -232,6 +244,11 @@ export default function StepDocuments({ onUnpaid }) {
         <li>Подпишите неквалифицированной ЭП (создаётся там же) и отправьте.</li>
         <li>Возврат придёт на ваш счёт после камеральной проверки — до 3 месяцев.</li>
       </ol>
+      <p className="wiz__note">
+        Не хотите через интернет? Есть подача почтой и лично в ФНС/МФЦ —{" "}
+        <Link to="/deklaraciya/instrukciya">подробная инструкция всех трёх способов</Link>{" "}
+        (она же лежит PDF-файлом в вашем комплекте).
+      </p>
 
       <div className="doc-actions" style={{ marginTop: 18 }}>
         <button

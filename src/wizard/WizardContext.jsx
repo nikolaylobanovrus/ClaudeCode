@@ -64,6 +64,10 @@ function reducer(state, action) {
   switch (action.type) {
     case "PATCH": // PATCH(section, patch) — точечное обновление раздела
       return { ...state, [action.section]: { ...state[action.section], ...action.patch } };
+    case "APPLY_PATCH":
+      // Патч из распознавания документов: секции уже смержены mergePatch
+      // (пользовательский ввод не затирается), применяем верхним уровнем.
+      return { ...state, ...action.patch };
     case "SET": // SET(key, value) — поле верхнего уровня (year, types)
       return { ...state, [action.key]: action.value };
     case "TOGGLE_TYPE": {

@@ -2208,6 +2208,112 @@ h4 {
   max-width: 1060px;
   margin: 0 auto;
 }
+/* Страница «Как подать декларацию» (/deklaraciya/instrukciya) */
+.instr {
+  display: grid;
+  gap: 22px;
+  max-width: 860px;
+}
+.instr__block {
+  padding: 26px 28px;
+}
+.instr__block h2 {
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+.instr__steps {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 10px;
+  line-height: 1.55;
+}
+.instr__note {
+  color: var(--ink-500);
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+.instr__proofs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+.instr__proofs h3 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.instr__proofs ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--ink-700);
+}
+.instr__cta {
+  text-align: center;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  padding: 10px 0 4px;
+}
+.instr__cta p {
+  margin: 0;
+  color: var(--ink-500);
+}
+
+/* Автозаполнение анкеты из документов (DocAutofill) */
+.autofill {
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.autofill__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.autofill__title {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--blue-700);
+}
+.autofill__chev {
+  color: var(--ink-300);
+}
+.autofill__body {
+  padding: 0 20px 18px;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.autofill__hint {
+  color: var(--ink-500);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+.autofill__warnings {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 13.5px;
+}
+.autofill__privacy {
+  color: var(--ink-500);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .wiz__resume {
   padding: 18px 20px;
   margin-bottom: 18px;

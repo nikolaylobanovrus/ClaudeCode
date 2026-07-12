@@ -1,0 +1,179 @@
+// Блок «Заполнить из документов» на шаге «О вас»: клиент загружает фото/PDF
+// (справка о доходах, паспорт, договоры…), Claude распознаёт их и заполняет
+// пустые поля анкеты. Ручной ввод пользователя НИКОГДА не затирается.
+//
+// Киллсвитч: блок показывается только при включённом серверном флаге
+// doc_autofill (fail-closed: флаг выключен или база недоступна → блока нет,
+// анкета работает как обычно). Отключение — docs/anthropic-setup.md.
+import { useEffect, useRef, useState } from "react";
+import { useWizard } from "./WizardContext.jsx";
+import { sbRpc } from "../lib/supabase.js";
+import { parseDocuments, mergePatch, DocParseError, MAX_FILES } from "../lib/docParse.js";
+import { ymGoal } from "../lib/metrika.js";
+
+const ACCEPT = "image/*,.pdf,.heic,.heif";
+
+export default function DocAutofill() {
+  const { draft, dispatch } = useWizard();
+  const [enabled, setEnabled] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [applied, setApplied] = useState(null); // string[] — что подставили
+  const [warnings, setWarnings] = useState([]);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    sbRpc("feature_enabled", { p_key: "doc_autofill" })
+      .then((on) => alive.current && setEnabled(on === true))
+      .catch(() => {});
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  if (!enabled) return null;
+
+  const addFiles = (list) => {
+    setError("");
+    // Копируем FileList сразу: onChange очищает input.value, и живой FileList
+    // опустеет раньше, чем React выполнит функцию-обновитель состояния.
+    const picked = Array.from(list);
+    setFiles((prev) => [...prev, ...picked].slice(0, MAX_FILES));
+  };
+
+  const recognize = async () => {
+    setBusy(true);
+    setError("");
+    setApplied(null);
+    setWarnings([]);
+    try {
+      const { patch, warnings: w } = await parseDocuments(files, {
+        year: draft.year,
+        types: draft.types,
+      });
+      if (!alive.current) return;
+      const { draftPatch, applied: done } = mergePatch(draft, patch);
+      if (Object.keys(draftPatch).length)
+        dispatch({ type: "APPLY_PATCH", patch: draftPatch });
+      setApplied(done);
+      setWarnings(w || []);
+      setFiles([]);
+      if (done.length) ymGoal("wizard_autofill", { fields: done.length });
+    } catch (e) {
+      if (!alive.current) return;
+      setError(
+        e instanceof DocParseError
+          ? e.message
+          : "Не получилось распознать документы — заполните поля вручную."
+      );
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+
+  return (
+    <div className="autofill card">
+      <button
+        type="button"
+        className="autofill__head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="autofill__title">
+          📷 Загрузите документы — заполним анкету за вас
+        </span>
+        <span className="autofill__chev">{open ? "▴" : "▾"}</span>
+      </button>
+
+      {open && (
+        <div className="autofill__body">
+          <p className="autofill__hint">
+            Подойдут фото или PDF: справка о доходах (2-НДФЛ), паспорт, договор
+            на жильё, справка банка о процентах, справки об оплате лечения или
+            обучения. Распознанные значения подставятся только в пустые поля —
+            введённое вами не изменится.
+          </p>
+
+          <label className="up-drop">
+            <input
+              type="file"
+              multiple
+              accept={ACCEPT}
+              disabled={busy}
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <span className="up-drop__btn">📎 Выбрать файлы</span>
+            <span className="up-drop__hint">фото, скан или PDF — до {MAX_FILES} за раз</span>
+          </label>
+
+          {files.length > 0 && (
+            <ul className="up-files">
+              {files.map((f, i) => (
+                <li key={`${f.name}-${i}`}>
+                  <span>{f.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Удалить ${f.name}`}
+                    disabled={busy}
+                    onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {files.length > 0 && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={busy}
+              onClick={recognize}
+            >
+              {busy ? "Распознаём… обычно 20–60 секунд" : "Распознать и заполнить"}
+            </button>
+          )}
+
+          {error && (
+            <p className="form__error" role="alert">
+              {error}
+            </p>
+          )}
+
+          {applied && (
+            <div className={"doc-note " + (applied.length ? "doc-note--ok" : "doc-note--err")}>
+              {applied.length ? (
+                <>
+                  Заполнили: {applied.join(", ")}. Проверьте значения по
+                  документам — поля можно поправить вручную.
+                </>
+              ) : (
+                <>В документах не нашлось данных для пустых полей анкеты.</>
+              )}
+              {warnings.length > 0 && (
+                <ul className="autofill__warnings">
+                  {warnings.map((w, i) => (
+                    <li key={i}>⚠ {w}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          <p className="autofill__privacy">
+            🔒 Файлы передаются по защищённому каналу на сервер распознавания и
+            нигде не сохраняются. Не хотите загружать документы — просто
+            заполните поля вручную, тогда данные не покинут ваш браузер.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

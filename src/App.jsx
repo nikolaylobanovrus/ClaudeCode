@@ -28,6 +28,7 @@ const SelfService = lazy(() => import("./pages/SelfService.jsx"));
 const SelfServiceTariffs = lazy(() => import("./pages/SelfServiceTariffs.jsx"));
 const SelfServiceContacts = lazy(() => import("./pages/SelfServiceContacts.jsx"));
 const Wizard = lazy(() => import("./pages/Wizard.jsx"));
+const SelfServiceInstrukciya = lazy(() => import("./pages/SelfServiceInstrukciya.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="deklaraciya/tarify" element={lazyPage(<SelfServiceTariffs />)} />
         <Route path="deklaraciya/kontakty" element={lazyPage(<SelfServiceContacts />)} />
         <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />
+        <Route path="deklaraciya/instrukciya" element={lazyPage(<SelfServiceInstrukciya />)} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />
         <Route path="*" element={<NotFound />} />
