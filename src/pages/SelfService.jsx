@@ -137,8 +137,10 @@ export default function SelfService() {
             {/* Промо фичи — в eyebrow (свап одной строки, вёрстка не прыгает):
                 4-й буллет доверия не влезал в две строки и ронял hero ниже. */}
             <span className="eyebrow hero__eyebrow">
+              {/* Без «Онлайн» в ON-варианте: строка равна OFF по длине и не
+                  переносится на мобильном (иначе eyebrow прыгал на 21px). */}
               {autofillOn
-                ? `Онлайн · По фото документов · ${fmtRub(selfService.price)}`
+                ? `Автозаполнение по фото · ${fmtRub(selfService.price)}`
                 : `Онлайн · Автоматически · ${fmtRub(selfService.price)}`}
             </span>
             <h1 className="hero__title hero__title--long">
