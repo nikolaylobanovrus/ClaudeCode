@@ -6,6 +6,7 @@
 // doc_autofill (fail-closed: флаг выключен или база недоступна → блока нет,
 // анкета работает как обычно). Отключение — docs/anthropic-setup.md.
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useWizard } from "./WizardContext.jsx";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { parseDocuments, mergePatch, DocParseError, MAX_FILES } from "../lib/docParse.js";
@@ -176,8 +177,11 @@ export default function DocAutofill() {
 
           <p className="autofill__privacy">
             🔒 Файлы передаются по защищённому каналу на сервер распознавания и
-            нигде не сохраняются. Не хотите загружать документы — просто
-            заполните поля вручную, тогда данные не покинут ваш браузер.
+            нигде не сохраняются. Нажимая «Распознать и заполнить», вы даёте
+            согласие на обработку загруженных документов (
+            <Link to="/politika-konfidencialnosti">Политика конфиденциальности</Link>
+            ). Не хотите загружать документы — просто заполните поля вручную,
+            тогда данные не покинут ваш браузер.
           </p>
         </div>
       )}
