@@ -148,9 +148,8 @@ export default function SelfService() {
                 : `Онлайн · Автоматически · ${fmtRub(selfService.price)}`}
             </span>
             <h1 className="hero__title hero__title--long">
-              Просто заполните данные за 10 минут и{" "}
-              <span className="hero__accent">3-НДФЛ</span> сформируется
-              автоматически
+              Верните свои 13% налога — готовая{" "}
+              <span className="hero__accent">3-НДФЛ</span> за 10 минут и 199 ₽
             </h1>
             <p className="hero__subtitle">
               Отвечаете на простые вопросы — получаете готовую декларацию, файл
@@ -287,7 +286,7 @@ export default function SelfService() {
       {/* CTA */}
       <section className="cta">
         <div className="cta__inner container">
-          <h2 className="cta__title">Верните свои 13% уже в этом году</h2>
+          <h2 className="cta__title">Не откладывайте — деньги вернутся уже в этом году</h2>
           <p className="cta__text">
             Средний вычет наших клиентов — больше 50 000 ₽. Анкета займёт 10
             минут, черновик сохраняется автоматически.
