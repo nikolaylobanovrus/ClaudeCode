@@ -105,20 +105,39 @@ export default function DocAutofill() {
             введённое вами не изменится.
           </p>
 
-          <label className="up-drop">
-            <input
-              type="file"
-              multiple
-              accept={ACCEPT}
-              disabled={busy}
-              onChange={(e) => {
-                addFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <span className="up-drop__btn">📎 Выбрать файлы</span>
-            <span className="up-drop__hint">фото, скан или PDF — до {MAX_FILES} за раз</span>
-          </label>
+          <div className="autofill__pickers">
+            <label className="up-drop">
+              <input
+                type="file"
+                multiple
+                accept={ACCEPT}
+                disabled={busy}
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <span className="up-drop__btn">📎 Выбрать файлы</span>
+              <span className="up-drop__hint">фото, скан или PDF — до {MAX_FILES} за раз</span>
+            </label>
+            {/* capture открывает камеру сразу, минуя галерею. Камера отдаёт
+                по одному снимку — addFiles дописывает, можно снимать подряд.
+                На десктопе кнопка скрыта CSS-ом (capture там игнорируется). */}
+            <label className="up-drop autofill__shoot">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={busy}
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <span className="up-drop__btn">📷 Сфотографировать</span>
+              <span className="up-drop__hint">по одному документу, можно несколько подряд</span>
+            </label>
+          </div>
 
           {files.length > 0 && (
             <ul className="up-files">
