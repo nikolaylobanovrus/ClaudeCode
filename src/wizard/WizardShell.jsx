@@ -1,9 +1,10 @@
 // Оболочка мастера: прогресс по шагам, текущий шаг, кнопки Назад/Далее
 // и сайдбар с живым расчётом возврата. Шаг «Документы» доступен только
 // после оплаты (гейтинг дублируется внутри StepDocuments серверной проверкой).
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
 import { useFeatureFlag } from "../lib/featureFlags.js";
+import { ymGoal } from "../lib/metrika.js";
 import { STEPS, PAYMENT_STEP, DOCUMENTS_STEP } from "../data/wizard.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
@@ -43,8 +44,20 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
 
   const calc = useMemo(() => computeDeclaration(draft), [draft]);
 
+  // Карта потерь: цель на первый заход на каждый шаг заполнения (types
+  // покрыт целью wizard_open, payment — wizard_payment_step). Set — чтобы
+  // возвраты «Назад/Далее» не накручивали цели повторно.
+  const seenSteps = useRef(new Set([STEPS[draft.step]?.key]));
+  const trackStep = (key) => {
+    if (seenSteps.current.has(key)) return;
+    seenSteps.current.add(key);
+    if (["personal", "income", "details", "bank", "review"].includes(key))
+      ymGoal(`wizard_step_${key}`);
+  };
+
   const goto = (i) => {
     setErrors({});
+    trackStep(STEPS[i]?.key);
     dispatch({ type: "GOTO", step: i });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -52,7 +65,16 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const next = () => {
     const e = validateStep(step.key, draft);
     setErrors(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length) {
+      // На телефоне ошибки остаются за экраном выше кнопки «Далее» —
+      // без скролла клик выглядит как «ничего не произошло».
+      requestAnimationFrame(() =>
+        document
+          .querySelector(".form__field.has-error")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" })
+      );
+      return;
+    }
     if (draft.step === PAYMENT_STEP && !paid) return; // вперёд только после оплаты
     goto(Math.min(draft.step + 1, STEPS.length - 1));
   };
@@ -126,6 +148,12 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
               </button>
             </div>
           )}
+          {Object.keys(errors).length > 0 && (
+            <p className="form__error" role="alert">
+              Проверьте выделенные поля выше — не заполнено или с ошибкой:{" "}
+              {Object.keys(errors).length}.
+            </p>
+          )}
           {step.key === "payment" && (
             <div className="wiz__nav">
               <button type="button" className="btn btn--ghost" onClick={back}>
@@ -136,13 +164,19 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
         </div>
 
         <aside className="wiz__aside">
+          {/* Пока расчёта нет, «Вы вернёте 0 ₽» демотивирует (на мобильном
+              карточка стоит НАД формой) — показываем потенциал вычета. */}
           <div className="calc__result wiz__aside-card">
-            <div className="calc__result-label">Вы вернёте</div>
-            <div className="calc__result-value">{fmtRub(calc.refund)}</div>
+            <div className="calc__result-label">
+              {calc.refund > 0 ? "Вы вернёте" : "Вернуть можно"}
+            </div>
+            <div className="calc__result-value">
+              {calc.refund > 0 ? fmtRub(calc.refund) : "до 260 000 ₽"}
+            </div>
             <div className="calc__result-hint">
-              {calc.totalIncome > 0
+              {calc.refund > 0
                 ? "Расчёт обновляется по мере заполнения"
-                : "Заполните доходы и расходы — сумма посчитается сама"}
+                : "Ваша сумма посчитается на шагах «Доходы» и «Расходы»"}
             </div>
           </div>
           {/* При включённом автозаполнении «не отправляются на сервер» —

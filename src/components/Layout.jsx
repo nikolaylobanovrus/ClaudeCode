@@ -34,8 +34,11 @@ export default function Layout() {
       {pathname !== "/operator" && <ChatWidget />}
 
       {/* Липкая мобильная панель конверсии (на странице документов — своя).
-          В разделе авто-вычета ведёт к заполнению, а не в основной сайт. */}
-      {!pathname.startsWith("/situaciya") && (
+          В разделе авто-вычета ведёт к заполнению, а не в основной сайт.
+          На самой анкете панель скрыта: «Заполнить» вёл на текущую же
+          страницу, «Позвонить» уводил из воронки, а на шаге оплаты панель
+          соседствовала с настоящей кнопкой «Оплатить». */}
+      {!pathname.startsWith("/situaciya") && pathname !== "/deklaraciya/anketa" && (
         <div className="mobile-cta">
           <a href={`tel:${company.phoneRaw}`} className="btn btn--ghost">
             Позвонить

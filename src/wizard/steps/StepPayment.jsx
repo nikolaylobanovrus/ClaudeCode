@@ -22,7 +22,7 @@ import {
 import { getOperatorToken } from "../../lib/supabase.js";
 import { ymGoal, ymPurchase } from "../../lib/metrika.js";
 
-export default function StepPayment({ onPaid }) {
+export default function StepPayment({ onPaid, calc }) {
   const { draft, dispatch, flushDraft } = useWizard();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -279,6 +279,16 @@ export default function StepPayment({ onPaid }) {
       <div className="wiz__pay card">
         <h3 className="card__title">{selfService.name}</h3>
         <p className="card__text">{selfService.description}</p>
+        {/* Якорь: цена сервиса на фоне суммы возврата клиента. */}
+        {calc?.refund > 0 && (
+          <div className="doc-note doc-note--ok">
+            Вы вернёте <strong>{fmtRub(calc.refund)}</strong> — сервис стоит{" "}
+            {fmtRub(selfService.price)}
+            {calc.refund >= selfService.price * 20 &&
+              ` (меньше ${Math.max(1, Math.round((selfService.price / calc.refund) * 100))}% от возврата)`}
+            .
+          </div>
+        )}
         <div className="wiz__pay-price">{fmtRub(selfService.price)}</div>
         <button
           type="button"
@@ -300,6 +310,10 @@ export default function StepPayment({ onPaid }) {
           </p>
         )}
         {error && <div className="form__error">{error}</div>}
+        <p className="wiz__note">
+          🛡 Гарантия: если ФНС не примет документы из-за ошибки сервиса —
+          исправим бесплатно или вернём {fmtRub(selfService.price)}.
+        </p>
         {/* Акцепт конклюдентным действием: оферта считает предоплату
             акцептом (legal.js), здесь это проговаривается пользователю. */}
         <p className="wiz__note">
