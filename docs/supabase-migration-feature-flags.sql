@@ -20,6 +20,12 @@ insert into feature_flags (key, enabled)
 values ('doc_autofill', true)
 on conflict (key) do nothing;
 
+-- Флаг address_lookup управляет полем «Адрес прописки» (автоопределение
+-- ИФНС/ОКТМО через DaData, см. docs/dadata-setup.md).
+insert into feature_flags (key, enabled)
+values ('address_lookup', true)
+on conflict (key) do nothing;
+
 -- Прямой доступ к таблице закрыт; чтение — только через RPC.
 alter table feature_flags enable row level security;
 

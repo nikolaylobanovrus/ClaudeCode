@@ -4,11 +4,22 @@ import { useWizard } from "../WizardContext.jsx";
 import { HINTS } from "../../data/wizard.js";
 import { Field, TextInput, DateInput } from "../fields.jsx";
 import { maskRuPhone } from "../../lib/phone.js";
+import AddressLookup from "../AddressLookup.jsx";
+import { useFeatureFlag } from "../../lib/featureFlags.js";
 
 export default function StepPersonal({ errors }) {
   const { draft, dispatch } = useWizard();
   const p = draft.personal;
   const set = (patch) => dispatch({ type: "PATCH", section: "personal", patch });
+  // При включённом определении по адресу подсказки к ИФНС/ОКТМО ссылаются
+  // на поле адреса; при выключенном — прежний текст (поля адреса нет).
+  const addressOn = useFeatureFlag("address_lookup");
+  const hintIfns = addressOn
+    ? "4 цифры — код инспекции по месту прописки. Проще всего — начните вводить адрес прописки выше, код определится сам."
+    : HINTS.ifns;
+  const hintOktmo = addressOn
+    ? "Определяется по адресу прописки выше. Для сверки: код ОКТМО есть и в справке о доходах (раздел 1)."
+    : HINTS.oktmo;
 
   return (
     <div>
@@ -65,12 +76,13 @@ export default function StepPersonal({ errors }) {
       </Field>
 
       <h3 className="wiz__subhead">Налоговая по месту прописки</h3>
+      <AddressLookup />
       <div className="wiz__row">
-        <Field label="Код инспекции (ИФНС)" hint={HINTS.ifns} error={errors.ifns}>
+        <Field label="Код инспекции (ИФНС)" hint={hintIfns} error={errors.ifns}>
           <TextInput value={p.ifns} error={errors.ifns} inputMode="numeric" maxLength={4}
             placeholder="7701" onChange={(v) => set({ ifns: v.replace(/\D/g, "") })} />
         </Field>
-        <Field label="ОКТМО" hint={HINTS.oktmo} error={errors.oktmo}>
+        <Field label="ОКТМО" hint={hintOktmo} error={errors.oktmo}>
           <TextInput value={p.oktmo} error={errors.oktmo} inputMode="numeric" maxLength={11}
             placeholder="8 или 11 цифр" onChange={(v) => set({ oktmo: v.replace(/\D/g, "") })} />
         </Field>
