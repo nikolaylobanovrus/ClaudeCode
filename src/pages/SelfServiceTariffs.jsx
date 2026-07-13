@@ -71,7 +71,7 @@ export default function SelfServiceTariffs() {
                   0 ₽
                 </span>
               </div>
-              <div className="tariff__term">Срок — 15 минут</div>
+              <div className="tariff__term">Срок — 10 минут</div>
               <ul className="tariff__features">
                 {[
                   "Декларация 3-НДФЛ (PDF)",
@@ -181,7 +181,7 @@ export default function SelfServiceTariffs() {
         <div className="cta__inner container">
           <h2 className="cta__title">Готовы заполнить сами за {fmtRub(selfService.price)}?</h2>
           <p className="cta__text">
-            Анкета с подсказками к каждому полю занимает 15 минут, документы
+            Анкета с подсказками к каждому полю занимает 10 минут, документы
             открываются сразу после оплаты.
           </p>
           <div className="cta__actions">

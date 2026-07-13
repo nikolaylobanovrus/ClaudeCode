@@ -98,7 +98,7 @@ export default function SelfServiceContacts() {
         <div className="cta__inner container">
           <h2 className="cta__title">Готовы заполнить декларацию?</h2>
           <p className="cta__text">
-            Анкета с подсказками к каждому полю занимает 15 минут, документы
+            Анкета с подсказками к каждому полю занимает 10 минут, документы
             открываются сразу после оплаты.
           </p>
           <div className="cta__actions">
