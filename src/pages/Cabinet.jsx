@@ -107,7 +107,7 @@ export default function Cabinet() {
               <a href={`tel:${company.phoneRaw}`} style={{ color: "var(--blue-700)", fontWeight: 700 }}>
                 {company.phone}
               </a>{" "}
-              (колл-центр 24/7) или пишите на{" "}
+              или пишите на{" "}
               <a href={`mailto:${company.email}`} style={{ color: "var(--blue-700)", fontWeight: 700 }}>
                 {company.email.toLowerCase()}
               </a>

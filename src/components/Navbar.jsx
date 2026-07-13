@@ -113,7 +113,6 @@ export default function Navbar() {
           )}
           <span className="navbar__phone">
             <a href={`tel:${company.phoneRaw}`}>{company.phone}</a>
-            <span>Колл-центр 24/7</span>
           </span>
           {isSelf ? (
             <Link

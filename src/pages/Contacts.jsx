@@ -29,7 +29,7 @@ export default function Contacts() {
     <>
       <Seo
         title="Контакты — Налог-сервис | Возврат налогового вычета"
-        description="Свяжитесь с Налог-сервис: телефон +7 (920) 837-91-93, электронная почта, мессенджеры Telegram, Max. Колл-центр 24/7. Оставьте заявку онлайн."
+        description="Свяжитесь с Налог-сервис: телефон +7 (920) 837-91-93, электронная почта, мессенджеры Telegram, Max. Оставьте заявку онлайн."
         path="/kontakty"
         jsonLd={jsonLd}
       />
@@ -49,7 +49,7 @@ export default function Contacts() {
                 <li>
                   <span className="lead__check">📞</span>
                   <span>
-                    Колл-центр 24/7:{" "}
+                    Телефон:{" "}
                     <a href={`tel:${company.phoneRaw}`} style={{ color: "var(--blue-700)", fontWeight: 700 }}>
                       {company.phone}
                     </a>
