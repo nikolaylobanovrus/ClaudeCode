@@ -318,7 +318,7 @@ export default function StepPayment({ onPaid, calc }) {
             акцептом (legal.js), здесь это проговаривается пользователю. */}
         <p className="wiz__note">
           Нажимая «Оплатить», вы принимаете условия{" "}
-          <Link to="/publichnaya-oferta">Публичной оферты</Link> и{" "}
+          <Link to="/deklaraciya/oferta">Публичной оферты сервиса</Link> и{" "}
           <Link to="/politika-konfidencialnosti">Политики конфиденциальности</Link>{" "}
           и даёте согласие на обработку персональных данных.
         </p>
