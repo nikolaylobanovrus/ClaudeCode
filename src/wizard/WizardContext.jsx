@@ -8,7 +8,7 @@ export const DRAFT_KEY = "ns.decl.draft.v1";
 
 export function initialDraft() {
   return {
-    v: 1,
+    v: 2, // v2: шаги переставлены (доходы/расходы до паспорта) — см. loadDraft
     step: 0,
     savedAt: null,
     year: YEARS[0],
@@ -149,12 +149,22 @@ function reducer(state, action) {
   }
 }
 
+// Черновики v1 сохранены при старом порядке шагов (types, personal, income,
+// details, …) — номер текущего шага хранится индексом, поэтому при
+// перестановке шагов индекс переезжает: personal 1→3, income 2→1,
+// details 3→2. Данные анкеты не меняются (хеш оплаты не затрагивается).
+const V1_STEP_MAP = { 1: 3, 2: 1, 3: 2 };
+
 export function loadDraft() {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw);
-    if (draft?.v !== 1) return null;
+    if (draft?.v === 1) {
+      draft.step = V1_STEP_MAP[draft.step] ?? draft.step;
+      draft.v = 2;
+    }
+    if (draft?.v !== 2) return null;
     if (!Array.isArray(draft.purchases)) draft.purchases = [];
     return draft;
   } catch {

@@ -126,9 +126,11 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
       <div className="wiz__grid">
         <div className="wiz__main">
           <h2 className="wiz__heading">{step.heading}</h2>
-          {/* Автозаполнение из документов — на первом шаге с полями.
+          {/* Автозаполнение из документов — на первом шаге с полями
+              («Доходы»): справка 2-НДФЛ логично грузится именно здесь, а
+              распознанное заполняет и последующие шаги (паспорт, расходы).
               Показывается только при включённом серверном флаге. */}
-          {step.key === "personal" && <DocAutofill />}
+          {step.key === "income" && <DocAutofill />}
           <Step
             errors={errors}
             calc={calc}
