@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { ymGoal } from "../lib/metrika.js";
-import { STEPS, PAYMENT_STEP, DOCUMENTS_STEP } from "../data/wizard.js";
+import { STEPS, PAYMENT_STEP, DOCUMENTS_STEP, potentialRefund } from "../data/wizard.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
 import { fmtRub } from "../lib/format.js";
@@ -173,7 +173,9 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
               {calc.refund > 0 ? "Вы вернёте" : "Вернуть можно"}
             </div>
             <div className="calc__result-value">
-              {calc.refund > 0 ? fmtRub(calc.refund) : "до 260 000 ₽"}
+              {calc.refund > 0
+                ? fmtRub(calc.refund)
+                : `до ${fmtRub(potentialRefund(draft.types))}`}
             </div>
             <div className="calc__result-hint">
               {calc.refund > 0
