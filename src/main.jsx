@@ -12,6 +12,20 @@ const useHash = import.meta.env.VITE_HASH_ROUTER === "1";
 const Router = useHash ? HashRouter : BrowserRouter;
 const routerProps = useHash ? {} : { basename: import.meta.env.BASE_URL };
 
+// Рекламные площадки дописывают свои параметры в конец ссылки ПОСЛЕ решётки
+// через «&» (напр. Telega.in: «#/deklaraciya&erid=…»). Для HashRouter это
+// часть пути — маршрут не находится и человек с рекламы попадает на 404.
+// Нормализуем до рендера: «#/путь&хвост» → «#/путь?хвост» (параметры уходят
+// в search внутри хэша, роутер их игнорирует). replaceState — без перезагрузки.
+if (useHash) {
+  const m = window.location.hash.match(/^(#\/[^?&]*)&(.+)$/);
+  if (m) {
+    const fixed =
+      window.location.pathname + window.location.search + m[1] + "?" + m[2];
+    window.history.replaceState(null, "", fixed);
+  }
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
