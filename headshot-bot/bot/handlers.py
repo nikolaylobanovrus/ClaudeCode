@@ -34,6 +34,11 @@ router = Router()
 # пользователя сериализуем, иначе гонка по счётчику (дубли "Фото 3 из 15").
 _photo_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
+# Превью отправляем после паузы в загрузке, чтобы не вклиниваться в альбом:
+# каждое новое фото передвигает таймер.
+_teaser_tasks: dict[int, asyncio.Task] = {}
+TEASER_DEBOUNCE_SECONDS = 3.0
+
 # Зависимости кладутся в workflow_data диспетчера (см. main.py):
 # settings, session_factory, provider, file_storage, styles.
 # Имя "storage" занято aiogram под FSM-хранилище — используем file_storage.
@@ -152,44 +157,73 @@ async def on_photo(
             )
             existing = len((await session.execute(count_stmt)).scalars().all())
             if existing >= settings.max_source_photos:
-                await message.answer(
-                    texts.PHOTO_LIMIT.format(max=settings.max_source_photos),
-                    reply_markup=_packages_kb(),
-                )
+                await message.answer(texts.PHOTO_LIMIT.format(max=settings.max_source_photos))
                 return
 
             key = file_storage.put(f"jobs/{job.id}/{Photo.SOURCE}/{existing:02d}.jpg", data)
             session.add(Photo(job_id=job.id, kind=Photo.SOURCE, storage_key=key))
             await session.commit()
             n = existing + 1
+            job_id = job.id
 
         if n < settings.min_source_photos:
             await message.answer(
                 texts.PHOTO_ACCEPTED.format(n=n, max=settings.max_source_photos)
             )
         elif n == settings.min_source_photos:
-            # Под блокировкой n == min достигается ровно один раз.
-            await message.answer(texts.PHOTO_ENOUGH)
+            await message.answer(
+                texts.PHOTO_ENOUGH.format(n=n, max=settings.max_source_photos)
+            )
         else:
             await message.answer(
                 texts.PHOTO_ACCEPTED_EXTRA.format(n=n, max=settings.max_source_photos)
             )
 
-    # Долгую генерацию тизера выполняем уже без блокировки, чтобы не
-    # задерживать приём остальных фото альбома.
-    if n == settings.min_source_photos:
-        await _send_teaser(message, data, provider, styles)
+    # Фото достаточно — планируем превью; каждое следующее фото сдвигает таймер,
+    # так что оно придёт после окончания альбома, а не в середине.
+    if n >= settings.min_source_photos:
+        pending = _teaser_tasks.pop(job_id, None)
+        if pending is not None:
+            pending.cancel()
+        _teaser_tasks[job_id] = asyncio.create_task(
+            _teaser_after_quiet(
+                message, job_id, data, session_factory, provider, file_storage, styles
+            )
+        )
 
 
-async def _send_teaser(
-    message: Message, photo: bytes, provider: ImageGenProvider, styles: StyleLibrary
+async def _teaser_after_quiet(
+    message: Message,
+    job_id: int,
+    photo: bytes,
+    session_factory: async_sessionmaker,
+    provider: ImageGenProvider,
+    file_storage: FileStorage,
+    styles: StyleLibrary,
 ) -> None:
+    """Ждёт паузу в загрузке и шлёт превью один раз на заказ."""
+    await asyncio.sleep(TEASER_DEBOUNCE_SECONDS)
+    _teaser_tasks.pop(job_id, None)
+
+    async with session_factory() as session:
+        marker_stmt = select(Photo).where(
+            Photo.job_id == job_id, Photo.kind == Photo.TEASER
+        )
+        if (await session.execute(marker_stmt)).scalars().first() is not None:
+            return  # превью по этому заказу уже отправлено
+
     try:
         teaser = await provider.teaser(photo, styles.teaser_prompt)
     except Exception:
-        log.exception("Тизер не сгенерировался")
+        log.exception("Тизер не сгенерировался (job %s)", job_id)
         await message.answer(texts.TEASER_FAILED, reply_markup=_packages_kb())
         return
+
+    key = file_storage.put(f"jobs/{job_id}/{Photo.TEASER}/preview.jpg", teaser)
+    async with session_factory() as session:
+        session.add(Photo(job_id=job_id, kind=Photo.TEASER, storage_key=key))
+        await session.commit()
+
     await message.answer_photo(
         BufferedInputFile(teaser, filename="preview.jpg"),
         caption=texts.TEASER_CAPTION,
