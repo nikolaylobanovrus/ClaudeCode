@@ -231,22 +231,30 @@ async def _teaser_after_quiet(
     )
 
 
-@router.callback_query(F.data.startswith("buy:"))
-async def on_buy(
-    query: CallbackQuery, settings: Settings, session_factory: async_sessionmaker
-) -> None:
-    package = get_package(query.data.split(":", 1)[1])
-    async with session_factory() as session:
-        user = await _get_or_create_user(session, query.from_user.id)
-        job = await _active_job(session, user.id, JobState.COLLECTING)
-        if job is None:
-            await query.answer(texts.NO_ACTIVE_JOB, show_alert=True)
-            return
-        job.package_code = package.code
-        job.state = validate_transition(JobState(job.state), JobState.AWAITING_PAYMENT)
-        await session.commit()
-        job_id = job.id
+def _styles_kb(styles: StyleLibrary, chosen: set[str], required: int) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=("☑ " if s.key in chosen else "☐ ") + s.title,
+                callback_data=f"style:{s.key}",
+            )
+        ]
+        for s in styles.styles
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=texts.STYLES_DONE_BUTTON.format(n=len(chosen), k=required),
+                callback_data="styles_done",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
+
+async def _request_payment(
+    query: CallbackQuery, settings: Settings, job_id: int, package
+) -> None:
     if settings.manual_payment:
         await query.message.answer(
             texts.MANUAL_PAYMENT_INFO.format(title=package.title, price=package.price_rub)
@@ -258,6 +266,102 @@ async def on_buy(
                 f"пользователь {query.from_user.id}. Подтвердить: /approve_{job_id}",
             )
     # Ветка Telegram Payments/ЮKassa добавляется на этапе 3.
+
+
+@router.callback_query(F.data.startswith("buy:"))
+async def on_buy(
+    query: CallbackQuery,
+    settings: Settings,
+    session_factory: async_sessionmaker,
+    styles: StyleLibrary,
+) -> None:
+    package = get_package(query.data.split(":", 1)[1])
+    total = len(styles.styles)
+    async with session_factory() as session:
+        user = await _get_or_create_user(session, query.from_user.id)
+        job = await _active_job(session, user.id, JobState.COLLECTING)
+        if job is None:
+            await query.answer(texts.NO_ACTIVE_JOB, show_alert=True)
+            return
+        job.package_code = package.code
+        if package.styles < total:
+            # Пакет с выбором образов: остаёмся в сборе, ждём отметки стилей.
+            job.styles_csv = ""
+            await session.commit()
+            await query.message.answer(
+                texts.CHOOSE_STYLES.format(
+                    title=package.title,
+                    k=package.styles,
+                    total=total,
+                    per_style=package.portraits_per_style(),
+                    pro_price=PACKAGES["pro"].price_rub,
+                ),
+                reply_markup=_styles_kb(styles, set(), package.styles),
+            )
+            await query.answer()
+            return
+        # Пакет со всеми образами — сразу к оплате.
+        job.styles_csv = ",".join(s.key for s in styles.styles)
+        job.state = validate_transition(JobState(job.state), JobState.AWAITING_PAYMENT)
+        await session.commit()
+        job_id = job.id
+
+    await _request_payment(query, settings, job_id, package)
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("style:"))
+async def on_style_toggle(
+    query: CallbackQuery, session_factory: async_sessionmaker, styles: StyleLibrary
+) -> None:
+    key = query.data.split(":", 1)[1]
+    async with session_factory() as session:
+        user = await _get_or_create_user(session, query.from_user.id)
+        job = await _active_job(session, user.id, JobState.COLLECTING)
+        if job is None or not job.package_code:
+            await query.answer(texts.NO_ACTIVE_JOB, show_alert=True)
+            return
+        package = get_package(job.package_code)
+        chosen = set(filter(None, (job.styles_csv or "").split(",")))
+        if key in chosen:
+            chosen.discard(key)
+        elif len(chosen) >= package.styles:
+            await query.answer(texts.STYLES_LIMIT.format(k=package.styles), show_alert=True)
+            return
+        else:
+            chosen.add(key)
+        job.styles_csv = ",".join(sorted(chosen))
+        await session.commit()
+
+    await query.message.edit_reply_markup(
+        reply_markup=_styles_kb(styles, chosen, package.styles)
+    )
+    await query.answer()
+
+
+@router.callback_query(F.data == "styles_done")
+async def on_styles_done(
+    query: CallbackQuery, settings: Settings, session_factory: async_sessionmaker
+) -> None:
+    async with session_factory() as session:
+        user = await _get_or_create_user(session, query.from_user.id)
+        job = await _active_job(session, user.id, JobState.COLLECTING)
+        if job is None or not job.package_code:
+            await query.answer(texts.NO_ACTIVE_JOB, show_alert=True)
+            return
+        package = get_package(job.package_code)
+        chosen = set(filter(None, (job.styles_csv or "").split(",")))
+        if len(chosen) < package.styles:
+            await query.answer(
+                texts.STYLES_INCOMPLETE.format(left=package.styles - len(chosen)),
+                show_alert=True,
+            )
+            return
+        job.state = validate_transition(JobState(job.state), JobState.AWAITING_PAYMENT)
+        await session.commit()
+        job_id = job.id
+
+    await _request_payment(query, settings, job_id, package)
     await query.answer()
 
 

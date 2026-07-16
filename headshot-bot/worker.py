@@ -111,7 +111,11 @@ class Worker:
     async def _do_generating(self, session: AsyncSession, job: Job) -> None:
         package = get_package(job.package_code)
         per_style = package.portraits_per_style()
-        for style in self.styles.for_package(package.styles):
+        if job.styles_csv:
+            chosen = self.styles.resolve(job.styles_csv.split(","))
+        else:
+            chosen = self.styles.for_package(package.styles)
+        for style in chosen:
             done_stmt = select(Photo).where(
                 Photo.job_id == job.id, Photo.kind == Photo.RESULT, Photo.style == style.key
             )

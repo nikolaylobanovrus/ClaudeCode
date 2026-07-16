@@ -37,6 +37,8 @@ class Job(Base):
     package_code: Mapped[str | None] = mapped_column(String(32), default=None)
     # Ссылка на обученную identity-модель у провайдера (URL LoRA-весов и т.п.).
     model_ref: Mapped[str | None] = mapped_column(Text, default=None)
+    # Выбранные пользователем образы (ключи стилей через запятую).
+    styles_csv: Mapped[str | None] = mapped_column(Text, default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     # Состояние, в которое нужно вернуться при ретрае из failed.
     retry_to: Mapped[str | None] = mapped_column(String(32), default=None)

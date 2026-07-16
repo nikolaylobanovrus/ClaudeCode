@@ -33,3 +33,12 @@ class StyleLibrary:
                 f"Пакету нужно {style_count} стилей, в библиотеке только {len(self.styles)}"
             )
         return self.styles[:style_count]
+
+    def resolve(self, keys: list[str]) -> list[Style]:
+        """Стили по ключам, в порядке библиотеки. Неизвестный ключ — ошибка."""
+        by_key = {s.key: s for s in self.styles}
+        unknown = [k for k in keys if k not in by_key]
+        if unknown:
+            raise ValueError(f"Неизвестные стили: {unknown}")
+        wanted = set(keys)
+        return [s for s in self.styles if s.key in wanted]

@@ -67,6 +67,39 @@ async def test_full_pipeline_delivers_package(env):
 
 
 @pytest.mark.asyncio
+async def test_generation_respects_chosen_styles(env):
+    session_factory, storage = env
+    chosen = ["hh_white", "office_modern", "suit_navy", "business_casual"]
+    job_id = await make_paid_job(session_factory, storage)
+    async with session_factory() as session:
+        job = await session.get(Job, job_id)
+        job.styles_csv = ",".join(chosen)
+        await session.commit()
+
+    delivered = {}
+
+    async def deliver(jid, tg_id, keys):
+        delivered["keys"] = keys
+
+    worker = Worker(session_factory, FakeProvider(), storage, StyleLibrary.load(), deliver)
+    while await worker.process_one():
+        pass
+
+    package = get_package("standard")
+    assert len(delivered["keys"]) == package.portraits
+    used_styles = {k.rsplit("/", 1)[-1].rsplit("_", 1)[0] for k in delivered["keys"]}
+    assert used_styles == set(chosen)
+
+
+def test_style_library_resolve():
+    lib = StyleLibrary.load()
+    keys = [s.key for s in lib.styles[:3]]
+    assert [s.key for s in lib.resolve(list(reversed(keys)))] == keys  # порядок библиотеки
+    with pytest.raises(ValueError):
+        lib.resolve(["nonexistent_style"])
+
+
+@pytest.mark.asyncio
 async def test_failure_retries_then_gives_up(env):
     session_factory, storage = env
     await make_paid_job(session_factory, storage)

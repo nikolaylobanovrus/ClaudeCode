@@ -1,4 +1,5 @@
 """Инициализация БД и фабрика сессий."""
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.models import Base
@@ -15,3 +16,9 @@ def make_session_factory(engine) -> async_sessionmaker[AsyncSession]:
 async def init_db(engine) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Мини-миграция для SQLite: create_all не добавляет колонки в
+        # существующие таблицы. До Postgres/Alembic этого достаточно.
+        if engine.dialect.name == "sqlite":
+            cols = [r[1] for r in await conn.execute(text("PRAGMA table_info(jobs)"))]
+            if "styles_csv" not in cols:
+                await conn.execute(text("ALTER TABLE jobs ADD COLUMN styles_csv TEXT"))
