@@ -6,6 +6,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand
 
 from bot.handlers import deliver_results, router
 from config import load_settings
@@ -49,6 +50,14 @@ async def main() -> None:
     provider = make_provider(settings)
 
     bot = Bot(settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # Кнопка «Меню» в клиенте Telegram — команды доступны в любой момент.
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Начать новую фотосессию"),
+            BotCommand(command="privacy", description="Как хранятся мои данные"),
+            BotCommand(command="delete_my_data", description="Удалить все мои данные"),
+        ]
+    )
     # "storage" зарезервировано aiogram под FSM — файловое хранилище как file_storage.
     dp = Dispatcher(
         settings=settings,

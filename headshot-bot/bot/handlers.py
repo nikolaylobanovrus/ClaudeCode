@@ -288,10 +288,14 @@ async def cmd_delete_my_data(
         user = (
             await session.execute(select(User).where(User.tg_id == message.from_user.id))
         ).scalar_one_or_none()
-        if user is None:
-            await message.answer(texts.DATA_DELETED)
+        jobs = (
+            (await session.execute(select(Job).where(Job.user_id == user.id))).scalars().all()
+            if user is not None
+            else []
+        )
+        if not jobs:
+            await message.answer(texts.NO_DATA_TO_DELETE)
             return
-        jobs = (await session.execute(select(Job).where(Job.user_id == user.id))).scalars().all()
         for job in jobs:
             file_storage.delete_job(job.id)
             for photo in await session.execute(select(Photo).where(Photo.job_id == job.id)):
