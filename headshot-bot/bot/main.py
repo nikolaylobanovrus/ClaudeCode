@@ -67,10 +67,18 @@ async def main() -> None:
         deliver=functools.partial(deliver_results, bot, storage),
     )
 
-    async with asyncio.TaskGroup() as tg:
-        tg.create_task(worker.run_forever())
-        tg.create_task(retention_loop(storage, settings.retention_days))
-        tg.create_task(dp.start_polling(bot))
+    background = [
+        asyncio.create_task(worker.run_forever()),
+        asyncio.create_task(retention_loop(storage, settings.retention_days)),
+    ]
+    try:
+        # start_polling сам обрабатывает SIGTERM/SIGINT; по его завершении
+        # гасим фоновые задачи, иначе процесс зависает после остановки polling.
+        await dp.start_polling(bot)
+    finally:
+        for task in background:
+            task.cancel()
+        await asyncio.gather(*background, return_exceptions=True)
 
 
 if __name__ == "__main__":

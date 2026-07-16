@@ -1,5 +1,7 @@
 """Хендлеры бота: онбординг → согласие → фото → тизер → пакет → оплата → доставка."""
+import asyncio
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 
 from aiogram import Bot, F, Router
@@ -27,6 +29,10 @@ from storage.files import FileStorage
 
 log = logging.getLogger(__name__)
 router = Router()
+
+# Фото из альбома приходят параллельными апдейтами — обработку фото одного
+# пользователя сериализуем, иначе гонка по счётчику (дубли "Фото 3 из 15").
+_photo_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 # Зависимости кладутся в workflow_data диспетчера (см. main.py):
 # settings, session_factory, provider, file_storage, styles.
@@ -78,7 +84,15 @@ async def _active_job(session: AsyncSession, user_id: int, *states: JobState) ->
 @router.message(CommandStart())
 async def cmd_start(message: Message, session_factory: async_sessionmaker) -> None:
     async with session_factory() as session:
-        await _get_or_create_user(session, message.from_user.id)
+        user = await _get_or_create_user(session, message.from_user.id)
+        if user.consent_at is not None:
+            # Согласие уже есть: сразу открываем (или продолжаем) сбор фото.
+            job = await _active_job(session, user.id, JobState.COLLECTING)
+            if job is None:
+                session.add(Job(user_id=user.id, state=JobState.COLLECTING))
+                await session.commit()
+            await message.answer(texts.CONSENT_SAVED)
+            return
     await message.answer(texts.START, reply_markup=_consent_kb())
     await message.answer(texts.CONSENT_INFO)
 
@@ -112,40 +126,58 @@ async def on_photo(
     file_storage: FileStorage,
     styles: StyleLibrary,
 ) -> None:
-    async with session_factory() as session:
-        user = await _get_or_create_user(session, message.from_user.id)
-        if user.consent_at is None:
-            await message.answer(texts.NEED_CONSENT, reply_markup=_consent_kb())
-            return
-        job = await _active_job(session, user.id, JobState.COLLECTING)
-        if job is None:
-            await message.answer(texts.NO_ACTIVE_JOB)
-            return
+    # Скачивание — вне блокировки (долгий I/O), учёт — строго под ней.
+    file = await bot.get_file(message.photo[-1].file_id)
+    buf = await bot.download_file(file.file_path)
+    data = buf.read()
 
-        file = await bot.get_file(message.photo[-1].file_id)
-        buf = await bot.download_file(file.file_path)
-        data = buf.read()
+    async with _photo_locks[message.from_user.id]:
+        async with session_factory() as session:
+            user = await _get_or_create_user(session, message.from_user.id)
+            if user.consent_at is None:
+                await message.answer(texts.NEED_CONSENT, reply_markup=_consent_kb())
+                return
+            job = await _active_job(session, user.id, JobState.COLLECTING)
+            if job is None:
+                await message.answer(texts.NO_ACTIVE_JOB)
+                return
 
-        check = validate_photo(data)
-        if not check.ok:
-            await message.answer(texts.PHOTO_REJECTED[check.reason])
-            return
+            check = validate_photo(data)
+            if not check.ok:
+                await message.answer(texts.PHOTO_REJECTED[check.reason])
+                return
 
-        count_stmt = select(Photo).where(Photo.job_id == job.id, Photo.kind == Photo.SOURCE)
-        existing = len((await session.execute(count_stmt)).scalars().all())
-        if existing >= settings.max_source_photos:
-            return  # лишние фото в альбоме молча игнорируем
+            count_stmt = select(Photo).where(
+                Photo.job_id == job.id, Photo.kind == Photo.SOURCE
+            )
+            existing = len((await session.execute(count_stmt)).scalars().all())
+            if existing >= settings.max_source_photos:
+                await message.answer(
+                    texts.PHOTO_LIMIT.format(max=settings.max_source_photos),
+                    reply_markup=_packages_kb(),
+                )
+                return
 
-        key = file_storage.put(f"jobs/{job.id}/{Photo.SOURCE}/{existing:02d}.jpg", data)
-        session.add(Photo(job_id=job.id, kind=Photo.SOURCE, storage_key=key))
-        await session.commit()
-        n = existing + 1
+            key = file_storage.put(f"jobs/{job.id}/{Photo.SOURCE}/{existing:02d}.jpg", data)
+            session.add(Photo(job_id=job.id, kind=Photo.SOURCE, storage_key=key))
+            await session.commit()
+            n = existing + 1
 
-    if n < settings.min_source_photos:
-        await message.answer(texts.PHOTO_ACCEPTED.format(n=n, max=settings.max_source_photos))
-        return
+        if n < settings.min_source_photos:
+            await message.answer(
+                texts.PHOTO_ACCEPTED.format(n=n, max=settings.max_source_photos)
+            )
+        elif n == settings.min_source_photos:
+            # Под блокировкой n == min достигается ровно один раз.
+            await message.answer(texts.PHOTO_ENOUGH)
+        else:
+            await message.answer(
+                texts.PHOTO_ACCEPTED_EXTRA.format(n=n, max=settings.max_source_photos)
+            )
+
+    # Долгую генерацию тизера выполняем уже без блокировки, чтобы не
+    # задерживать приём остальных фото альбома.
     if n == settings.min_source_photos:
-        await message.answer(texts.PHOTO_ENOUGH)
         await _send_teaser(message, data, provider, styles)
 
 
