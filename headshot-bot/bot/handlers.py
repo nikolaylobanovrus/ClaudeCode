@@ -29,7 +29,8 @@ log = logging.getLogger(__name__)
 router = Router()
 
 # Зависимости кладутся в workflow_data диспетчера (см. main.py):
-# settings, session_factory, provider, storage, styles
+# settings, session_factory, provider, file_storage, styles.
+# Имя "storage" занято aiogram под FSM-хранилище — используем file_storage.
 
 
 def _consent_kb() -> InlineKeyboardMarkup:
@@ -108,7 +109,7 @@ async def on_photo(
     settings: Settings,
     session_factory: async_sessionmaker,
     provider: ImageGenProvider,
-    storage: FileStorage,
+    file_storage: FileStorage,
     styles: StyleLibrary,
 ) -> None:
     async with session_factory() as session:
@@ -135,7 +136,7 @@ async def on_photo(
         if existing >= settings.max_source_photos:
             return  # лишние фото в альбоме молча игнорируем
 
-        key = storage.put(f"jobs/{job.id}/{Photo.SOURCE}/{existing:02d}.jpg", data)
+        key = file_storage.put(f"jobs/{job.id}/{Photo.SOURCE}/{existing:02d}.jpg", data)
         session.add(Photo(job_id=job.id, kind=Photo.SOURCE, storage_key=key))
         await session.commit()
         n = existing + 1
@@ -215,7 +216,7 @@ async def on_approve(
 
 @router.message(Command("delete_my_data"))
 async def cmd_delete_my_data(
-    message: Message, session_factory: async_sessionmaker, storage: FileStorage
+    message: Message, session_factory: async_sessionmaker, file_storage: FileStorage
 ) -> None:
     async with session_factory() as session:
         user = (
@@ -226,7 +227,7 @@ async def cmd_delete_my_data(
             return
         jobs = (await session.execute(select(Job).where(Job.user_id == user.id))).scalars().all()
         for job in jobs:
-            storage.delete_job(job.id)
+            file_storage.delete_job(job.id)
             for photo in await session.execute(select(Photo).where(Photo.job_id == job.id)):
                 await session.delete(photo[0])
             job.model_ref = None

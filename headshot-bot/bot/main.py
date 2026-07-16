@@ -49,11 +49,12 @@ async def main() -> None:
     provider = make_provider(settings)
 
     bot = Bot(settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # "storage" зарезервировано aiogram под FSM — файловое хранилище как file_storage.
     dp = Dispatcher(
         settings=settings,
         session_factory=session_factory,
         provider=provider,
-        storage=storage,
+        file_storage=storage,
         styles=styles,
     )
     dp.include_router(router)
