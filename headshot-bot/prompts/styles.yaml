@@ -1,0 +1,56 @@
+# Библиотека деловых стилей. trigger_word TOK подставляется при тренировке LoRA.
+# order определяет, какие стили входят в пакет: standard берёт первые 4, pro — все 8.
+teaser_prompt: >
+  Professional corporate headshot photo of this person, wearing a dark business
+  suit, neutral studio background, soft key light, sharp focus on face,
+  photorealistic, 85mm lens look
+
+styles:
+  - key: studio_grey
+    title: Студия, серый фон
+    prompt: >
+      professional corporate headshot photo of TOK person, dark tailored suit,
+      seamless grey studio background, soft three-point lighting, shallow depth
+      of field, photorealistic, 85mm portrait lens
+  - key: hh_white
+    title: Белый фон (для hh.ru)
+    prompt: >
+      professional ID-style business portrait photo of TOK person, business
+      attire, clean white background, even frontal lighting, neutral friendly
+      expression, centered composition, photorealistic
+  - key: office_modern
+    title: Современный офис
+    prompt: >
+      professional business portrait photo of TOK person in a modern bright
+      office, blurred glass walls background, smart casual blazer, natural
+      window light, confident expression, photorealistic
+  - key: suit_navy
+    title: Тёмно-синий костюм
+    prompt: >
+      executive portrait photo of TOK person wearing a navy blue suit and white
+      shirt, dark gradient studio background, dramatic rim lighting,
+      photorealistic, high-end corporate photography
+  - key: business_casual
+    title: Business casual
+    prompt: >
+      relaxed professional portrait photo of TOK person in business casual
+      outfit, light knit sweater over collared shirt, warm neutral background,
+      soft daylight, approachable smile, photorealistic
+  - key: outdoor_city
+    title: Город, деловой стиль
+    prompt: >
+      professional outdoor business portrait photo of TOK person, formal coat,
+      blurred city street background at golden hour, cinematic bokeh,
+      photorealistic
+  - key: speaker_stage
+    title: Спикер / конференция
+    prompt: >
+      conference speaker portrait photo of TOK person with a lavalier
+      microphone, dark stage background with soft bokeh lights, confident pose,
+      editorial photography style, photorealistic
+  - key: linkedin_classic
+    title: Классика для профиля
+    prompt: >
+      classic linkedin-style professional headshot photo of TOK person,
+      charcoal blazer, textured dark background, soft butterfly lighting,
+      genuine subtle smile, photorealistic, medium format look
