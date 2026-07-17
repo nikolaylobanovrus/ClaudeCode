@@ -62,8 +62,13 @@ export default function DocAutofill() {
       setWarnings(w || []);
       setFiles([]);
       if (done.length) ymGoal("wizard_autofill", { fields: done.length });
+      // Распознали, но подставить нечего (в документах нет данных для пустых
+      // полей) — для воронки это тоже неудача, фиксируем причину.
+      else ymGoal("autofill_fail", { reason: "empty_patch" });
     } catch (e) {
       if (!alive.current) return;
+      const reason = e instanceof DocParseError ? e.message : "unknown";
+      ymGoal("autofill_fail", { reason: reason.slice(0, 80) });
       setError(
         e instanceof DocParseError
           ? e.message

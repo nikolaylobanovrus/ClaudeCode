@@ -13,8 +13,13 @@ export default function StepIncome({ errors }) {
   return (
     <div>
       <p className="wiz__note">
-        Данные — из справки о доходах за {draft.year} год. Её выдаёт бухгалтерия
-        или скачайте в Личном кабинете ФНС (раздел «Доходы»).
+        Данные — из справки о доходах за {draft.year} год. Нет справки под
+        рукой? Это обычное дело: скачайте её за минуту в{" "}
+        <a href="https://lkfl2.nalog.ru/lkfl/" target="_blank" rel="noopener noreferrer">
+          Личном кабинете ФНС
+        </a>{" "}
+        (Доходы → Справки о доходах, вход через Госуслуги) или запросите в
+        бухгалтерии. Черновик анкеты сохранится и дождётся вас.
       </p>
       {errors.incomes && <div className="form__error">{errors.incomes}</div>}
 
