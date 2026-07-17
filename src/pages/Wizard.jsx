@@ -33,8 +33,13 @@ function WizardBody() {
   );
 
   // Цель Метрики: пользователь открыл анкету (вершина воронки самозаполнения).
+  // returning=1 — вернулся к начатому черновику: доля возвращающихся проверяет
+  // гипотезу «посмотрю сейчас, заполню когда дойдут руки».
   useEffect(() => {
-    ymGoal("wizard_open");
+    const saved = loadDraft();
+    const returning =
+      !!saved && ((saved.types || []).length > 0 || (saved.step || 0) > 0);
+    ymGoal("wizard_open", { returning: returning ? 1 : 0 });
   }, []);
 
   useEffect(() => {
