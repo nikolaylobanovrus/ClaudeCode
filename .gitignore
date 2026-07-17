@@ -3,3 +3,10 @@ dist/
 preview-*.png
 *.local
 .DS_Store
+
+# артефакты e2e-прогонов (скачанные документы и скриншоты из scratchpad-тестов)
+/decl.pdf
+/zayav.pdf
+/instr.pdf
+/fns.xml
+/shot-*.png
