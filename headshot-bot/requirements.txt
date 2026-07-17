@@ -5,6 +5,8 @@ fal-client>=0.4
 Pillow>=10.0
 PyYAML>=6.0
 aiohttp>=3.9
+fastapi>=0.110
+uvicorn>=0.29
 
 # dev
 pytest>=8.0

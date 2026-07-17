@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Тарифы</title><style>
+  body{font:15px/1.5 system-ui,sans-serif; color:#1B1D22; background:#F6F5F2; margin:0; padding:24px}
+  .pricing{display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:680px}
+  .plan{background:#fff; border:1px solid #E4E1DA; border-radius:14px; padding:30px;
+    box-shadow:0 1px 2px rgba(27,29,34,.05), 0 10px 30px rgba(27,29,34,.08);
+    display:flex; flex-direction:column; position:relative}
+  .plan.featured{border:2px solid #9A6B1F}
+  .tag{position:absolute; top:-12px; right:22px; background:#9A6B1F; color:#fff;
+    font-size:12px; font-weight:700; padding:3px 12px; border-radius:999px}
+  h3{font:600 21px Georgia,serif; margin:0}
+  .price{font:600 38px Georgia,serif; margin:10px 0 4px}
+  .price small{font:400 15px system-ui,sans-serif; color:#6A6D74}
+  ul{list-style:none; margin:18px 0 26px; padding:0; display:flex; flex-direction:column; gap:9px; font-size:14.5px; color:#6A6D74}
+  li::before{content:"✓  "; color:#7C5414; font-weight:700}
+  .btn{display:block; text-align:center; padding:12px 22px; border-radius:999px; text-decoration:none;
+    font-weight:650; font-size:15px; margin-top:auto}
+  .btn-primary{background:#1B1D22; color:#fff}
+  .btn-ghost{border:1.5px solid #E4E1DA; color:#1B1D22; background:#fff}
+</style></head><body>
+<div class="pricing">
+  <div class="plan">
+    <h3>Стандарт</h3>
+    <div class="price">990 ₽ <small>разово</small></div>
+    <ul><li>40 портретов</li><li>4 образа на выбор</li><li>По 10 кадров на образ</li><li>Бесплатное превью</li></ul>
+    <a class="btn btn-ghost" href="#">Выбрать Стандарт</a>
+  </div>
+  <div class="plan featured">
+    <span class="tag">Выгоднее</span>
+    <h3>Про</h3>
+    <div class="price">1 490 ₽ <small>разово</small></div>
+    <ul><li>80 портретов — вдвое больше</li><li>Все 8 образов каталога</li><li>По 10 кадров на образ</li><li>Приоритетная очередь</li></ul>
+    <a class="btn btn-primary" href="#">Выбрать Про</a>
+  </div>
+</div>
+</body></html>

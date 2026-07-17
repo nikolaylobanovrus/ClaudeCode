@@ -1,0 +1,25 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Плитки образов</title><style>
+  body{font:15px/1.5 system-ui,sans-serif; color:#1B1D22; background:#F6F5F2; margin:0; padding:24px}
+  .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; max-width:860px}
+  figure{margin:0; border-radius:14px; overflow:hidden; background:#fff;
+    box-shadow:0 1px 2px rgba(27,29,34,.05), 0 10px 30px rgba(27,29,34,.08)}
+  .thumb{aspect-ratio:3/4; position:relative}
+  .thumb::after{content:""; position:absolute; inset:0;
+    background:radial-gradient(ellipse 65% 50% at 50% 30%, rgba(255,224,160,.28), transparent 60%)}
+  figcaption{padding:10px 14px 12px; font-size:13.5px; font-weight:650}
+  .hint{display:block; font-weight:400; color:#6A6D74; font-size:12px}
+  .t1{background:linear-gradient(165deg,#6f7377 0%,#a3a5a7 60%,#c9c7c2 100%)}
+  .t2{background:linear-gradient(165deg,#d9d9d6 0%,#efeeea 60%,#ffffff 100%)}
+  .t3{background:linear-gradient(165deg,#1d2635 0%,#33415a 55%,#5d6d88 100%)}
+  .t4{background:linear-gradient(165deg,#17181c 0%,#2e2b33 55%,#6b5a4a 100%)}
+</style></head><body>
+<div class="grid">
+  <figure><div class="thumb t1"></div><figcaption>Студия, серый фон<span class="hint">классика для профиля</span></figcaption></figure>
+  <figure><div class="thumb t2"></div><figcaption>Белый фон<span class="hint">для hh.ru и документов</span></figcaption></figure>
+  <figure><div class="thumb t3"></div><figcaption>Тёмно-синий костюм<span class="hint">executive-стиль</span></figcaption></figure>
+  <figure><div class="thumb t4"></div><figcaption>Спикер<span class="hint">сцена и конференции</span></figcaption></figure>
+</div>
+<p style="color:#6A6D74; font-size:13.5px; max-width:64ch; margin-top:16px">Плитка каталога: градиент — временная схема света образа, заменяется на
+реальный сгенерированный пример 3:4. Тёплый радиальный блик поверх — фирменный «свет прожектора».</p>
+</body></html>

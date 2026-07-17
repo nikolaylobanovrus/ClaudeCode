@@ -1,0 +1,45 @@
+<!-- @dsCard group="Patterns" -->
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Секции: hero и тёмная</title><style>
+  body{font:15px/1.6 system-ui,sans-serif; color:#1B1D22; background:#F6F5F2; margin:0; padding:24px}
+  .hero{display:grid; grid-template-columns:1.1fr .9fr; gap:32px; align-items:center; max-width:900px; margin-bottom:28px}
+  .eyebrow{font:650 12px system-ui,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#9A6B1F}
+  h1{font:600 36px/1.1 Georgia,serif; margin:10px 0 12px}
+  .sub{color:#6A6D74; margin-bottom:18px}
+  .btn{display:inline-block; padding:12px 22px; border-radius:999px; text-decoration:none; font-weight:650; background:#1B1D22; color:#fff}
+  .ba{display:grid; grid-template-columns:1fr 1fr; gap:12px; position:relative}
+  .ba div{aspect-ratio:3/4; border-radius:14px; display:flex; align-items:flex-end; padding:12px; color:#fff; font-size:12px; font-weight:650;
+    box-shadow:0 1px 2px rgba(27,29,34,.05), 0 10px 30px rgba(27,29,34,.08)}
+  .ba .b{background:linear-gradient(160deg,#8d9296,#d7d5d0)}
+  .ba .a{background:linear-gradient(160deg,#2c3644,#93a3b8); position:relative; overflow:hidden}
+  .ba .a::after{content:""; position:absolute; inset:0; background:radial-gradient(ellipse 60% 45% at 50% 32%, rgba(255,214,140,.35), transparent 65%)}
+  .arrow{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#9A6B1F; color:#fff;
+    width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px}
+  .label{background:rgba(0,0,0,.45); padding:3px 9px; border-radius:999px}
+  .b2b{background:#232528; color:#F2F0EC; border-radius:14px; padding:32px; max-width:900px; display:grid; grid-template-columns:1.3fr .7fr; gap:20px; align-items:center}
+  .b2b .eyebrow{color:#E8B96A}
+  .b2b h2{font:600 24px Georgia,serif; margin:8px 0 10px}
+  .b2b p{color:#B9BCC2; font-size:14.5px}
+  .b2b .btn{background:#fff; color:#1B1D22; justify-self:start}
+</style></head><body>
+<div class="hero">
+  <div>
+    <span class="eyebrow">AI-фотостудия</span>
+    <h1>Деловые портреты — из десяти селфи</h1>
+    <p class="sub">Нейросеть обучится именно на вашем лице и через час пришлёт 40 портретов.</p>
+    <a class="btn" href="#">Создать портреты</a>
+  </div>
+  <div class="ba">
+    <div class="b"><span class="label">Ваше селфи</span></div>
+    <div class="a"><span class="label">Деловой портрет</span></div>
+    <div class="arrow">→</div>
+  </div>
+</div>
+<div class="b2b">
+  <div>
+    <span class="eyebrow">Для команд</span>
+    <h2>Весь отдел — в едином стиле</h2>
+    <p>Портреты сотрудников для сайта и интранета без съёмочного дня. Скидки от 5 человек.</p>
+  </div>
+  <a class="btn" href="#">Обсудить для команды</a>
+</div>
+</body></html>
