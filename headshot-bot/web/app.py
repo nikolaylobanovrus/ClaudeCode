@@ -4,26 +4,31 @@
 холодного трафика: одна генерация на IP в сутки, без хранения фото.
 """
 import base64
+import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import aiohttp
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from config import load_settings
 from core.db import init_db, make_engine, make_session_factory
-from core.models import FreePreview
-from core.packages import PACKAGES
+from core.models import FreePreview, Job, Photo, User, utcnow
+from core.packages import PACKAGES, get_package
+from core.states import JobState, validate_transition
 from core.validation import validate_photo
 from prompts.library import StyleLibrary
 from providers.factory import make_provider
+from storage.files import FileStorage
 
 STATIC_DIR = Path(__file__).parent / "static"
 FREE_LIMIT_PER_DAY = 1
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MIN_PHOTOS, MAX_PHOTOS = 10, 15
 
 
 @asynccontextmanager
@@ -36,6 +41,7 @@ async def lifespan(app: FastAPI):
     app.state.session_factory = make_session_factory(engine)
     app.state.provider = make_provider(settings)
     app.state.styles = StyleLibrary.load()
+    app.state.storage = FileStorage(settings.data_dir / "files")
     yield
     await engine.dispose()
 
@@ -112,6 +118,162 @@ async def free_preview(
     return JSONResponse(
         {"image": "data:image/jpeg;base64," + base64.b64encode(image).decode()}
     )
+
+
+# ---------- Веб-заказ (основной продукт) ----------
+
+
+async def _job_by_token(request: Request, token: str) -> Job | None:
+    async with request.app.state.session_factory() as session:
+        stmt = select(Job).where(Job.access_token == token)
+        return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _notify_admins(settings, text: str) -> None:
+    """Уведомление админам в Telegram напрямую через Bot API (веб-процесс)."""
+    if not settings.bot_token or not settings.admin_tg_ids:
+        return
+    url = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
+    try:
+        async with aiohttp.ClientSession() as http:
+            for admin_id in settings.admin_tg_ids:
+                await http.post(url, json={"chat_id": admin_id, "text": text})
+    except Exception:
+        pass  # уведомление не должно ломать заказ
+
+
+@app.post("/api/orders")
+async def create_order(request: Request, contact: str = Form(...), consent: str = Form("")):
+    if consent != "yes":
+        return JSONResponse({"error": "consent_required"}, status_code=400)
+    if not (3 <= len(contact.strip()) <= 200):
+        return JSONResponse({"error": "bad_contact"}, status_code=422)
+    token = secrets.token_urlsafe(24)
+    async with request.app.state.session_factory() as session:
+        # Синтетический пользователь с отрицательным tg_id: веб-клиент без Telegram.
+        user = User(tg_id=-secrets.randbits(46), consent_at=utcnow())
+        session.add(user)
+        await session.flush()
+        job = Job(
+            user_id=user.id, state=JobState.COLLECTING, channel="web",
+            contact=contact.strip(), access_token=token,
+        )
+        session.add(job)
+        await session.commit()
+    return {"token": token}
+
+
+@app.post("/api/orders/{token}/photos")
+async def upload_photo(request: Request, token: str, photo: UploadFile = File(...)):
+    job = await _job_by_token(request, token)
+    if job is None or JobState(job.state) is not JobState.COLLECTING:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    data = await photo.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"error": "too_large"}, status_code=413)
+    check = validate_photo(data)
+    if not check.ok:
+        return JSONResponse({"error": check.reason}, status_code=422)
+    storage: FileStorage = request.app.state.storage
+    async with request.app.state.session_factory() as session:
+        stmt = select(func.count()).select_from(Photo).where(
+            Photo.job_id == job.id, Photo.kind == Photo.SOURCE
+        )
+        existing = (await session.execute(stmt)).scalar() or 0
+        if existing >= MAX_PHOTOS:
+            return JSONResponse({"error": "limit"}, status_code=409)
+        key = storage.put(f"jobs/{job.id}/{Photo.SOURCE}/{existing:02d}.jpg", data)
+        session.add(Photo(job_id=job.id, kind=Photo.SOURCE, storage_key=key))
+        await session.commit()
+    return {"count": existing + 1, "min": MIN_PHOTOS, "max": MAX_PHOTOS}
+
+
+@app.post("/api/orders/{token}/select")
+async def select_package(
+    request: Request, token: str, package: str = Form(...), styles: str = Form(...)
+):
+    job = await _job_by_token(request, token)
+    if job is None or JobState(job.state) is not JobState.COLLECTING:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    try:
+        pkg = get_package(package)
+    except ValueError:
+        return JSONResponse({"error": "bad_package"}, status_code=422)
+    lib = request.app.state.styles
+    chosen = [s for s in styles.split(",") if s]
+    try:
+        lib.resolve(chosen)
+    except ValueError:
+        return JSONResponse({"error": "bad_styles"}, status_code=422)
+    if len(chosen) != pkg.styles:
+        return JSONResponse({"error": "styles_count"}, status_code=422)
+
+    async with request.app.state.session_factory() as session:
+        stmt = select(func.count()).select_from(Photo).where(
+            Photo.job_id == job.id, Photo.kind == Photo.SOURCE
+        )
+        if ((await session.execute(stmt)).scalar() or 0) < MIN_PHOTOS:
+            return JSONResponse({"error": "not_enough_photos"}, status_code=409)
+        db_job = await session.get(Job, job.id)
+        db_job.package_code = pkg.code
+        db_job.styles_csv = ",".join(chosen)
+        db_job.state = validate_transition(JobState(db_job.state), JobState.AWAITING_PAYMENT)
+        await session.commit()
+
+    settings = request.app.state.settings
+    await _notify_admins(
+        settings,
+        f"Новый ВЕБ-заказ #{job.id}: пакет {pkg.code}, контакт: {job.contact}. "
+        f"Подтвердить: /approve_{job.id}",
+    )
+    return {"state": "awaiting_payment", "price_rub": pkg.price_rub}
+
+
+@app.get("/api/orders/{token}")
+async def order_status(request: Request, token: str):
+    job = await _job_by_token(request, token)
+    if job is None:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    async with request.app.state.session_factory() as session:
+        src_stmt = select(func.count()).select_from(Photo).where(
+            Photo.job_id == job.id, Photo.kind == Photo.SOURCE
+        )
+        photos = (await session.execute(src_stmt)).scalar() or 0
+        results_stmt = select(Photo).where(
+            Photo.job_id == job.id, Photo.kind == Photo.RESULT
+        )
+        results = (await session.execute(results_stmt)).scalars().all()
+    return {
+        "state": job.state,
+        "photos": photos,
+        "min": MIN_PHOTOS,
+        "max": MAX_PHOTOS,
+        "package": job.package_code,
+        "results": [
+            {"id": p.id, "style": p.style, "url": f"/api/orders/{token}/result/{p.id}"}
+            for p in results
+        ]
+        if JobState(job.state) is JobState.DONE
+        else [],
+    }
+
+
+@app.get("/api/orders/{token}/result/{photo_id}")
+async def order_result(request: Request, token: str, photo_id: int):
+    job = await _job_by_token(request, token)
+    if job is None:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    async with request.app.state.session_factory() as session:
+        photo = await session.get(Photo, photo_id)
+    if photo is None or photo.job_id != job.id or photo.kind != Photo.RESULT:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    data = request.app.state.storage.get(photo.storage_key)
+    return Response(content=data, media_type="image/jpeg")
+
+
+@app.get("/order")
+async def order_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "order.html")
 
 
 @app.get("/")

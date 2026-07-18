@@ -20,5 +20,11 @@ async def init_db(engine) -> None:
         # существующие таблицы. До Postgres/Alembic этого достаточно.
         if engine.dialect.name == "sqlite":
             cols = [r[1] for r in await conn.execute(text("PRAGMA table_info(jobs)"))]
-            if "styles_csv" not in cols:
-                await conn.execute(text("ALTER TABLE jobs ADD COLUMN styles_csv TEXT"))
+            for name, ddl in (
+                ("styles_csv", "ALTER TABLE jobs ADD COLUMN styles_csv TEXT"),
+                ("channel", "ALTER TABLE jobs ADD COLUMN channel VARCHAR(8) DEFAULT 'tg'"),
+                ("contact", "ALTER TABLE jobs ADD COLUMN contact TEXT"),
+                ("access_token", "ALTER TABLE jobs ADD COLUMN access_token VARCHAR(64)"),
+            ):
+                if name not in cols:
+                    await conn.execute(text(ddl))

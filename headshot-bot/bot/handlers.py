@@ -353,7 +353,8 @@ async def on_approve(
         job.state = validate_transition(JobState(job.state), JobState.TRAINING)
         tg_id = (await job.awaitable_attrs.user).tg_id
         await session.commit()
-    await bot.send_message(tg_id, texts.PAYMENT_CONFIRMED)
+    if tg_id > 0:  # веб-заказам сообщение в Telegram не шлём
+        await bot.send_message(tg_id, texts.PAYMENT_CONFIRMED)
     await message.answer(f"Заказ {job_id} запущен в работу.")
 
 
@@ -387,7 +388,13 @@ async def cmd_delete_my_data(
 async def deliver_results(
     bot: Bot, storage: FileStorage, job_id: int, tg_id: int, result_keys: list[str]
 ) -> None:
-    """Колбэк доставки для воркера: шлём альбомами по 10 фото."""
+    """Колбэк доставки для воркера: шлём альбомами по 10 фото.
+
+    Веб-заказы (синтетический отрицательный tg_id) в Telegram не доставляются —
+    клиент смотрит галерею по своей ссылке /order на сайте.
+    """
+    if tg_id < 0:
+        return
     for start in range(0, len(result_keys), 10):
         chunk = result_keys[start : start + 10]
         media = [

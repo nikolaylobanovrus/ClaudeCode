@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Создание портретов — Деловой Портрет AI</title>
+<style>
+  :root{
+    --bg:#F6F5F2; --surface:#FFFFFF; --ink:#1B1D22; --muted:#6A6D74;
+    --accent:#9A6B1F; --accent-deep:#7C5414; --line:#E4E1DA; --bad:#B0433A;
+    --shadow:0 1px 2px rgba(27,29,34,.05), 0 10px 30px rgba(27,29,34,.08);
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h1,h2{font-family:Georgia,serif; font-weight:600; letter-spacing:-.01em}
+  .wrap{max-width:760px; margin:0 auto; padding:0 20px 80px}
+  header{border-bottom:1px solid var(--line); margin-bottom:32px}
+  .nav{display:flex; justify-content:space-between; align-items:center; padding:14px 0}
+  .logo{font-family:Georgia,serif; font-size:19px; font-weight:700; text-decoration:none; color:var(--ink)}
+  .logo span{color:var(--accent)}
+
+  .stepper{display:flex; gap:8px; margin-bottom:26px; font-size:12.5px; color:var(--muted)}
+  .stepper div{flex:1; text-align:center; padding:8px 4px; border-top:3px solid var(--line)}
+  .stepper .active{border-color:var(--accent); color:var(--ink); font-weight:650}
+  .stepper .done{border-color:var(--accent-deep)}
+
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:26px}
+  .card h2{font-size:22px; margin-bottom:6px}
+  .card p.sub{color:var(--muted); font-size:14.5px; margin-bottom:18px}
+  .field{margin-bottom:14px}
+  .field input[type=text]{width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--bg)}
+  .consent{display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--muted); margin:14px 0}
+  .consent input{margin-top:3px}
+  .btn{display:inline-block; padding:13px 26px; border-radius:999px; border:none; cursor:pointer;
+    font:650 15px system-ui,sans-serif; background:var(--ink); color:#fff; text-decoration:none}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  .btn-ghost{background:var(--surface); color:var(--ink); border:1.5px solid var(--line)}
+  .status{margin-top:12px; font-size:14px; color:var(--muted); min-height:20px}
+  .status.error{color:var(--bad)}
+
+  .drop{border:2px dashed var(--line); border-radius:12px; padding:30px 16px; text-align:center; color:var(--muted); cursor:pointer}
+  .drop.drag{border-color:var(--accent)}
+  .drop input{display:none}
+  .thumbs{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:14px}
+  .thumbs img{width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px}
+  .counter{font-size:14px; margin-top:10px}
+  .counter b{color:var(--accent-deep)}
+
+  .plans{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0}
+  .plan{border:2px solid var(--line); border-radius:12px; padding:16px; cursor:pointer}
+  .plan.sel{border-color:var(--accent)}
+  .plan h3{font-family:Georgia,serif; font-size:17px}
+  .plan .pr{font-family:Georgia,serif; font-size:26px; margin:4px 0}
+  .plan small{color:var(--muted)}
+
+  .styles-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0}
+  .style-opt{display:flex; gap:10px; align-items:center; border:2px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; font-size:14px}
+  .style-opt.sel{border-color:var(--accent)}
+  .style-opt .sw{width:34px; height:44px; border-radius:6px; flex:none}
+
+  .progress{display:flex; flex-direction:column; gap:14px; margin-top:8px}
+  .pstep{display:flex; gap:12px; align-items:center; color:var(--muted); font-size:15px}
+  .pstep .dot{width:12px; height:12px; border-radius:50%; background:var(--line); flex:none}
+  .pstep.on{color:var(--ink)} .pstep.on .dot{background:var(--accent); animation:pulse 1.4s infinite}
+  .pstep.ok .dot{background:var(--accent-deep)}
+  @keyframes pulse{50%{opacity:.4}}
+  .gallery{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:16px}
+  .gallery img{width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:10px}
+  .hidden{display:none}
+  @media (max-width:640px){ .plans,.styles-grid{grid-template-columns:1fr} .gallery{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<header><div class="wrap nav" style="padding-bottom:14px">
+  <a class="logo" href="/">Деловой<span>Портрет</span></a>
+  <span style="font-size:13px;color:var(--muted)">Заказ портретов</span>
+</div></header>
+
+<div class="wrap">
+  <div class="stepper" id="stepper">
+    <div data-s="1">1 · Контакт</div><div data-s="2">2 · Селфи</div>
+    <div data-s="3">3 · Пакет и образы</div><div data-s="4">4 · Результат</div>
+  </div>
+
+  <!-- Шаг 1 -->
+  <div class="card" id="s1">
+    <h2>Как с вами связаться</h2>
+    <p class="sub">Пришлём ссылку на заказ и сообщим о готовности. Ссылка на этой странице — сохраните её.</p>
+    <div class="field"><input type="text" id="contact" placeholder="Email или телефон"></div>
+    <label class="consent"><input type="checkbox" id="consent">
+      <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов.
+      Фото и модель хранятся не дольше 30 дней и удаляются по запросу.</span></label>
+    <button class="btn" id="start" disabled>Начать</button>
+    <p class="status" id="st1"></p>
+  </div>
+
+  <!-- Шаг 2 -->
+  <div class="card hidden" id="s2">
+    <h2>Загрузите 10–15 селфи</h2>
+    <p class="sub">Разные ракурсы и фоны, хороший свет, лицо крупно. Хотя бы часть — без очков и головных уборов.</p>
+    <label class="drop" id="drop"><input type="file" id="files" accept="image/jpeg,image/png" multiple>
+      <p><b>Выберите фото</b> или перетащите сюда (можно все сразу)</p></label>
+    <div class="thumbs" id="thumbs"></div>
+    <p class="counter" id="counter">Загружено: <b>0</b> из 15</p>
+    <button class="btn" id="toStep3" disabled>Дальше — выбрать образы</button>
+    <p class="status" id="st2"></p>
+  </div>
+
+  <!-- Шаг 3 -->
+  <div class="card hidden" id="s3">
+    <h2>Пакет и образы</h2>
+    <div class="plans" id="plans"></div>
+    <p class="sub" id="styles-hint"></p>
+    <div class="styles-grid" id="styles"></div>
+    <button class="btn" id="submit" disabled>Оформить заказ</button>
+    <p class="status" id="st3"></p>
+  </div>
+
+  <!-- Шаг 4 -->
+  <div class="card hidden" id="s4">
+    <h2 id="s4-title">Заказ оформлен</h2>
+    <p class="sub" id="s4-sub"></p>
+    <div class="progress" id="progress">
+      <div class="pstep" data-k="awaiting_payment"><span class="dot"></span>Подтверждение оплаты (с вами свяжутся)</div>
+      <div class="pstep" data-k="training"><span class="dot"></span>Обучение нейросети на ваших фото (~30 минут)</div>
+      <div class="pstep" data-k="generating"><span class="dot"></span>Генерация портретов</div>
+      <div class="pstep" data-k="done"><span class="dot"></span>Готово</div>
+    </div>
+    <div class="gallery" id="gallery"></div>
+  </div>
+</div>
+
+<script>
+(async function(){
+  const $ = id => document.getElementById(id);
+  const SWATCHES = {studio_grey:'linear-gradient(165deg,#6f7377,#c9c7c2)', hh_white:'linear-gradient(165deg,#d9d9d6,#fff)',
+    office_modern:'linear-gradient(165deg,#7d8b96,#e2e2d9)', suit_navy:'linear-gradient(165deg,#1d2635,#5d6d88)',
+    business_casual:'linear-gradient(165deg,#9a8f7d,#e6dcc9)', outdoor_city:'linear-gradient(165deg,#5a5f6e,#d9b98a)',
+    speaker_stage:'linear-gradient(165deg,#17181c,#6b5a4a)', linkedin_classic:'linear-gradient(165deg,#3a3d42,#8f9297)'};
+  let token = new URLSearchParams(location.search).get('t');
+  let uploaded = 0, packages = [], stylesLib = [], pkg = null, chosen = new Set(), pollTimer = null;
+
+  function show(step){
+    for (let i=1;i<=4;i++) $('s'+i).classList.toggle('hidden', i!==step);
+    document.querySelectorAll('#stepper div').forEach(d=>{
+      const s = +d.dataset.s;
+      d.classList.toggle('active', s===step); d.classList.toggle('done', s<step);
+    });
+  }
+  function err(el, code){
+    const M = {consent_required:'Нужно согласие на обработку фото.', bad_contact:'Укажите email или телефон.',
+      too_large:'Файл больше 10 МБ.', not_an_image:'Файл не читается — нужен JPG/PNG.',
+      too_small:'Фото меньше 512px по стороне.', too_dark:'Слишком тёмное фото.', too_bright:'Пересвеченное фото.',
+      no_face:'Лицо не найдено — нужно селфи крупнее.', limit:'Достигнут максимум 15 фото.',
+      not_enough_photos:'Нужно минимум 10 фото.', styles_count:'Выберите нужное число образов.'};
+    el.textContent = M[code] || 'Что-то пошло не так, попробуйте ещё раз.'; el.classList.add('error');
+  }
+  function ok(el, text){ el.textContent = text; el.classList.remove('error'); }
+
+  // Шаг 1
+  const refresh1 = () => $('start').disabled = !($('contact').value.trim().length>2 && $('consent').checked);
+  $('contact').addEventListener('input', refresh1); $('consent').addEventListener('change', refresh1);
+  $('start').addEventListener('click', async () => {
+    const form = new FormData();
+    form.append('contact', $('contact').value.trim()); form.append('consent','yes');
+    const r = await fetch('/api/orders', {method:'POST', body:form}); const d = await r.json();
+    if (!r.ok) return err($('st1'), d.error);
+    token = d.token;
+    history.replaceState(null,'','/order?t='+token);
+    show(2);
+  });
+
+  // Шаг 2
+  const filesInput = $('files'), drop = $('drop');
+  ['dragover','dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.toggle('drag', ev==='dragover');
+    if (ev==='drop' && e.dataTransfer.files.length) queueUpload(e.dataTransfer.files);
+  }));
+  filesInput.addEventListener('change', () => queueUpload(filesInput.files));
+  async function queueUpload(fileList){
+    for (const f of fileList){
+      if (uploaded >= 15) break;
+      const form = new FormData(); form.append('photo', f);
+      ok($('st2'), 'Загружаем «'+f.name+'»…');
+      const r = await fetch('/api/orders/'+token+'/photos', {method:'POST', body:form});
+      const d = await r.json();
+      if (!r.ok){ err($('st2'), d.error); continue; }
+      uploaded = d.count;
+      const img = document.createElement('img'); img.src = URL.createObjectURL(f);
+      $('thumbs').appendChild(img);
+      $('counter').innerHTML = 'Загружено: <b>'+uploaded+'</b> из 15';
+      ok($('st2'), '');
+    }
+    $('toStep3').disabled = uploaded < 10;
+    if (uploaded >= 10) ok($('st2'), 'Фото достаточно — можно добавить ещё или идти дальше.');
+  }
+  $('toStep3').addEventListener('click', async () => { await loadCatalog(); show(3); });
+
+  // Шаг 3
+  async function loadCatalog(){
+    packages = await (await fetch('/api/packages')).json();
+    stylesLib = await (await fetch('/api/styles')).json();
+    $('plans').innerHTML = '';
+    for (const p of packages){
+      const el = document.createElement('div'); el.className='plan'; el.dataset.code=p.code;
+      el.innerHTML = '<h3>'+p.title+'</h3><div class="pr">'+p.price_rub+' ₽</div>'+
+        '<small>'+p.portraits+' портретов · '+p.styles+' образов × 10 кадров</small>';
+      el.addEventListener('click', ()=>{ pkg=p; chosen.clear(); renderStyles();
+        document.querySelectorAll('.plan').forEach(x=>x.classList.toggle('sel', x===el)); });
+      $('plans').appendChild(el);
+    }
+  }
+  function renderStyles(){
+    $('styles-hint').textContent = pkg.styles >= stylesLib.length
+      ? 'В пакет входят все '+stylesLib.length+' образов.'
+      : 'Выберите '+pkg.styles+' образа из '+stylesLib.length+':';
+    $('styles').innerHTML='';
+    for (const s of stylesLib){
+      const el = document.createElement('div'); el.className='style-opt'; el.dataset.key=s.key;
+      el.innerHTML = '<span class="sw" style="background:'+(SWATCHES[s.key]||'#ccc')+'"></span>'+s.title;
+      if (pkg.styles >= stylesLib.length){ chosen.add(s.key); el.classList.add('sel'); }
+      else el.addEventListener('click', ()=>{
+        if (chosen.has(s.key)) chosen.delete(s.key);
+        else if (chosen.size < pkg.styles) chosen.add(s.key);
+        el.classList.toggle('sel', chosen.has(s.key)); refresh3();
+      });
+      $('styles').appendChild(el);
+    }
+    refresh3();
+  }
+  const refresh3 = () => $('submit').disabled = !(pkg && chosen.size === pkg.styles);
+  $('submit').addEventListener('click', async () => {
+    const form = new FormData();
+    form.append('package', pkg.code); form.append('styles', [...chosen].join(','));
+    const r = await fetch('/api/orders/'+token+'/select', {method:'POST', body:form});
+    const d = await r.json();
+    if (!r.ok) return err($('st3'), d.error);
+    $('s4-sub').textContent = 'Стоимость: '+d.price_rub+' ₽. Мы свяжемся по указанному контакту для оплаты — '+
+      'после подтверждения запустится генерация. Сохраните ссылку на эту страницу!';
+    show(4); poll();
+  });
+
+  // Шаг 4 — статус
+  async function poll(){
+    const r = await fetch('/api/orders/'+token); if (!r.ok) return;
+    const d = await r.json();
+    const order = ['awaiting_payment','training','generating','done'];
+    const idx = order.indexOf(d.state);
+    document.querySelectorAll('.pstep').forEach((el,i)=>{
+      el.classList.toggle('ok', i<idx || d.state==='done');
+      el.classList.toggle('on', i===idx && d.state!=='done');
+    });
+    if (d.state === 'done'){
+      $('s4-title').textContent = 'Ваши портреты готовы 🎉';
+      $('s4-sub').textContent = 'Нажмите на кадр, чтобы открыть и сохранить в полном размере.';
+      $('gallery').innerHTML = d.results.map(x=>'<a href="'+x.url+'" target="_blank"><img loading="lazy" src="'+x.url+'"></a>').join('');
+      clearInterval(pollTimer); return;
+    }
+    if (['failed','cancelled'].includes(d.state)){
+      $('s4-sub').textContent = 'Возникла задержка — мы уже разбираемся и свяжемся с вами.'; clearInterval(pollTimer);
+    }
+  }
+
+  // Возврат по ссылке ?t=...
+  if (token){
+    const r = await fetch('/api/orders/'+token);
+    if (r.ok){
+      const d = await r.json();
+      if (d.state === 'collecting'){ uploaded = d.photos;
+        $('counter').innerHTML = 'Загружено: <b>'+uploaded+'</b> из 15';
+        $('toStep3').disabled = uploaded < 10; show(2);
+      } else { show(4); poll(); pollTimer = setInterval(poll, 5000); }
+      return;
+    }
+  }
+  show(1);
+  pollTimer = setInterval(()=>{ if (!$('s4').classList.contains('hidden')) poll(); }, 5000);
+})();
+</script>
+</body>
+</html>

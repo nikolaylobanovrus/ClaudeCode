@@ -39,6 +39,12 @@ class Job(Base):
     model_ref: Mapped[str | None] = mapped_column(Text, default=None)
     # Выбранные пользователем образы (ключи стилей через запятую).
     styles_csv: Mapped[str | None] = mapped_column(Text, default=None)
+    # Канал заказа: "tg" (бот) или "web" (сайт).
+    channel: Mapped[str] = mapped_column(String(8), default="tg")
+    # Контакт для веб-заказов (email/телефон, как указал клиент).
+    contact: Mapped[str | None] = mapped_column(Text, default=None)
+    # Секретный токен доступа к веб-заказу (magic link, без аккаунтов).
+    access_token: Mapped[str | None] = mapped_column(String(64), unique=True, default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     # Состояние, в которое нужно вернуться при ретрае из failed.
     retry_to: Mapped[str | None] = mapped_column(String(32), default=None)
