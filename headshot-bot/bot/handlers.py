@@ -24,7 +24,6 @@ from core.packages import PACKAGES, get_package
 from core.states import JobState, validate_transition
 from core.validation import validate_photo
 from prompts.library import StyleLibrary
-from providers.base import ImageGenProvider
 from storage.files import FileStorage
 
 log = logging.getLogger(__name__)
@@ -34,10 +33,12 @@ router = Router()
 # пользователя сериализуем, иначе гонка по счётчику (дубли "Фото 3 из 15").
 _photo_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
-# Превью отправляем после паузы в загрузке, чтобы не вклиниваться в альбом:
-# каждое новое фото передвигает таймер.
-_teaser_tasks: dict[int, asyncio.Task] = {}
-TEASER_DEBOUNCE_SECONDS = 3.0
+# Предложение пакетов отправляем после паузы в загрузке, чтобы не
+# вклиниваться в альбом: каждое новое фото передвигает таймер.
+# Превью в платном флоу нет намеренно (якорение качества) — бесплатная
+# генерация живёт на отдельной странице сайта для холодного трафика.
+_offer_tasks: dict[int, asyncio.Task] = {}
+OFFER_DEBOUNCE_SECONDS = 3.0
 
 # Зависимости кладутся в workflow_data диспетчера (см. main.py):
 # settings, session_factory, provider, file_storage, styles.
@@ -127,9 +128,7 @@ async def on_photo(
     bot: Bot,
     settings: Settings,
     session_factory: async_sessionmaker,
-    provider: ImageGenProvider,
     file_storage: FileStorage,
-    styles: StyleLibrary,
 ) -> None:
     # Скачивание — вне блокировки (долгий I/O), учёт — строго под ней.
     file = await bot.get_file(message.photo[-1].file_id)
@@ -179,56 +178,30 @@ async def on_photo(
                 texts.PHOTO_ACCEPTED_EXTRA.format(n=n, max=settings.max_source_photos)
             )
 
-    # Фото достаточно — планируем превью; каждое следующее фото сдвигает таймер,
-    # так что оно придёт после окончания альбома, а не в середине.
+    # Фото достаточно — планируем предложение пакетов; каждое следующее фото
+    # сдвигает таймер, так что оно придёт после окончания альбома.
     if n >= settings.min_source_photos:
-        pending = _teaser_tasks.pop(job_id, None)
+        pending = _offer_tasks.pop(job_id, None)
         if pending is not None:
             pending.cancel()
-        _teaser_tasks[job_id] = asyncio.create_task(
-            _teaser_after_quiet(
-                message, job_id, data, session_factory, provider, file_storage, styles
-            )
+        _offer_tasks[job_id] = asyncio.create_task(
+            _offer_packages_after_quiet(message, job_id, session_factory)
         )
 
 
-async def _teaser_after_quiet(
-    message: Message,
-    job_id: int,
-    photo: bytes,
-    session_factory: async_sessionmaker,
-    provider: ImageGenProvider,
-    file_storage: FileStorage,
-    styles: StyleLibrary,
+async def _offer_packages_after_quiet(
+    message: Message, job_id: int, session_factory: async_sessionmaker
 ) -> None:
-    """Ждёт паузу в загрузке и шлёт превью один раз на заказ."""
-    await asyncio.sleep(TEASER_DEBOUNCE_SECONDS)
-    _teaser_tasks.pop(job_id, None)
+    """Ждёт паузу в загрузке и предлагает пакеты — один раз на заказ."""
+    await asyncio.sleep(OFFER_DEBOUNCE_SECONDS)
+    _offer_tasks.pop(job_id, None)
 
     async with session_factory() as session:
-        marker_stmt = select(Photo).where(
-            Photo.job_id == job_id, Photo.kind == Photo.TEASER
-        )
-        if (await session.execute(marker_stmt)).scalars().first() is not None:
-            return  # превью по этому заказу уже отправлено
+        job = await session.get(Job, job_id)
+        if job is None or job.package_code is not None:
+            return  # пакет уже выбран — предложение не дублируем
 
-    try:
-        teaser = await provider.teaser(photo, styles.teaser_prompt)
-    except Exception:
-        log.exception("Тизер не сгенерировался (job %s)", job_id)
-        await message.answer(texts.TEASER_FAILED, reply_markup=_packages_kb())
-        return
-
-    key = file_storage.put(f"jobs/{job_id}/{Photo.TEASER}/preview.jpg", teaser)
-    async with session_factory() as session:
-        session.add(Photo(job_id=job_id, kind=Photo.TEASER, storage_key=key))
-        await session.commit()
-
-    await message.answer_photo(
-        BufferedInputFile(teaser, filename="preview.jpg"),
-        caption=texts.TEASER_CAPTION,
-        reply_markup=_packages_kb(),
-    )
+    await message.answer(texts.PACKAGES_OFFER, reply_markup=_packages_kb())
 
 
 def _styles_kb(styles: StyleLibrary, chosen: set[str], required: int) -> InlineKeyboardMarkup:

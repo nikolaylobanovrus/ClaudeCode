@@ -52,6 +52,16 @@ class Job(Base):
     photos: Mapped[list["Photo"]] = relationship(back_populates="job")
 
 
+class FreePreview(Base):
+    """Учёт бесплатных генераций на странице-приманке (антиабьюз по IP)."""
+
+    __tablename__ = "free_previews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ip: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Photo(Base):
     __tablename__ = "photos"
 

@@ -16,14 +16,7 @@ from storage.files import FileStorage
 from worker import Worker
 
 
-def make_provider(settings):
-    if settings.provider == "fal":
-        from providers.fal_flux import FalFluxProvider
-
-        return FalFluxProvider(settings.fal_key)
-    from providers.fake import FakeProvider
-
-    return FakeProvider()
+from providers.factory import make_provider
 
 
 async def retention_loop(storage: FileStorage, retention_days: int) -> None:

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бесплатный деловой портрет онлайн — по одному селфи | Деловой Портрет AI</title>
+<meta name="description" content="Загрузите одно селфи и бесплатно получите деловой AI-портрет для резюме, hh.ru и профиля. Без регистрации и карты.">
+<style>
+  :root{
+    --bg:#F6F5F2; --surface:#FFFFFF; --ink:#1B1D22; --muted:#6A6D74;
+    --accent:#9A6B1F; --accent-deep:#7C5414; --line:#E4E1DA;
+    --shadow:0 1px 2px rgba(27,29,34,.05), 0 10px 30px rgba(27,29,34,.08);
+    --radius:14px;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:var(--bg); color:var(--ink); font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h1,h2{font-family:Georgia,"Times New Roman",serif; font-weight:600; letter-spacing:-.01em; text-wrap:balance}
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px}
+  header{border-bottom:1px solid var(--line)}
+  .nav{display:flex; align-items:center; justify-content:space-between; padding:14px 0}
+  .logo{font-family:Georgia,serif; font-size:19px; font-weight:700; text-decoration:none; color:var(--ink)}
+  .logo span{color:var(--accent)}
+  .nav a.back{font-size:14px; color:var(--muted); text-decoration:none}
+  .eyebrow{font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:650}
+  .hero{padding:56px 0 8px; text-align:center}
+  .hero h1{font-size:clamp(28px,4vw,42px); margin:12px 0 14px}
+  .hero p{color:var(--muted); max-width:56ch; margin:0 auto}
+
+  .tool{display:grid; grid-template-columns:1fr 1fr; gap:24px; padding:40px 0 64px; align-items:start}
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px}
+  .drop{
+    border:2px dashed var(--line); border-radius:12px; padding:36px 20px; text-align:center;
+    color:var(--muted); cursor:pointer; transition:border-color .15s;
+  }
+  .drop:hover,.drop.drag{border-color:var(--accent)}
+  .drop input{display:none}
+  .drop .big{font-size:34px; line-height:1}
+  .consent{display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--muted); margin:16px 0}
+  .consent input{margin-top:3px}
+  .btn{
+    display:block; width:100%; padding:14px 22px; border-radius:999px; border:none; cursor:pointer;
+    font:650 15px system-ui,sans-serif; background:var(--ink); color:#fff;
+  }
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  .status{margin-top:14px; font-size:14px; color:var(--muted); text-align:center; min-height:22px}
+  .status.error{color:#B0433A}
+
+  .result-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .cell{aspect-ratio:3/4; border-radius:10px; position:relative; overflow:hidden; background:linear-gradient(165deg,#6f7377,#c9c7c2)}
+  .cell.main{grid-column:span 2; grid-row:span 2}
+  .cell img{width:100%; height:100%; object-fit:cover}
+  .cell.locked::after{
+    content:"🔒"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:22px; background:rgba(246,245,242,.55); backdrop-filter:blur(14px);
+  }
+  .cell.l1{background:linear-gradient(165deg,#d9d9d6,#ffffff)}
+  .cell.l2{background:linear-gradient(165deg,#1d2635,#5d6d88)}
+  .cell.l3{background:linear-gradient(165deg,#9a8f7d,#e6dcc9)}
+  .cell.l4{background:linear-gradient(165deg,#17181c,#6b5a4a)}
+  .hint{font-size:13px; color:var(--muted); margin-top:12px; text-align:center}
+
+  .upsell{background:var(--surface); border-top:1px solid var(--line); text-align:center; padding:52px 0 64px}
+  .upsell h2{font-size:clamp(24px,3vw,32px); margin-bottom:10px}
+  .upsell p{color:var(--muted); max-width:56ch; margin:0 auto 24px}
+  .upsell .btn{display:inline-block; width:auto; text-decoration:none; padding:14px 30px}
+  footer{padding:26px 0; font-size:13px; color:var(--muted); text-align:center}
+  @media (max-width:760px){ .tool{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header><div class="wrap nav">
+  <a class="logo" href="/">Деловой<span>Портрет</span></a>
+  <a class="back" href="/">← Все возможности сервиса</a>
+</div></header>
+
+<section class="hero wrap">
+  <span class="eyebrow">Бесплатно · без регистрации и карты</span>
+  <h1>Деловой портрет по одному селфи</h1>
+  <p>Загрузите фото — нейросеть покажет, как вы выглядите на профессиональном
+  деловом портрете. Один кадр в высоком качестве — бесплатно.</p>
+</section>
+
+<div class="wrap tool">
+  <div class="panel">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/jpeg,image/png">
+      <div class="big">📷</div>
+      <p><b>Выберите селфи</b> или перетащите сюда<br>JPG или PNG, лицо крупно, хороший свет</p>
+    </label>
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>Соглашаюсь на обработку фотографии для создания портрета. Фото не сохраняется
+      после генерации.</span>
+    </label>
+    <button class="btn" id="go" disabled>Создать бесплатный портрет</button>
+    <p class="status" id="status"></p>
+  </div>
+
+  <div class="panel">
+    <div class="result-grid" id="grid">
+      <div class="cell main" id="main-cell"></div>
+      <div class="cell l1 locked"></div>
+      <div class="cell l2 locked"></div>
+      <div class="cell l3 locked"></div>
+      <div class="cell l4 locked"></div>
+    </div>
+    <p class="hint">Большой кадр — ваш бесплатный портрет. Остальные образы открываются в полном пакете.</p>
+  </div>
+</div>
+
+<section class="upsell">
+  <div class="wrap">
+    <h2>Понравилось? Дальше — интереснее</h2>
+    <p>Бесплатный кадр сделан по одному фото. В полном пакете нейросеть обучается
+    на 10–15 ваших селфи — похожесть заметно выше, а образов от четырёх до восьми:
+    студия, белый фон для hh.ru, офис, город. 40 портретов — 990 ₽.</p>
+    <a class="btn" href="https://t.me/delovoy_portret_bot">Получить 40 портретов</a>
+  </div>
+</section>
+
+<footer><div class="wrap">© 2026 Деловой Портрет AI · Фото не сохраняются · <a href="/" style="color:inherit">Главная</a></div></footer>
+
+<script>
+  const file = document.getElementById('file');
+  const drop = document.getElementById('drop');
+  const consent = document.getElementById('consent');
+  const go = document.getElementById('go');
+  const status = document.getElementById('status');
+  const mainCell = document.getElementById('main-cell');
+  let selected = null;
+
+  const ERRORS = {
+    consent_required: 'Нужно согласие на обработку фото.',
+    daily_limit: 'Бесплатный портрет уже был сегодня — возвращайтесь завтра или получите полный пакет.',
+    too_large: 'Файл больше 10 МБ, выберите фото поменьше.',
+    not_an_image: 'Не получилось прочитать файл — нужен JPG или PNG.',
+    too_small: 'Фото слишком маленькое: нужно от 512 пикселей по меньшей стороне.',
+    too_dark: 'Фото слишком тёмное — попробуйте снимок при лучшем свете.',
+    too_bright: 'Фото пересвечено — попробуйте другое.',
+    no_face: 'Не нашли лицо на фото — пришлите селфи крупнее.',
+    generation_failed: 'Генерация временно недоступна, попробуйте через пару минут.',
+  };
+
+  function refresh(){ go.disabled = !(selected && consent.checked); }
+  file.addEventListener('change', () => { selected = file.files[0] || null;
+    if (selected) drop.querySelector('p').innerHTML = '<b>' + selected.name + '</b> выбрано ✓'; refresh(); });
+  consent.addEventListener('change', refresh);
+  ['dragover','dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.toggle('drag', ev === 'dragover');
+    if (ev === 'drop' && e.dataTransfer.files[0]) { file.files = e.dataTransfer.files; file.dispatchEvent(new Event('change')); }
+  }));
+
+  go.addEventListener('click', async () => {
+    go.disabled = true; status.classList.remove('error');
+    status.textContent = 'Генерируем портрет — обычно меньше минуты…';
+    const form = new FormData();
+    form.append('photo', selected);
+    form.append('consent', 'yes');
+    try {
+      const resp = await fetch('/api/free-preview', { method:'POST', body: form });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'generation_failed');
+      mainCell.innerHTML = '<img src="' + data.image + '" alt="Ваш деловой портрет">';
+      status.textContent = 'Готово! Нажмите на портрет правой кнопкой, чтобы сохранить.';
+    } catch (err) {
+      status.classList.add('error');
+      status.textContent = ERRORS[err.message] || ERRORS.generation_failed;
+      go.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
