@@ -38,6 +38,13 @@ class Settings:
     max_source_photos: int = field(
         default_factory=lambda: int(os.environ.get("MAX_SOURCE_PHOTOS", "15"))
     )
+    # Конвейер качества (включаем после тюнинга на реальных фотосессиях).
+    quality_enhance: bool = field(
+        default_factory=lambda: os.environ.get("QUALITY_ENHANCE", "false").lower() == "true"
+    )
+    quality_qc: bool = field(
+        default_factory=lambda: os.environ.get("QUALITY_QC", "false").lower() == "true"
+    )
 
 
 def load_settings() -> Settings:

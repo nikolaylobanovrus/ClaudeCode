@@ -68,12 +68,25 @@ async def main() -> None:
     )
     dp.include_router(router)
 
+    enhancer = qc = None
+    if settings.provider == "fal":
+        if settings.quality_enhance:
+            from providers.quality import FalCodeformerEnhancer
+
+            enhancer = FalCodeformerEnhancer()
+        if settings.quality_qc:
+            from providers.quality import FalVisionQC
+
+            qc = FalVisionQC()
+
     worker = Worker(
         session_factory=session_factory,
         provider=provider,
         storage=storage,
         styles=styles,
         deliver=functools.partial(deliver_results, bot, storage),
+        enhancer=enhancer,
+        qc=qc,
     )
 
     background = [

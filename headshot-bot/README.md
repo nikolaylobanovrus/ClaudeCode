@@ -28,3 +28,15 @@ set -a; source .env; set +a
 - `providers/` — абстракция генерации: FalFluxProvider (прод) / FakeProvider (dev)
 - `prompts/styles.yaml` — библиотека деловых стилей
 - `worker.py` — конвейер training → generating → delivering с ретраями
+- `providers/quality.py` — конвейер качества: CodeFormer-реставрация лиц и
+  vision-QC с перегенерацией брака (флаги `QUALITY_ENHANCE`, `QUALITY_QC`)
+- `web/` — FastAPI: лендинг + API каталога
+
+## Дорожная карта
+
+1. ✅ Каркас бота, оплата вручную, выбор образов, конвейер качества (за флагами)
+2. Первая реальная фотосессия на fal.ai → тюнинг промптов и включение QC
+3. Vision-валидация загрузок (LLaVa/Qwen-VL) вместо эвристик
+4. Каталог фон×наряд с превью (веб, два экрана как у HeadshotPro)
+5. ЮKassa + деплой на VPS (домен, HTTPS, мониторинг)
+6. Страница-приманка «бесплатный деловой портрет» (SEO-лидоген)

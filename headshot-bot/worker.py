@@ -17,11 +17,15 @@ from core.packages import get_package
 from core.states import WORKER_STATES, JobState, validate_transition
 from prompts.library import StyleLibrary
 from providers.base import ImageGenProvider
+from providers.quality import ApproveAllQC, FaceEnhancer, NoopEnhancer, QualityGate
 from storage.files import FileStorage
 
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
+# Сколько дополнительных заходов генерации разрешено на стиль, чтобы
+# заменить отбракованные QC кадры (защита от бесконечного цикла и расхода).
+MAX_QC_REGEN_ROUNDS = 1
 
 # Колбэк доставки: (job_id, tg_id, ключи готовых фото) -> None
 DeliverFn = Callable[[int, int, list[str]], Awaitable[None]]
@@ -36,6 +40,8 @@ class Worker:
         styles: StyleLibrary,
         deliver: DeliverFn,
         poll_interval: float = 3.0,
+        enhancer: FaceEnhancer | None = None,
+        qc: QualityGate | None = None,
     ):
         self.session_factory = session_factory
         self.provider = provider
@@ -43,6 +49,8 @@ class Worker:
         self.styles = styles
         self.deliver = deliver
         self.poll_interval = poll_interval
+        self.enhancer = enhancer or NoopEnhancer()
+        self.qc = qc or ApproveAllQC()
 
     async def run_forever(self) -> None:
         while True:
@@ -121,12 +129,10 @@ class Worker:
             )
             if len((await session.execute(done_stmt)).scalars().all()) >= per_style:
                 continue  # стиль уже готов (ретрай после сбоя) — не генерируем повторно
-            images = await self.provider.generate(
-                job.model_ref, style.prompt, style.key, per_style
-            )
-            for i, img in enumerate(images):
+            accepted = await self._generate_with_qc(job, style, per_style)
+            for i, data in enumerate(accepted):
                 key = self.storage.put(
-                    f"jobs/{job.id}/{Photo.RESULT}/{style.key}_{i:02d}.jpg", img.data
+                    f"jobs/{job.id}/{Photo.RESULT}/{style.key}_{i:02d}.jpg", data
                 )
                 session.add(
                     Photo(job_id=job.id, kind=Photo.RESULT, storage_key=key, style=style.key)
@@ -134,6 +140,33 @@ class Worker:
             await session.commit()  # фиксируем по стилям: ретрай не потеряет готовое
         job.state = validate_transition(JobState(job.state), JobState.DELIVERING)
         await session.commit()
+
+    async def _generate_with_qc(self, job: Job, style, per_style: int) -> list[bytes]:
+        """Генерация с конвейером качества: реставрация лиц → отбраковка →
+        одна волна перегенерации взамен брака. Если брак остался и после неё,
+        добираем лучшими из отбракованных — доставка важнее совершенства."""
+        accepted: list[bytes] = []
+        rejected: list[bytes] = []
+        need = per_style
+        for round_no in range(1 + MAX_QC_REGEN_ROUNDS):
+            if need <= 0:
+                break
+            images = await self.provider.generate(job.model_ref, style.prompt, style.key, need)
+            for img in images:
+                data = await self.enhancer.enhance(img.data)
+                if await self.qc.check(data):
+                    accepted.append(data)
+                else:
+                    rejected.append(data)
+            need = per_style - len(accepted)
+            if need > 0 and round_no < MAX_QC_REGEN_ROUNDS:
+                log.info(
+                    "Заказ %s, стиль %s: QC отбраковал %d кадров, перегенерация",
+                    job.id, style.key, need,
+                )
+        if need > 0:
+            accepted.extend(rejected[:need])
+        return accepted[:per_style]
 
     async def _do_delivering(self, session: AsyncSession, job: Job) -> None:
         stmt = select(Photo).where(Photo.job_id == job.id, Photo.kind == Photo.RESULT)
