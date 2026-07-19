@@ -1,0 +1,16 @@
+[Unit]
+Description=Деловой Портрет — website (FastAPI/uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/headshot-bot
+EnvironmentFile=/opt/headshot-bot/.env
+ExecStart=/opt/headshot-bot/venv/bin/uvicorn web.app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
