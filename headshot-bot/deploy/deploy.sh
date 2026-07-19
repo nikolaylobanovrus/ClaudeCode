@@ -19,7 +19,7 @@ fi
 echo "==> 2/8 Системные пакеты"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq python3-venv python3-pip nginx ufw curl >/dev/null
+apt-get install -y -qq python3-venv python3-pip nginx ufw curl git rsync >/dev/null
 
 echo "==> 3/8 Код в $APP"
 mkdir -p "$APP"
