@@ -54,7 +54,14 @@ systemctl enable --now headshot-bot headshot-web
 systemctl restart headshot-bot headshot-web
 
 echo "==> 7/8 nginx"
-cp "$APP/deploy/nginx.conf" /etc/nginx/sites-available/headshot
+# Не затираем конфиг, если в нём уже настроен HTTPS (certbot) — иначе
+# повторный деплой снесёт сертификат. Домен/SSL живут отдельно от кода.
+if [ -f /etc/nginx/sites-available/headshot ] && \
+   grep -q ssl_certificate /etc/nginx/sites-available/headshot; then
+    echo "    HTTPS-конфиг уже настроен — оставляю как есть."
+else
+    cp "$APP/deploy/nginx.conf" /etc/nginx/sites-available/headshot
+fi
 ln -sf /etc/nginx/sites-available/headshot /etc/nginx/sites-enabled/headshot
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
