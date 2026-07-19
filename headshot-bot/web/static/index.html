@@ -111,8 +111,8 @@
         <div class="tile" style="background:linear-gradient(160deg,#8d9296,#d7d5d0); display:flex; align-items:flex-end; padding:14px; box-shadow:0 10px 30px rgba(27,29,34,.08); transform:rotate(-2deg)">
           <span class="chip">Ваше селфи</span>
         </div>
-        <div class="tile" style="background:linear-gradient(160deg,#2c3644,#93a3b8); display:flex; align-items:flex-end; padding:14px; box-shadow:0 18px 44px rgba(27,29,34,.16); transform:rotate(2deg) translateY(14px)">
-          <span class="spot"></span><span class="chip" style="position:relative">Деловой портрет</span>
+        <div class="tile" style="background:url(/static/img/gen/studio_grey.jpg) center/cover; display:flex; align-items:flex-end; padding:14px; box-shadow:0 18px 44px rgba(27,29,34,.16); transform:rotate(2deg) translateY(14px)">
+          <span class="chip" style="position:relative">Деловой портрет</span>
         </div>
         <span style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--accent); color:#fff; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 8px 20px rgba(154,107,31,.4)">→</span>
       </div>
@@ -126,7 +126,7 @@
 
 <!-- Лента портретов -->
 <section style="background:#fff; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:34px 0; overflow:hidden">
-  <p class="eyebrow" style="text-align:center; color:var(--muted); margin:0 0 22px">Созданы этой нейросетью на этой неделе</p>
+  <p class="eyebrow" style="text-align:center; color:var(--muted); margin:0 0 22px">Примеры образов, которые создаёт нейросеть</p>
   <div style="overflow:hidden; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)">
     <div class="marq" data-dir="L" style="display:flex; width:max-content"></div>
     <div class="marq" data-dir="R" style="display:flex; width:max-content; margin-top:16px"></div>
@@ -161,8 +161,7 @@
         <div style="position:absolute; inset:0; background:linear-gradient(160deg,#8d9296,#d7d5d0)">
           <span class="chip" style="position:absolute; left:14px; top:14px">До</span>
         </div>
-        <div id="ba-after" style="position:absolute; inset:0; background:linear-gradient(160deg,#1d2635,#33415a 55%,#5d6d88); clip-path:inset(0 0 0 62%)">
-          <span class="spot"></span>
+        <div id="ba-after" style="position:absolute; inset:0; background:url(/static/img/gen/suit_navy.jpg) center/cover; clip-path:inset(0 0 0 62%)">
           <span style="position:absolute; right:14px; top:14px; background:var(--accent); color:#fff; font-size:12px; font-weight:650; padding:4px 10px; border-radius:999px">После</span>
         </div>
         <div id="ba-handle" style="position:absolute; top:0; bottom:0; left:62%; transform:translateX(-50%); width:3px; background:#fff; box-shadow:0 0 14px rgba(0,0,0,.4)">
@@ -324,21 +323,26 @@
     slate:'linear-gradient(165deg,#26262b 0%,#3d3d45 55%,#6e6e78 100%)'
   };
   var spot = '<span class="spot"></span>';
-  var el = function(html){ var t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; };
+  var IMG='/static/img/gen/';
+  // Сгенерированные примеры (файл, подпись-образ)
+  var SAMPLES=[
+    ['studio_grey','Студия'],['hh_white','Белый фон'],['suit_navy','Костюм'],
+    ['speaker_stage','Спикер'],['office_modern','Офис'],['business_casual','Кэжуал'],
+    ['linkedin_classic','Классика'],['outdoor_city','Город'],
+    ['extra1','Портрет'],['extra2','Портрет'],['extra3','Портрет'],['extra4','Портрет']
+  ];
 
-  // Аватары в hero
-  [G.beige,G.navy,G.olive,G.wine].forEach(function(g){
+  // Аватары в hero — из примеров
+  ['extra3','extra1','extra2','extra4'].forEach(function(f){
     var s=document.createElement('span');
-    s.style.cssText='width:34px;height:34px;border-radius:50%;border:2px solid #F6F5F2;margin-right:-10px;background:'+g;
+    s.style.cssText='width:34px;height:34px;border-radius:50%;border:2px solid #F6F5F2;margin-right:-10px;background:url('+IMG+f+'.jpg) center/cover';
     document.getElementById('hero-avatars').appendChild(s);
   });
 
-  // Лента портретов
-  var names=['Анна К.','Дмитрий С.','Мария В.','Игорь Л.','Ольга Т.','Павел Н.','Елена Р.','Артём Б.','Наталья Ж.','Сергей М.','Ксения Д.','Виктор А.'];
-  var gl=[G.grey,G.navy,G.beige,G.speaker,G.white,G.olive,G.slate,G.wine];
-  function card(n,g){ return '<div style="width:148px;aspect-ratio:3/4;border-radius:12px;background:'+g+';position:relative;overflow:hidden;margin-right:16px">'+spot+'<span class="chip" style="position:absolute;left:8px;bottom:8px;font-size:11px;padding:3px 8px">'+n+'</span></div>'; }
-  var A=names.slice(0,8).map(function(n,i){return card(n,gl[i%8]);}).join('');
-  var B=names.slice(4).map(function(n,i){return card(n,gl[(i+3)%8]);}).join('');
+  // Лента портретов (примеры генерации, без выдуманных имён клиентов)
+  function card(f,label){ return '<div style="width:148px;aspect-ratio:3/4;border-radius:12px;background:url('+IMG+f+'.jpg) center/cover;position:relative;overflow:hidden;margin-right:16px"><span class="chip" style="position:absolute;left:8px;bottom:8px;font-size:11px;padding:3px 8px">'+label+'</span></div>'; }
+  var A=SAMPLES.slice(0,8).map(function(s){return card(s[0],s[1]);}).join('');
+  var B=SAMPLES.slice(4).map(function(s){return card(s[0],s[1]);}).join('');
   document.querySelectorAll('.marq').forEach(function(m){
     var dir=m.getAttribute('data-dir'); var html=(dir==='L'?A:B);
     m.innerHTML=html+html; // дублируем для бесшовной прокрутки
@@ -360,18 +364,18 @@
 
   // Каталог образов
   var styles=[
-    {g:G.grey,name:'Студия, серый фон',hint:'классика для профиля'},
-    {g:G.white,name:'Белый фон',hint:'для hh.ru и документов'},
-    {g:G.navy,name:'Тёмно-синий костюм',hint:'executive-стиль'},
-    {g:G.speaker,name:'Спикер',hint:'сцена и конференции'},
-    {g:G.beige,name:'Тёплый кабинет',hint:'юристы и консультанты'},
-    {g:G.olive,name:'Смарт-кэжуал',hint:'IT и стартапы'},
-    {g:G.slate,name:'Монохром',hint:'креативные индустрии'},
-    {g:G.wine,name:'Вечерний приём',hint:'публичные персоны'}
+    {f:'studio_grey',name:'Студия, серый фон',hint:'классика для профиля'},
+    {f:'hh_white',name:'Белый фон',hint:'для hh.ru и документов'},
+    {f:'suit_navy',name:'Тёмно-синий костюм',hint:'executive-стиль'},
+    {f:'speaker_stage',name:'Спикер',hint:'сцена и конференции'},
+    {f:'office_modern',name:'Тёплый кабинет',hint:'юристы и консультанты'},
+    {f:'business_casual',name:'Смарт-кэжуал',hint:'IT и стартапы'},
+    {f:'linkedin_classic',name:'Монохром',hint:'креативные индустрии'},
+    {f:'outdoor_city',name:'Город',hint:'деловой стиль на улице'}
   ];
   document.getElementById('styles-grid').innerHTML=styles.map(function(s,i){
     return '<figure class="card card-hover" data-reveal data-delay="'+((i%4)*60)+'" style="margin:0;overflow:hidden">'+
-      '<div class="tile" style="background:'+s.g+'">'+spot+'</div>'+
+      '<div class="tile" style="background:url('+IMG+s.f+'.jpg) center/cover"></div>'+
       '<figcaption style="padding:12px 16px 14px;font-size:14px;font-weight:650">'+s.name+
       '<span style="display:block;font-weight:400;color:var(--muted);font-size:12.5px">'+s.hint+'</span></figcaption></figure>';
   }).join('');
@@ -390,9 +394,9 @@
   }).join('');
 
   // Команда
-  var team=[G.navy,G.grey,G.navy,G.beige,G.navy,G.slate];
-  document.getElementById('team-grid').innerHTML=team.map(function(g){
-    return '<div class="tile" style="background:'+g+';border:1px solid rgba(255,255,255,.08)">'+spot+'</div>';
+  var team=['suit_navy','extra1','office_modern','extra2','speaker_stage','extra4'];
+  document.getElementById('team-grid').innerHTML=team.map(function(f){
+    return '<div class="tile" style="background:url('+IMG+f+'.jpg) center/cover;border:1px solid rgba(255,255,255,.08)"></div>';
   }).join('');
 
   // FAQ
