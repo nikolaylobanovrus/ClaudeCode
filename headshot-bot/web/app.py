@@ -11,7 +11,7 @@ from pathlib import Path
 
 import aiohttp
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
@@ -271,9 +271,25 @@ async def order_result(request: Request, token: str, photo_id: int):
     return Response(content=data, media_type="image/jpeg")
 
 
+APP_DIR = STATIC_DIR / "app"
+
+
 @app.get("/order")
-async def order_page() -> FileResponse:
-    return FileResponse(STATIC_DIR / "order.html")
+async def order_redirect(request: Request):
+    # Старый статический мастер заменён React-приложением.
+    q = request.url.query
+    return RedirectResponse("/app/order" + (f"?{q}" if q else ""), status_code=307)
+
+
+@app.get("/app")
+@app.get("/app/{full_path:path}")
+async def spa(full_path: str = "") -> FileResponse:
+    # Отдаём собранные ассеты, всё остальное — index.html (client-side роутинг).
+    if full_path:
+        candidate = (APP_DIR / full_path).resolve()
+        if candidate.is_file() and candidate.is_relative_to(APP_DIR.resolve()):
+            return FileResponse(candidate)
+    return FileResponse(APP_DIR / "index.html")
 
 
 @app.get("/")
