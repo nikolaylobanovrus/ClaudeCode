@@ -1,0 +1,23 @@
+{
+  "_realism_tail": ", authentic corporate photography, natural colour grading, realistic depth of field, subtle sensor grain, unretouched natural skin with visible pores, a few flyaway hairs, natural facial asymmetry, believable ordinary person, no beauty-render look",
+  "singles": {
+    "studio_grey": "Corporate headshot of a woman in her mid-30s with light brown hair tied back, wearing a dark blazer over a white top, plain mid-grey studio backdrop, soft directional key light with gentle shadow, faint smile lines and slightly asymmetric warm smile, shot on a full-frame camera 85mm f4 for a company website",
+    "hh_white": "Corporate ID-style headshot of a friendly man in his late 20s with short dark hair and light stubble, light blue shirt, clean white seamless background, even soft frontal light, neutral friendly expression, slightly imperfect posture, photographed for a job-site profile",
+    "office_modern": "Business portrait of a woman in her mid-40s wearing thin glasses and a smart blazer, blurred bright modern office with windows behind, natural window daylight, crow's feet and honest mature skin, composed confident expression",
+    "suit_navy": "Executive portrait of a man in his mid-40s with short hair greying at the temples, navy suit and white shirt, dark charcoal studio background, soft rim light, serious calm gaze, corporate annual-report photography",
+    "business_casual": "Relaxed business portrait of a man in his mid-20s with slightly messy hair, light knit sweater over a collared shirt, warm beige wall background, soft daylight from a window, genuine easy smile with teeth slightly imperfect",
+    "outdoor_city": "Business portrait of a woman in her early 30s in a wool coat, standing on a city street at golden hour with soft bokeh of buildings and traffic behind, one strand of hair moved by wind, natural evening light on her face",
+    "speaker_stage": "Portrait of a conference speaker, man around 55 with weathered skin and grey stubble, dark shirt, dark stage with out-of-focus warm and blue lights behind, dramatic soft side light, confident slight smile",
+    "linkedin_classic": "Classic professional headshot of a woman in her late 20s with subtle freckles, charcoal blazer, dark textured studio backdrop, soft butterfly lighting, genuine subtle smile, corporate profile photography",
+    "extra1": "Corporate headshot of a man in his mid-30s with a short beard and slightly receding hairline, grey suit, soft neutral studio background, natural light, ordinary believable face",
+    "extra2": "Business portrait of a blonde woman in her 40s, white blouse, light neutral background, soft daylight, natural mature skin with light wrinkles, warm reserved smile",
+    "extra3": "Professional headshot of a young asian woman in her mid-20s, dark blazer, neutral grey background, soft key light, calm friendly expression, small mole on cheek",
+    "extra4": "Executive portrait of a man in his late 50s with grey hair and glasses, navy suit, dark background with soft rim light, experienced calm face with deep smile lines"
+  },
+  "pairs": {
+    "before_1": "Casual smartphone selfie of a man in his early 30s at home, slightly high awkward angle, plain grey t-shirt, messy living room with couch and window glare behind, uneven indoor lighting, mild motion softness, front-camera lens distortion, ordinary friendly face with stubble, genuine unposed look, mediocre phone photo",
+    "after_1": "Transform into a professional corporate studio headshot of the same man: navy suit and white shirt, seamless grey studio background, soft three-point studio lighting, confident subtle smile, keep the exact same face, identity and hairstyle, natural unretouched skin, photorealistic",
+    "before_2": "Head-and-shoulders laptop webcam selfie of a woman in her early 30s, casual blouse, plain home wall with a door frame behind, flat overhead apartment lighting, centered symmetric framing, slightly washed-out webcam colours, ordinary tired but pleasant face, realistic low-quality video-call frame",
+    "after_2": "Transform into a professional corporate studio headshot of the same woman, same centered head-and-shoulders framing: dark blazer over a light top, seamless grey studio background, soft professional lighting, warm confident expression, keep the exact same face, identity and hairstyle, natural unretouched skin, photorealistic"
+  }
+}
