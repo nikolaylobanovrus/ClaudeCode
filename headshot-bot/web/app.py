@@ -418,4 +418,9 @@ async def privacy_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "privacy.html")
 
 
+@app.get("/offer")
+async def offer_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "offer.html")
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

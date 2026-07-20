@@ -188,8 +188,8 @@ export default function Order() {
           )}
           <button className="btn btn-dark" disabled={!(pkg && chosen.length === pkg.styles)} onClick={submit}>Оформить заказ</button>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>
-            Нажимая «Оформить заказ», вы принимаете <a href="/legal" target="_blank" rel="noreferrer">условия
-            оказания услуг</a> и <a href="/privacy" target="_blank" rel="noreferrer">политику конфиденциальности</a>.
+            Нажимая «Оформить заказ» и оплачивая его, вы принимаете <a href="/offer" target="_blank" rel="noreferrer">публичную
+            оферту</a> и <a href="/privacy" target="_blank" rel="noreferrer">политику конфиденциальности</a>.
           </p>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
