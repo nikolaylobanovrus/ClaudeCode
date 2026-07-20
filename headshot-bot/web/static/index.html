@@ -339,8 +339,10 @@
     document.getElementById('hero-avatars').appendChild(s);
   });
 
-  // Лента портретов (примеры генерации, без выдуманных имён клиентов)
-  function card(f,label){ return '<div style="width:148px;aspect-ratio:3/4;border-radius:12px;background:url('+IMG+f+'.jpg) center/cover;position:relative;overflow:hidden;margin-right:16px"><span class="chip" style="position:absolute;left:8px;bottom:8px;font-size:11px;padding:3px 8px">'+label+'</span></div>'; }
+  // Лента портретов: большой кадр «после» + кружок-селфи «до» того же человека
+  function card(f,label){ return '<div style="width:148px;aspect-ratio:3/4;border-radius:12px;background:url('+IMG+f+'.jpg) center/cover;position:relative;overflow:hidden;margin-right:16px">'+
+    '<span style="position:absolute;left:8px;top:8px;width:38px;height:38px;border-radius:50%;background:url('+IMG+'src_'+f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 2px 8px rgba(0,0,0,.35)"></span>'+
+    '<span class="chip" style="position:absolute;left:8px;bottom:8px;font-size:11px;padding:3px 8px">'+label+'</span></div>'; }
   var A=SAMPLES.slice(0,8).map(function(s){return card(s[0],s[1]);}).join('');
   var B=SAMPLES.slice(4).map(function(s){return card(s[0],s[1]);}).join('');
   document.querySelectorAll('.marq').forEach(function(m){
