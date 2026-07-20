@@ -292,13 +292,28 @@
     <div style="position:relative">
       <span class="eyebrow" style="color:var(--spot)">Для команд и HR</span>
       <h2 style="font-size:clamp(26px,2.8vw,34px); line-height:1.15; margin:10px 0 12px">Весь отдел — в едином стиле. Без съёмочного дня</h2>
-      <p style="color:#B9BCC2; font-size:15.5px; margin:0 0 20px; max-width:52ch">Сотрудники загружают селфи сами — вы получаете согласованные портреты для сайта, интранета и пресс-кита. Новичок в команде? Его портрет готов в первый день.</p>
-      <ul style="list-style:none; margin:0 0 26px; padding:0; display:flex; flex-direction:column; gap:9px; color:#B9BCC2; font-size:14.5px">
-        <li><span style="color:var(--spot); font-weight:700">✓</span>&nbsp; Единый образ и свет для всей команды</li>
-        <li><span style="color:var(--spot); font-weight:700">✓</span>&nbsp; Панель управления и оплата по счёту</li>
-        <li><span style="color:var(--spot); font-weight:700">✓</span>&nbsp; Скидки от 5 человек — до 40%</li>
+      <p style="color:#B9BCC2; font-size:15.5px; margin:0 0 16px; max-width:52ch">Каждому сотруднику — пакет уровня «Оптимальный»: 80 портретов, все 8 образов. Сотрудники загружают селфи сами по ссылке — без сбора фотографий в чатах. Новичок в команде? Его портрет готов в первый день.</p>
+      <ul style="list-style:none; margin:0 0 20px; padding:0; display:flex; flex-direction:column; gap:8px; color:#B9BCC2; font-size:14.5px">
+        <li><span style="color:var(--spot); font-weight:700">✓</span>&nbsp; Единый корпоративный образ и фон + личные образы каждому</li>
+        <li><span style="color:var(--spot); font-weight:700">✓</span>&nbsp; Оплата по счёту, закрывающие документы для юрлиц</li>
+        <li><span style="color:var(--spot); font-weight:700">✓</span>&nbsp; Все портреты команды — менеджеру одним архивом</li>
       </ul>
-      <a href="https://t.me/delovoy_portret_bot" class="btn btn-light" style="padding:14px 26px; font-size:15px">Обсудить для команды</a>
+      <div style="background:rgba(246,245,242,.06); border:1px solid rgba(242,240,236,.14); border-radius:14px; padding:18px 20px; margin-bottom:18px">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:8px">
+          <span style="font-size:14px; color:#B9BCC2">Сотрудников: <b id="tc-n" style="color:#F2F0EC; font-size:16px">10</b></span>
+          <span style="font-size:13px; color:var(--spot)" id="tc-disc">скидка 27%</span>
+        </div>
+        <input type="range" id="tc-range" min="5" max="150" value="10" step="1" style="width:100%; accent-color:#E8B96A; margin-bottom:12px">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap">
+          <span style="font-size:14px; color:#B9BCC2"><b id="tc-per" style="color:#F2F0EC; font:600 22px Georgia,serif">1 090 ₽</b> / человек</span>
+          <span style="font-size:14px; color:#B9BCC2">Итого: <b id="tc-total" style="color:#F2F0EC; font:600 22px Georgia,serif">10 900 ₽</b></span>
+        </div>
+        <p id="tc-note" style="font-size:12.5px; color:#8b8f96; margin:8px 0 0">Экономия <span id="tc-save" style="color:var(--spot)">4 000 ₽</span> против личных тарифов</p>
+      </div>
+      <div style="display:flex; gap:12px; flex-wrap:wrap">
+        <a id="tc-invoice" href="mailto:hello@d-portret.ru?subject=Портреты для команды" class="btn btn-light" style="padding:14px 26px; font-size:15px">Получить счёт</a>
+        <a href="https://t.me/delovoy_portret_bot" class="btn" style="padding:14px 26px; font-size:15px; border:1.5px solid rgba(242,240,236,.3); color:#F2F0EC">Обсудить в Telegram</a>
+      </div>
     </div>
     <div style="position:relative; display:grid; grid-template-columns:repeat(3,1fr); gap:12px" id="team-grid"></div>
   </div>
@@ -413,6 +428,27 @@
   document.getElementById('team-grid').innerHTML=team.map(function(f){
     return '<div class="tile" style="background:url('+IMG+f+'.jpg) center/cover;border:1px solid rgba(255,255,255,.08)"></div>';
   }).join('');
+
+  // Калькулятор командных цен. Лестница от «Оптимального» (1490 ₽/чел):
+  // 5+ −13%, 10+ −27%, 25+ −34%, 50+ −40%, 100+ — индивидуально (от 790).
+  var BASE=1490;
+  var LADDER=[[100,790],[50,890],[25,990],[10,1090],[5,1290]];
+  function teamPrice(n){ for (var i=0;i<LADDER.length;i++){ if(n>=LADDER[i][0]) return LADDER[i][1]; } return BASE; }
+  var fmt=function(x){ return x.toLocaleString('ru-RU')+' ₽'; };
+  var range=document.getElementById('tc-range');
+  function recalc(){
+    var n=+range.value, per=teamPrice(n), total=n*per, save=n*BASE-total;
+    document.getElementById('tc-n').textContent = n + (n>=150?'+':'');
+    document.getElementById('tc-per').textContent = (n>=100?'от ':'')+fmt(per);
+    document.getElementById('tc-total').textContent = (n>=100?'от ':'')+fmt(total);
+    document.getElementById('tc-disc').textContent = 'скидка '+Math.round((1-per/BASE)*100)+'%';
+    document.getElementById('tc-save').textContent = fmt(save);
+    document.getElementById('tc-invoice').href =
+      'mailto:hello@d-portret.ru?subject='+encodeURIComponent('Портреты для команды — '+n+' чел.')+
+      '&body='+encodeURIComponent('Здравствуйте! Хотим заказать деловые портреты для команды из '+n+
+      ' сотрудников (примерно '+fmt(total)+'). Пришлите, пожалуйста, счёт и детали.\n\nКомпания: \nКонтакт: ');
+  }
+  range.addEventListener('input', recalc); recalc();
 
   // FAQ
   var faq=[
