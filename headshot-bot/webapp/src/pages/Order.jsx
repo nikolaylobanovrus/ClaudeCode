@@ -153,9 +153,11 @@ export default function Order() {
           <div className="plans">
             {packages.map((p) => (
               <div key={p.code} className={`plan ${pkg?.code === p.code ? 'sel' : ''}`} onClick={() => pickPackage(p)}>
+                {p.recommended && <span className="plan-badge">Рекомендуем</span>}
                 <h3>{p.title}</h3>
                 <div className="pr">{p.price_rub} ₽</div>
-                <small>{p.portraits} портретов · {p.styles} образов × 10 кадров</small>
+                <small>{p.portraits} портретов · {p.styles >= 8 ? 'все' : ''} {p.styles} образов
+                  × {Math.round(p.portraits / p.styles)} кадров</small>
               </div>
             ))}
           </div>

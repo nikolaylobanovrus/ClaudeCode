@@ -19,13 +19,18 @@ class Package:
         return self.portraits // self.styles
 
 
+# Тройная сетка («Златовласка»): средний тариф — рекомендуемый, верхний — якорь.
+# Код "pro" оставлен у среднего для совместимости с заказами в базе.
 PACKAGES: dict[str, Package] = {
     p.code: p
     for p in (
         Package(code="standard", title="Стандарт", price_rub=990, portraits=40, styles=4),
-        Package(code="pro", title="Про", price_rub=1490, portraits=80, styles=8),
+        Package(code="pro", title="Оптимальный", price_rub=1490, portraits=80, styles=8),
+        Package(code="max", title="Максимум", price_rub=2490, portraits=120, styles=8),
     )
 }
+
+RECOMMENDED_CODE = "pro"
 
 
 def get_package(code: str) -> Package:

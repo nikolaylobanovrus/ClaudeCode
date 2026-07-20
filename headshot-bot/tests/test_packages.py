@@ -5,10 +5,11 @@ from prompts.library import StyleLibrary
 
 
 def test_known_packages():
-    assert set(PACKAGES) == {"standard", "pro"}
-    std, pro = PACKAGES["standard"], PACKAGES["pro"]
-    assert std.price_rub < pro.price_rub
-    assert std.portraits < pro.portraits
+    assert set(PACKAGES) == {"standard", "pro", "max"}
+    std, pro, mx = PACKAGES["standard"], PACKAGES["pro"], PACKAGES["max"]
+    assert std.price_rub < pro.price_rub < mx.price_rub
+    assert std.portraits < pro.portraits < mx.portraits
+    assert (std.price_rub, pro.price_rub, mx.price_rub) == (990, 1490, 2490)
 
 
 def test_portraits_divide_evenly_by_styles():

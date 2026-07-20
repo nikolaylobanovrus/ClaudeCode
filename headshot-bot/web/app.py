@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from config import load_settings
 from core.db import init_db, make_engine, make_session_factory
 from core.models import FreePreview, Job, Photo, User, utcnow
-from core.packages import PACKAGES, get_package
+from core.packages import PACKAGES, RECOMMENDED_CODE, get_package
 from core.states import JobState, validate_transition
 from core.validation import validate_photo
 from prompts.library import StyleLibrary
@@ -68,6 +68,7 @@ async def api_packages() -> list[dict]:
             "price_rub": p.price_rub,
             "portraits": p.portraits,
             "styles": p.styles,
+            "recommended": p.code == RECOMMENDED_CODE,
         }
         for p in PACKAGES.values()
     ]

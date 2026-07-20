@@ -1,16 +1,18 @@
 """Все пользовательские тексты бота в одном месте."""
 from core.packages import PACKAGES
 
+_plans = "\n".join(
+    f"• «{p.title}» — {p.portraits} портретов, "
+    f"{'все ' if p.styles >= 8 else ''}{p.styles} образов — {p.price_rub} ₽"
+    for p in PACKAGES.values()
+)
 START = (
     "👔 <b>Деловой портрет за 30 минут</b>\n\n"
     "Загрузите 10–15 селфи — нейросеть обучится на вашем лице и создаст "
     "десятки профессиональных деловых портретов: для hh.ru, корпоративного "
     "сайта, профиля в мессенджерах.\n\n"
-    f"• «{PACKAGES['standard'].title}» — {PACKAGES['standard'].portraits} портретов, "
-    f"{PACKAGES['standard'].styles} стиля — {PACKAGES['standard'].price_rub} ₽\n"
-    f"• «{PACKAGES['pro'].title}» — {PACKAGES['pro'].portraits} портретов, "
-    f"{PACKAGES['pro'].styles} стилей — {PACKAGES['pro'].price_rub} ₽\n\n"
-    "Оплата разовая, без подписки. Первый портрет-превью — бесплатно.\n\n"
+    f"{_plans}\n\n"
+    "Оплата разовая, без подписки. Примеры: d-portret.ru\n\n"
     "Для начала нужно ваше согласие на обработку загружаемых фотографий."
 )
 
@@ -59,7 +61,7 @@ PAY_BUTTON = "{title} — {portraits} фото, {price} ₽"
 CHOOSE_STYLES = (
     "Пакет «{title}»: выберите <b>{k} образа</b> из {total} — по {per_style} "
     "портретов на каждый. Нажимайте на образы, затем «Готово».\n\n"
-    "Хотите все {total} образов и вдвое больше кадров? Пакет «Про» — {pro_price} ₽."
+    "Хотите все {total} образов и вдвое больше кадров? Пакет «Оптимальный» — {pro_price} ₽."
 )
 STYLES_LIMIT = "Уже выбрано {k} — снимите один образ, чтобы выбрать другой."
 STYLES_INCOMPLETE = "Выберите ещё {left}."

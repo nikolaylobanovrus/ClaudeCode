@@ -33,9 +33,11 @@ h1,h2,h3{font-family:Georgia,serif; font-weight:600; margin:0}
 .drop.drag{border-color:var(--accent); background:#FBFAF8}
 .thumbs{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:14px}
 .thumbs img{width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px}
-.plans{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0}
-.plan{border:2px solid var(--line); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .2s}
+.plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:14px 0}
+.plan{border:2px solid var(--line); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .2s; position:relative}
 .plan.sel{border-color:var(--accent)}
+.plan-badge{position:absolute; top:-10px; right:12px; background:var(--accent); color:#fff;
+  font-size:11px; font-weight:700; padding:2px 10px; border-radius:999px}
 .plan h3{font-size:17px}
 .plan .pr{font-family:Georgia,serif; font-size:26px; margin:4px 0}
 .plan small{color:var(--muted)}
