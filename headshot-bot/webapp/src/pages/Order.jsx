@@ -88,6 +88,10 @@ export default function Order() {
   async function submit() {
     try {
       const d = await api.select(token, pkg.code, chosen)
+      if (d.payment_url) {
+        window.location.href = d.payment_url  // страница оплаты ЮKassa
+        return
+      }
       setOrder({ state: 'awaiting_payment', price_rub: d.price_rub, results: [] })
       setStep(4); say('')
     } catch (e) { say(errText(e), true) }
@@ -206,7 +210,7 @@ function Result({ order, token }) {
       <p style={{ color: 'var(--muted)', fontSize: 14.5, margin: '6px 0 4px' }}>
         {done ? 'Нажмите на кадр, чтобы открыть и сохранить в полном размере.'
           : failed ? 'Возникла задержка — мы уже разбираемся и свяжемся с вами.'
-          : `Стоимость: ${order.price_rub} ₽. Мы свяжемся по указанному контакту для оплаты — после подтверждения запустится генерация. Сохраните ссылку на эту страницу!`}
+          : 'Ждём подтверждения оплаты — после него генерация запустится автоматически (обычно меньше минуты). Сохраните ссылку на эту страницу: по ней вы вернётесь к заказу и заберёте готовые портреты.'}
       </p>
       {!done && !failed && (
         <div className="progress">

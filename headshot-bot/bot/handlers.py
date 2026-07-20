@@ -6,8 +6,11 @@ from datetime import datetime, timezone
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
+from pathlib import Path
+
 from aiogram.types import (
     BufferedInputFile,
+    FSInputFile,
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -87,6 +90,9 @@ async def _active_job(session: AsyncSession, user_id: int, *states: JobState) ->
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+EXAMPLES_COLLAGE = Path(__file__).resolve().parents[1] / "web/static/img/gen/bot_examples.jpg"
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, session_factory: async_sessionmaker) -> None:
     async with session_factory() as session:
@@ -99,7 +105,13 @@ async def cmd_start(message: Message, session_factory: async_sessionmaker) -> No
                 await session.commit()
             await message.answer(texts.CONSENT_SAVED)
             return
-    await message.answer(texts.START, reply_markup=_consent_kb())
+    # Приветствие с коллажем примеров: продаёт картинка, не текст.
+    if EXAMPLES_COLLAGE.exists():
+        await message.answer_photo(
+            FSInputFile(EXAMPLES_COLLAGE), caption=texts.START, reply_markup=_consent_kb()
+        )
+    else:
+        await message.answer(texts.START, reply_markup=_consent_kb())
     await message.answer(texts.CONSENT_INFO)
 
 

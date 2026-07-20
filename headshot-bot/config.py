@@ -42,6 +42,9 @@ class Settings:
     public_base_url: str = field(
         default_factory=lambda: os.environ.get("PUBLIC_BASE_URL", "https://d-portret.ru")
     )
+    # ЮKassa. Пустые ключи = ручное подтверждение заказов админом.
+    yookassa_shop_id: str = field(default_factory=lambda: os.environ.get("YOOKASSA_SHOP_ID", ""))
+    yookassa_secret: str = field(default_factory=lambda: os.environ.get("YOOKASSA_SECRET", ""))
     # Конвейер качества (включаем после тюнинга на реальных фотосессиях).
     quality_enhance: bool = field(
         default_factory=lambda: os.environ.get("QUALITY_ENHANCE", "false").lower() == "true"
