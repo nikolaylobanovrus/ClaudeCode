@@ -311,7 +311,7 @@
         <p id="tc-note" style="font-size:12.5px; color:#8b8f96; margin:8px 0 0">Экономия <span id="tc-save" style="color:var(--spot)">4 000 ₽</span> против личных тарифов</p>
       </div>
       <div style="display:flex; gap:12px; flex-wrap:wrap">
-        <a id="tc-invoice" href="mailto:hello@d-portret.ru?subject=Портреты для команды" class="btn btn-light" style="padding:14px 26px; font-size:15px">Получить счёт</a>
+        <button id="tc-invoice" class="btn btn-light" style="padding:14px 26px; font-size:15px; font-family:inherit">Получить счёт</button>
         <a href="https://t.me/delovoy_portret_bot" class="btn" style="padding:14px 26px; font-size:15px; border:1.5px solid rgba(242,240,236,.3); color:#F2F0EC">Обсудить в Telegram</a>
       </div>
     </div>
@@ -337,6 +337,34 @@
     <span style="margin-left:auto">ООО «СИТИОПТОМ» · ИНН 7722725129 · <a href="mailto:hello@d-portret.ru" style="color:var(--muted)">hello@d-portret.ru</a> · © 2026</span>
   </div>
 </footer>
+
+<!-- Модальное окно заявки для команд -->
+<div id="lead-modal" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(27,29,34,.55); align-items:center; justify-content:center; padding:20px">
+  <div style="background:#fff; border-radius:18px; max-width:440px; width:100%; padding:30px; box-shadow:0 24px 60px rgba(0,0,0,.35); position:relative; max-height:92vh; overflow-y:auto">
+    <button id="lead-close" aria-label="Закрыть" style="position:absolute; top:16px; right:18px; background:none; border:none; font-size:26px; line-height:1; color:var(--muted); cursor:pointer">×</button>
+    <div id="lead-form-wrap">
+      <h3 style="font-size:22px; margin-bottom:6px">Портреты для команды</h3>
+      <p style="color:var(--muted); font-size:14px; margin-bottom:4px">Оставьте контакты — пришлём счёт, детали и ссылку для сотрудников.</p>
+      <p id="lead-est" style="color:var(--accent); font-size:13.5px; font-weight:650; margin-bottom:18px"></p>
+      <form id="lead-form" style="display:flex; flex-direction:column; gap:12px">
+        <input name="company" type="text" required placeholder="Компания" style="padding:12px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--bg)">
+        <input name="name" type="text" required placeholder="Ваше имя" style="padding:12px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--bg)">
+        <input name="contact" type="text" required placeholder="Email или телефон" style="padding:12px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--bg)">
+        <label style="font-size:13px; color:var(--muted); display:flex; align-items:center; gap:10px">Сотрудников:
+          <input name="headcount" type="number" min="1" max="100000" value="10" style="width:90px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font:inherit; background:var(--bg)"></label>
+        <textarea name="message" rows="2" placeholder="Комментарий (необязательно)" style="padding:12px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--bg); resize:vertical"></textarea>
+        <button id="lead-submit" type="submit" class="btn btn-dark" style="padding:13px 22px; font-size:15px; font-family:inherit">Отправить заявку</button>
+        <p id="lead-err" style="color:#B0433A; font-size:13px; margin:0"></p>
+        <p style="color:var(--muted); font-size:11.5px; margin:0">Нажимая «Отправить», вы соглашаетесь с <a href="/privacy" target="_blank">политикой конфиденциальности</a>.</p>
+      </form>
+    </div>
+    <div id="lead-ok" style="display:none; text-align:center; padding:16px 0">
+      <div style="font-size:40px; margin-bottom:10px">✅</div>
+      <h3 style="font-size:20px; margin-bottom:8px">Заявка принята</h3>
+      <p style="color:var(--muted); font-size:14.5px">Свяжемся с вами в течение рабочего дня — пришлём счёт и всё для запуска.</p>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -443,12 +471,39 @@
     document.getElementById('tc-total').textContent = (n>=100?'от ':'')+fmt(total);
     document.getElementById('tc-disc').textContent = 'скидка '+Math.round((1-per/BASE)*100)+'%';
     document.getElementById('tc-save').textContent = fmt(save);
-    document.getElementById('tc-invoice').href =
-      'mailto:hello@d-portret.ru?subject='+encodeURIComponent('Портреты для команды — '+n+' чел.')+
-      '&body='+encodeURIComponent('Здравствуйте! Хотим заказать деловые портреты для команды из '+n+
-      ' сотрудников (примерно '+fmt(total)+'). Пришлите, пожалуйста, счёт и детали.\n\nКомпания: \nКонтакт: ');
+    window.__teamN = n; window.__teamTotal = total;
   }
   range.addEventListener('input', recalc); recalc();
+
+  // Форма заявки для команд (модальное окно)
+  var modal=document.getElementById('lead-modal');
+  var form=document.getElementById('lead-form');
+  function openModal(){
+    form.headcount.value = window.__teamN || range.value;
+    document.getElementById('lead-est').textContent = 'Ориентировочно '+fmt(window.__teamTotal||0)+' за '+(window.__teamN||range.value)+' чел.';
+    document.getElementById('lead-form-wrap').style.display='block';
+    document.getElementById('lead-ok').style.display='none';
+    modal.style.display='flex';
+  }
+  function closeModal(){ modal.style.display='none'; }
+  document.getElementById('tc-invoice').addEventListener('click', openModal);
+  document.getElementById('lead-close').addEventListener('click', closeModal);
+  modal.addEventListener('click', function(e){ if(e.target===modal) closeModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var btn=document.getElementById('lead-submit'), err=document.getElementById('lead-err');
+    btn.disabled=true; err.textContent=''; btn.textContent='Отправляем…';
+    try{
+      var fd=new FormData(form);
+      var r=await fetch('/api/team-lead',{method:'POST',body:fd});
+      if(!r.ok) throw new Error();
+      document.getElementById('lead-form-wrap').style.display='none';
+      document.getElementById('lead-ok').style.display='block';
+    }catch(_){
+      err.textContent='Не удалось отправить. Напишите нам в Telegram или на hello@d-portret.ru';
+    }finally{ btn.disabled=false; btn.textContent='Отправить заявку'; }
+  });
 
   // FAQ
   var faq=[

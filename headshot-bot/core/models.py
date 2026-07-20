@@ -70,6 +70,20 @@ class FreePreview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class TeamLead(Base):
+    """Заявка на командные портреты (форма B2B в блоке «Для команд»)."""
+
+    __tablename__ = "team_leads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    contact: Mapped[str] = mapped_column(Text)
+    headcount: Mapped[int] = mapped_column(Integer, default=0)
+    message: Mapped[str | None] = mapped_column(Text, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Photo(Base):
     __tablename__ = "photos"
 

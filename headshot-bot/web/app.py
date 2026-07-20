@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 
 from config import load_settings
 from core.db import init_db, make_engine, make_session_factory
-from core.models import FreePreview, Job, Photo, User, utcnow
+from core.models import FreePreview, Job, Photo, TeamLead, User, utcnow
 from core.packages import PACKAGES, RECOMMENDED_CODE, get_package
 from core.states import JobState, validate_transition
 from core.validation import validate_photo
@@ -141,6 +141,37 @@ async def _notify_admins(settings, text: str) -> None:
                 await http.post(url, json={"chat_id": admin_id, "text": text})
     except Exception:
         pass  # уведомление не должно ломать заказ
+
+
+@app.post("/api/team-lead")
+async def team_lead(
+    request: Request,
+    company: str = Form(...),
+    name: str = Form(...),
+    contact: str = Form(...),
+    headcount: int = Form(0),
+    message: str = Form(""),
+):
+    if not (2 <= len(company.strip()) <= 200):
+        return JSONResponse({"error": "bad_company"}, status_code=422)
+    if not (2 <= len(name.strip()) <= 100):
+        return JSONResponse({"error": "bad_name"}, status_code=422)
+    if not (3 <= len(contact.strip()) <= 200):
+        return JSONResponse({"error": "bad_contact"}, status_code=422)
+    headcount = max(0, min(headcount, 100000))
+    async with request.app.state.session_factory() as session:
+        session.add(TeamLead(
+            company=company.strip(), name=name.strip(), contact=contact.strip(),
+            headcount=headcount, message=(message.strip() or None),
+        ))
+        await session.commit()
+    await _notify_admins(
+        request.app.state.settings,
+        f"🏢 Заявка на команду: {company.strip()} — {headcount} чел.\n"
+        f"Контакт: {name.strip()}, {contact.strip()}"
+        + (f"\nКомментарий: {message.strip()}" if message.strip() else ""),
+    )
+    return {"ok": True}
 
 
 @app.post("/api/orders")

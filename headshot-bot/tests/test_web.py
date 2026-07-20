@@ -54,3 +54,20 @@ def test_free_preview_rejects_bad_photo(client):
     resp = client.post("/api/free-preview", files=files, data={"consent": "yes"})
     assert resp.status_code == 422
     assert resp.json()["error"] == "not_an_image"
+
+
+def test_team_lead_flow(client):
+    # Валидная заявка сохраняется.
+    resp = client.post("/api/team-lead", data={
+        "company": "Рога и Копыта", "name": "Иван", "contact": "ivan@example.ru",
+        "headcount": 25, "message": "нужно ко вторнику",
+    })
+    assert resp.status_code == 200 and resp.json()["ok"] is True
+
+    # Пустая компания — отказ.
+    resp = client.post("/api/team-lead", data={"company": "", "name": "И", "contact": "x@y.ru"})
+    assert resp.status_code == 422
+
+    # Короткий контакт — отказ.
+    resp = client.post("/api/team-lead", data={"company": "ООО", "name": "Иван", "contact": "x"})
+    assert resp.status_code == 422
