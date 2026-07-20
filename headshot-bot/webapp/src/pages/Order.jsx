@@ -119,7 +119,9 @@ export default function Order() {
           </div>
           <label className="consent">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов.
+            <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов,
+              включая их передачу техническому провайдеру нейросетевой генерации
+              (<a href="/privacy" target="_blank" rel="noreferrer">политика конфиденциальности</a>).
               Фото и модель хранятся не дольше 30 дней и удаляются по запросу.</span>
           </label>
           <button className="btn btn-dark" disabled={!(contact.trim().length > 2 && consent)} onClick={start}>Начать</button>
@@ -179,6 +181,10 @@ export default function Order() {
             </>
           )}
           <button className="btn btn-dark" disabled={!(pkg && chosen.length === pkg.styles)} onClick={submit}>Оформить заказ</button>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>
+            Нажимая «Оформить заказ», вы принимаете <a href="/legal" target="_blank" rel="noreferrer">условия
+            оказания услуг</a> и <a href="/privacy" target="_blank" rel="noreferrer">политику конфиденциальности</a>.
+          </p>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}
