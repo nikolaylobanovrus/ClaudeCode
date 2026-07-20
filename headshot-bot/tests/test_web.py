@@ -28,7 +28,7 @@ def test_pages_and_api(client):
     assert "Деловой" in client.get("/").text
     assert "Бесплатно" in client.get("/free").text
     assert len(client.get("/api/styles").json()) == 8
-    assert {p["code"] for p in client.get("/api/packages").json()} == {"standard", "pro"}
+    assert {p["code"] for p in client.get("/api/packages").json()} == {"standard", "pro", "max"}
 
 
 def test_free_preview_flow_and_daily_limit(client):
