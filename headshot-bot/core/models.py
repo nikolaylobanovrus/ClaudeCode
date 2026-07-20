@@ -47,6 +47,8 @@ class Job(Base):
     access_token: Mapped[str | None] = mapped_column(String(64), unique=True, default=None)
     # ID платежа ЮKassa, ожидающего оплаты по этому заказу.
     payment_id: Mapped[str | None] = mapped_column(String(64), index=True, default=None)
+    # Первый доступ к результату в полном разрешении («скачал» для условий гарантии).
+    downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     # Состояние, в которое нужно вернуться при ретрае из failed.
     retry_to: Mapped[str | None] = mapped_column(String(32), default=None)

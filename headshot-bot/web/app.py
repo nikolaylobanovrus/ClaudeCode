@@ -365,15 +365,33 @@ async def order_status(request: Request, token: str):
 
 
 @app.get("/api/orders/{token}/result/{photo_id}")
-async def order_result(request: Request, token: str, photo_id: int):
+async def order_result(request: Request, token: str, photo_id: int, full: int = 0):
+    """Кадр результата. По умолчанию превью; ?full=1 — полный размер,
+    первый такой доступ фиксируется как «получение результата» (условия
+    добровольной гарантии возврата в оферте)."""
     job = await _job_by_token(request, token)
     if job is None:
         return JSONResponse({"error": "order_not_found"}, status_code=404)
     async with request.app.state.session_factory() as session:
         photo = await session.get(Photo, photo_id)
-    if photo is None or photo.job_id != job.id or photo.kind != Photo.RESULT:
-        return JSONResponse({"error": "not_found"}, status_code=404)
+        if photo is None or photo.job_id != job.id or photo.kind != Photo.RESULT:
+            return JSONResponse({"error": "not_found"}, status_code=404)
+        if full:
+            db_job = await session.get(Job, job.id)
+            if db_job.downloaded_at is None:
+                db_job.downloaded_at = utcnow()
+                await session.commit()
     data = request.app.state.storage.get(photo.storage_key)
+    if not full:
+        from io import BytesIO
+
+        from PIL import Image
+
+        img = Image.open(BytesIO(data))
+        img.thumbnail((640, 640))
+        buf = BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=82)
+        data = buf.getvalue()
     return Response(content=data, media_type="image/jpeg")
 
 

@@ -132,3 +132,62 @@ async def test_worker_completes_web_order(tmp_path):
 
         # Чужой/битый токен не даёт доступа.
         assert client.get("/api/orders/wrongtoken").status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_full_res_access_sets_downloaded_at(tmp_path):
+    """Превью не фиксирует получение результата, полный размер — фиксирует."""
+    import os
+    os.environ["PROVIDER"] = "fake"
+    os.environ["DB_URL"] = f"sqlite+aiosqlite:///{tmp_path}/dl.db"
+    os.environ["DATA_DIR"] = str(tmp_path / "data")
+    from fastapi.testclient import TestClient
+
+    from web.app import app
+
+    with TestClient(app) as client:
+        token = client.post(
+            "/api/orders", data={"contact": "a@b.ru", "consent": "yes"}
+        ).json()["token"]
+        photo = make_photo()
+        for i in range(10):
+            client.post(f"/api/orders/{token}/photos",
+                        files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
+        client.post(f"/api/orders/{token}/select",
+                    data={"package": "standard",
+                          "styles": "studio_grey,hh_white,office_modern,suit_navy"})
+
+        db = f"sqlite+aiosqlite:///{tmp_path}/dl.db"
+        engine = create_async_engine(db)
+        sf = async_sessionmaker(engine, expire_on_commit=False)
+        async with sf() as session:
+            job = (await session.execute(select(Job))).scalar_one()
+            job.state = validate_transition(JobState(job.state), JobState.TRAINING)
+            await session.commit()
+
+        async def deliver(jid, tg_id, keys):
+            pass
+
+        storage = FileStorage(tmp_path / "data" / "files")
+        worker = Worker(sf, FakeProvider(), storage, StyleLibrary.load(), deliver)
+        while await worker.process_one():
+            pass
+
+        status = client.get(f"/api/orders/{token}").json()
+        url = status["results"][0]["url"]
+
+        # Превью: маленькое, downloaded_at не ставится.
+        preview = client.get(url)
+        assert preview.status_code == 200
+        async with sf() as session:
+            job = (await session.execute(select(Job))).scalar_one()
+            assert job.downloaded_at is None
+
+        # Полный размер: больше превью, фиксирует downloaded_at.
+        fullres = client.get(url + "?full=1")
+        assert fullres.status_code == 200
+        assert len(fullres.content) != len(preview.content)
+        async with sf() as session:
+            job = (await session.execute(select(Job))).scalar_one()
+            assert job.downloaded_at is not None
+        await engine.dispose()

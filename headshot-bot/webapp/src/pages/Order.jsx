@@ -222,11 +222,19 @@ function Result({ order, token }) {
         </div>
       )}
       {done && (
-        <div className="gallery">
-          {order.results.map((r) => (
-            <a key={r.id} href={r.url} target="_blank" rel="noreferrer"><img loading="lazy" src={r.url} alt="" /></a>
-          ))}
-        </div>
+        <>
+          <div className="gallery">
+            {order.results.map((r) => (
+              <a key={r.id} href={`${r.url}?full=1`} target="_blank" rel="noreferrer">
+                <img loading="lazy" src={r.url} alt="" />
+              </a>
+            ))}
+          </div>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12 }}>
+            Клик по кадру открывает полный размер для сохранения. Условия гарантии
+            возврата — в <a href="/offer" target="_blank" rel="noreferrer">оферте</a>.
+          </p>
+        </>
       )}
     </div>
   )
