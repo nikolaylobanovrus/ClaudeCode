@@ -302,4 +302,9 @@ async def free_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "free.html")
 
 
+@app.get("/legal")
+async def legal_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "legal.html")
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
