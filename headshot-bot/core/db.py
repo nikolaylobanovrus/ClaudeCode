@@ -25,6 +25,7 @@ async def init_db(engine) -> None:
                 ("channel", "ALTER TABLE jobs ADD COLUMN channel VARCHAR(8) DEFAULT 'tg'"),
                 ("contact", "ALTER TABLE jobs ADD COLUMN contact TEXT"),
                 ("access_token", "ALTER TABLE jobs ADD COLUMN access_token VARCHAR(64)"),
+                ("payment_id", "ALTER TABLE jobs ADD COLUMN payment_id VARCHAR(64)"),
             ):
                 if name not in cols:
                     await conn.execute(text(ddl))

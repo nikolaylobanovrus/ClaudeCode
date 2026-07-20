@@ -38,6 +38,10 @@ class Settings:
     max_source_photos: int = field(
         default_factory=lambda: int(os.environ.get("MAX_SOURCE_PHOTOS", "15"))
     )
+    # Публичный адрес сайта (return_url после оплаты — для любого провайдера).
+    public_base_url: str = field(
+        default_factory=lambda: os.environ.get("PUBLIC_BASE_URL", "https://d-portret.ru")
+    )
     # Конвейер качества (включаем после тюнинга на реальных фотосессиях).
     quality_enhance: bool = field(
         default_factory=lambda: os.environ.get("QUALITY_ENHANCE", "false").lower() == "true"
