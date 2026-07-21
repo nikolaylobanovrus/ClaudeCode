@@ -1,14 +1,73 @@
-// Шаг 6: сводка введённого и расчёт возврата перед оплатой.
+// Шаг «Проверка»: сводка введённого и расчёт (возврат ИЛИ налог к уплате).
 // calc приходит из WizardShell — расчёт выполняется один раз на рендер.
 import { useWizard } from "../WizardContext.jsx";
-import { wizardDeductions, stepIndex } from "../../data/wizard.js";
-import { yearRules } from "../../lib/ndfl/refs.js";
+import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
+import { yearRules, SALE_DEDUCTION } from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
 
 export default function StepReview({ calc }) {
   const { draft, dispatch } = useWizard();
   const p = draft.personal;
-  const goto = (key) => dispatch({ type: "GOTO", step: stepIndex(key) });
+  const goto = (key) => dispatch({ type: "GOTO", step: stepIndexIn(stepsFor(draft), key) });
+
+  // Продажа имущества: сводка и налог к уплате (Приложение 6), без возврата.
+  if (calc.sale) {
+    const s = calc.sale;
+    const expenses = s.deductionKind === "expenses";
+    const saleRows = [
+      ["Отчётный год", draft.year, "types"],
+      ["Что продали", "Автомобиль (иное имущество)", "sale"],
+      ["Цена продажи", fmtRub(s.price), "sale"],
+      [expenses ? "Расходы на покупку" : "Вычет", fmtRub(s.deduction), "sale"],
+      ["Покупатель", draft.sale?.buyerName || "—", "sale"],
+      ["ФИО", [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" "), "personal"],
+      ["ИНН", p.inn, "personal"],
+      ["Инспекция / ОКТМО", `${p.ifns} / ${p.oktmo}`, "personal"],
+    ];
+    return (
+      <div>
+        <dl className="cabinet__list wiz__summary">
+          {saleRows.map(([label, value, step]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>
+                {value || "—"}{" "}
+                <button type="button" className="wiz__edit" onClick={() => goto(step)}>
+                  изменить
+                </button>
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="wiz__calc">
+          <h3 className="wiz__subhead">Расчёт налога</h3>
+          <div className="wiz__calc-row">
+            <span>Доход от продажи</span>
+            <span>{fmtRub(s.taxable)}</span>
+          </div>
+          <div className="wiz__calc-row">
+            <span>{expenses ? "Расходы на покупку" : `Вычет ${fmtRub(SALE_DEDUCTION.other)}`}</span>
+            <span>−{fmtRub(s.deduction)}</span>
+          </div>
+          <div className="wiz__calc-row wiz__calc-row--total">
+            <span>Налог к уплате</span>
+            <span>{fmtRub(calc.owed)}</span>
+          </div>
+          <p className="wiz__note">
+            Мы подготовим декларацию. Налог платится отдельно в вашу инспекцию —
+            срок уплаты за {draft.year} год до 15 июля {Number(draft.year) + 1} года.
+          </p>
+        </div>
+
+        {calc.warnings.map((w) => (
+          <div className="doc-note doc-note--err" key={w}>
+            {w}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const rows = [
     ["Отчётный год", draft.year, "types"],

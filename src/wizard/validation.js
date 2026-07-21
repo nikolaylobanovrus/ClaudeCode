@@ -224,6 +224,25 @@ export function validateStep(stepKey, draft) {
     put(e, "account", validateAccount(b.account, b.bik));
   }
 
+  if (stepKey === "sale") {
+    const s = draft.sale || {};
+    put(e, "sale.price", validateMoney(s.price, "цену продажи"));
+    if (!e["sale.price"] && !positive(s.price))
+      put(e, "sale.price", "Укажите цену продажи");
+    put(e, "sale.saleDate", validateDate(s.saleDate, "дату продажи"));
+    if (!e["sale.saleDate"] && String(s.saleDate).slice(0, 4) !== String(draft.year))
+      put(e, "sale.saleDate", `Дата продажи должна быть в ${draft.year} году`);
+    put(e, "sale.buyerName", validateName(s.buyerName, "покупателя"));
+    if (s.deductionKind === "expenses") {
+      put(e, "sale.expenses", validateMoney(s.expenses, "расходы на покупку"));
+      if (!e["sale.expenses"] && !positive(s.expenses))
+        put(e, "sale.expenses", "Укажите расходы на покупку");
+    }
+    const binn = digits(s.buyerInn);
+    if (binn && binn.length !== 10 && binn.length !== 12)
+      put(e, "sale.buyerInn", "ИНН — 12 цифр (физлицо) или оставьте пустым");
+  }
+
   return e;
 }
 

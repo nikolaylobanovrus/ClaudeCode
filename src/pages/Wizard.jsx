@@ -12,7 +12,7 @@ import {
   clearDraft,
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
-import { PAYMENT_STEP } from "../data/wizard.js";
+import { paymentStepFor } from "../data/wizard.js";
 import { ymGoal } from "../lib/metrika.js";
 
 function WizardBody() {
@@ -70,7 +70,7 @@ function WizardBody() {
     if (returnedOrderId && saved.order?.id === returnedOrderId) {
       // Вернулись с оплаты: сразу на шаг оплаты, поллинг подтвердит платёж
       // и автоматически откроет документы.
-      dispatch({ type: "RESTORE", draft: { ...saved, step: PAYMENT_STEP } });
+      dispatch({ type: "RESTORE", draft: { ...saved, step: paymentStepFor(saved) } });
       return;
     }
     // Черновик с оплаченным содержимым восстанавливаем сразу: случайная

@@ -2,8 +2,8 @@
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
 import { useWizard } from "../WizardContext.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
-import { wizardDeductions, HINTS } from "../../data/wizard.js";
-import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
+import { wizardDeductions, HINTS, SALE_SLUGS, isSaleDraft } from "../../data/wizard.js";
+import { YEARS, refundDeadlineYear, SALE_YEARS, saleSupported } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
 
 // Подпись о сроке возврата под выбором года: возврат возможен за три
@@ -33,21 +33,42 @@ function yearNote(year, pensionerTransfer) {
 
 export default function StepDeductions({ errors }) {
   const { draft, dispatch } = useWizard();
+  const saleActive = isSaleDraft(draft);
   const pensionerTransfer =
     Boolean(draft.property?.pensioner) &&
     (draft.types.includes("kvartira") || draft.types.includes("ipoteka"));
-  const note = yearNote(draft.year, pensionerTransfer);
+  const note = saleActive ? null : yearNote(draft.year, pensionerTransfer);
+
+  // Продажа и возврат — разные декларации, вместе не заявляются: выбор одного
+  // очищает другой. Продажу декларируем только за поддержанные годы (2025).
+  const toggleRefund = (slug) => {
+    const cur = draft.types.filter((t) => !SALE_SLUGS.includes(t));
+    const next = cur.includes(slug) ? cur.filter((t) => t !== slug) : [...cur, slug];
+    dispatch({ type: "SET", key: "types", value: next });
+  };
+  const toggleSale = () => {
+    if (saleActive) {
+      dispatch({ type: "SET", key: "types", value: [] });
+    } else {
+      dispatch({ type: "SET", key: "types", value: ["prodazha_auto"] });
+      if (!saleSupported(draft.year))
+        dispatch({ type: "SET", key: "year", value: SALE_YEARS[0] });
+    }
+  };
+
+  // При продаже год ограничен поддержанными формами.
+  const years = saleActive ? [...YEARS].filter(saleSupported) : YEARS;
 
   return (
     <div>
       <div className="form__field">
         <label>
-          За какой год возвращаем налог
+          {saleActive ? "За какой год декларируем продажу" : "За какой год возвращаем налог"}
           <Hint text={HINTS.year} />
         </label>
         <div className="calc__types">
           {/* по возрастанию: 2022 → 2025 (в YEARS годы от свежего к старому) */}
-          {[...YEARS].reverse().map((y) => (
+          {[...years].reverse().map((y) => (
             <button
               key={y}
               type="button"
@@ -58,6 +79,12 @@ export default function StepDeductions({ errors }) {
             </button>
           ))}
         </div>
+        {saleActive && (
+          <div className="doc-note doc-note--ok" style={{ marginTop: 10 }}>
+            Продажу автомобиля декларируем за {SALE_YEARS[0]} год (действующая
+            форма ФНС). За другие годы — напишите в поддержку.
+          </div>
+        )}
         {note && (
           <div className={"doc-note doc-note--" + note.kind} style={{ marginTop: 10 }}>
             {note.text}
@@ -76,7 +103,7 @@ export default function StepDeductions({ errors }) {
                 type="button"
                 className={"wiz__type" + (active ? " is-active" : "")}
                 aria-pressed={active}
-                onClick={() => dispatch({ type: "TOGGLE_TYPE", slug: d.slug })}
+                onClick={() => toggleRefund(d.slug)}
               >
                 <span className="wiz__type-icon" aria-hidden="true">
                   {d.icon}
@@ -95,11 +122,31 @@ export default function StepDeductions({ errors }) {
         {errors.types && <div className="form__error">{errors.types}</div>}
       </div>
 
+      <div className="form__field">
+        <label>…или задекларируйте доход от продажи</label>
+        <div className="wiz__types">
+          <button
+            type="button"
+            className={"wiz__type" + (saleActive ? " is-active" : "")}
+            aria-pressed={saleActive}
+            onClick={toggleSale}
+          >
+            <span className="wiz__type-icon" aria-hidden="true">🚗</span>
+            <span>
+              <span className="wiz__type-title">Продал автомобиль</span>
+              <span className="wiz__type-limit">рассчитаем налог к уплате</span>
+            </span>
+            <span className="wiz__type-check" aria-hidden="true">{saleActive ? "✓" : ""}</span>
+          </button>
+        </div>
+      </div>
+
       <p className="wiz__note">
-        Все выбранные вычеты попадут в одну декларацию — так требует налоговая:
-        одна 3-НДФЛ на один год.
+        {saleActive
+          ? "Продажа имущества — отдельная декларация с налогом к уплате. Её нельзя объединить с вычетами на возврат."
+          : "Все выбранные вычеты попадут в одну декларацию — так требует налоговая: одна 3-НДФЛ на один год."}
       </p>
-      <AutofillTeaser />
+      {!saleActive && <AutofillTeaser />}
     </div>
   );
 }

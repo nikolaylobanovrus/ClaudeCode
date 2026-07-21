@@ -19,11 +19,36 @@ export const STEPS = [
   { key: "documents", title: "Документы", heading: "Ваши документы готовы" },
 ];
 
+// Продажа имущества — отдельная декларация с налогом К УПЛАТЕ (Приложение 6),
+// у неё свой, более короткий маршрут: без «Доходов» (зарплаты) и «Счёта»
+// (возврата нет). Список шагов выбирается по типу декларации (stepsFor);
+// переключение возможно только на первом шаге, где выбирается ситуация,
+// поэтому индекс draft.step остаётся согласованным.
+export const SALE_SLUGS = ["prodazha_auto"]; // фаза 2 добавит prodazha_realty
+export const isSaleDraft = (draft) =>
+  (draft?.types || []).some((t) => SALE_SLUGS.includes(t));
+
+export const SALE_STEPS = [
+  { key: "types", title: "Ситуация", heading: "Что будем декларировать?" },
+  { key: "sale", title: "Продажа", heading: "Что вы продали" },
+  { key: "personal", title: "О вас", heading: "Данные налогоплательщика" },
+  { key: "review", title: "Проверка", heading: "Проверьте данные и расчёт" },
+  { key: "payment", title: "Оплата", heading: "Оплата услуги" },
+  { key: "documents", title: "Документы", heading: "Ваши документы готовы" },
+];
+
+export const stepsFor = (draft) => (isSaleDraft(draft) ? SALE_STEPS : STEPS);
+export const stepIndexIn = (steps, key) => steps.findIndex((s) => s.key === key);
+
 // Индексы ключевых шагов — единственное место, где они вычисляются:
 // дубли findIndex по файлам разъезжаются при переименовании шага.
+// Для возвратной формы — константы; для активного черновика (с учётом
+// продажи) — paymentStepFor/documentsStepFor.
 export const stepIndex = (key) => STEPS.findIndex((s) => s.key === key);
 export const PAYMENT_STEP = stepIndex("payment");
 export const DOCUMENTS_STEP = stepIndex("documents");
+export const paymentStepFor = (draft) => stepIndexIn(stepsFor(draft), "payment");
+export const documentsStepFor = (draft) => stepIndexIn(stepsFor(draft), "documents");
 
 // Виды вычетов, доступные в мастере (подмножество каталога deductions
 // из content.js — те, что формируются автоматически).
@@ -89,4 +114,15 @@ export const HINTS = {
   account:
     "20 цифр — номер СЧЁТА, а не карты. Смотрите в приложении банка в реквизитах счёта.",
   year: "Вернуть налог можно за три последних года — за каждый год подаётся отдельная декларация. Лимиты вычетов зависят от года.",
+  salePrice:
+    "Сумма, за которую вы продали автомобиль, — по договору купли-продажи (ДКП).",
+  saleDate: "Дата договора купли-продажи. Должна попадать в отчётный год.",
+  saleDeduction:
+    "Два способа уменьшить налог. Вычет 250 000 ₽ — без документов, подойдёт всем. Расходы — если сохранился ваш договор на ПОКУПКУ этой машины и покупка вышла дороже 250 000 ₽: тогда налог считается с разницы «продал минус купил».",
+  saleExpenses:
+    "Сколько вы заплатили, когда ПОКУПАЛИ этот автомобиль, — по вашему договору покупки. Нужен сам договор как подтверждение.",
+  saleBuyer:
+    "Кому вы продали машину — ФИО покупателя из договора купли-продажи.",
+  saleBuyerInn:
+    "ИНН покупателя, если знаете (12 цифр — у физлица). Необязательно: можно оставить пустым.",
 };

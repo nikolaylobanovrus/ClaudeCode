@@ -6,6 +6,7 @@ import {
   CODES,
   KBK,
   RATE,
+  SALE_CODES,
   propertyObjectCode,
   propertySignCode,
   propertyIsHouse,
@@ -61,6 +62,29 @@ export function buildDeclarationModel(draft) {
 
   const has = (t) => (draft.types || []).includes(t);
 
+  // Приложение 6 (продажа имущества): готовый блок с кодами формы за год.
+  // Раздел 2 «код группы доходов» (001) и Приложение 1 «код вида дохода» (010)
+  // берём из SALE_CODES; для источника-физлица (покупателя) в Приложении 1
+  // пишем ФИО и, если известен, ИНН.
+  const saleCodes = SALE_CODES[draft.year] || SALE_CODES[2025];
+  const sale = calc.sale
+    ? {
+        kind: calc.sale.kind,
+        price: calc.sale.price,
+        taxable: calc.sale.taxable,
+        deductionKind: calc.sale.deductionKind, // "standard" | "expenses"
+        deduction: calc.sale.deduction,
+        base: calc.sale.base,
+        tax: calc.sale.tax,
+        buyer: {
+          name: trim(calc.sale.buyer.name),
+          inn: digits(calc.sale.buyer.inn),
+        },
+        groupCode: saleCodes.group, // Раздел 2, строка 001
+        incomeCode: saleCodes.incomeAuto, // Приложение 1, строка 010 (авто/иное)
+      }
+    : null;
+
   return {
     year: draft.year,
     types: draft.types || [],
@@ -70,6 +94,9 @@ export function buildDeclarationModel(draft) {
     kbk: KBK,
     ratePercent: Math.round(RATE * 100),
     refund: calc.refund,
+    // Продажа: null для обычной (возвратной) декларации.
+    sale,
+    owed: calc.owed,
     bank: { bik: digits(b.bik), account: digits(b.account), kind: CODES.accountKind },
     // Приложение 7 (имущественный) — только если выбран соответствующий вычет
     property:

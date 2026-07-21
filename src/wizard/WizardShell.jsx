@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { ymGoal } from "../lib/metrika.js";
-import { STEPS, PAYMENT_STEP, DOCUMENTS_STEP, potentialRefund } from "../data/wizard.js";
+import { stepsFor, stepIndexIn, isSaleDraft, potentialRefund } from "../data/wizard.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
 import { fmtRub } from "../lib/format.js";
@@ -13,6 +13,7 @@ import StepDeductions from "./steps/StepDeductions.jsx";
 import StepPersonal from "./steps/StepPersonal.jsx";
 import StepIncome from "./steps/StepIncome.jsx";
 import StepDetails from "./steps/StepDetails.jsx";
+import StepSale from "./steps/StepSale.jsx";
 import StepBank from "./steps/StepBank.jsx";
 import StepReview from "./steps/StepReview.jsx";
 import StepPayment from "./steps/StepPayment.jsx";
@@ -24,6 +25,7 @@ const COMPONENTS = {
   personal: StepPersonal,
   income: StepIncome,
   details: StepDetails,
+  sale: StepSale,
   bank: StepBank,
   review: StepReview,
   payment: StepPayment,
@@ -34,6 +36,12 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const { draft, dispatch } = useWizard();
   const autofillOn = useFeatureFlag("doc_autofill");
   const [errors, setErrors] = useState({});
+  // Маршрут шагов зависит от типа декларации: продажа идёт коротким путём
+  // (без «Доходов» и «Счёта»). Переключение возможно только на шаге «types».
+  const STEPS = stepsFor(draft);
+  const PAYMENT_STEP = stepIndexIn(STEPS, "payment");
+  const DOCUMENTS_STEP = stepIndexIn(STEPS, "documents");
+  const sale = isSaleDraft(draft);
   const step = STEPS[draft.step] || STEPS[0];
   const Step = COMPONENTS[step.key];
   // Для навигации «оплачено» = есть хоть одна покупка или оплаченный заказ.
@@ -51,7 +59,7 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const trackStep = (key) => {
     if (seenSteps.current.has(key)) return;
     seenSteps.current.add(key);
-    if (["personal", "income", "details", "bank", "review"].includes(key))
+    if (["personal", "income", "details", "sale", "bank", "review"].includes(key))
       ymGoal(`wizard_step_${key}`);
   };
 
@@ -169,19 +177,35 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
           {/* Пока расчёта нет, «Вы вернёте 0 ₽» демотивирует (на мобильном
               карточка стоит НАД формой) — показываем потенциал вычета. */}
           <div className="calc__result wiz__aside-card">
-            <div className="calc__result-label">
-              {calc.refund > 0 ? "Вы вернёте" : "Вернуть можно"}
-            </div>
-            <div className="calc__result-value">
-              {calc.refund > 0
-                ? fmtRub(calc.refund)
-                : `до ${fmtRub(potentialRefund(draft.types))}`}
-            </div>
-            <div className="calc__result-hint">
-              {calc.refund > 0
-                ? "Расчёт обновляется по мере заполнения"
-                : "Ваша сумма посчитается на шагах «Доходы» и «Расходы»"}
-            </div>
+            {sale ? (
+              <>
+                <div className="calc__result-label">Налог к уплате</div>
+                <div className="calc__result-value">
+                  {calc.sale?.price > 0 ? fmtRub(calc.owed) : "—"}
+                </div>
+                <div className="calc__result-hint">
+                  {calc.sale?.price > 0
+                    ? "Налог с дохода от продажи, 13%"
+                    : "Посчитаем на шаге «Продажа»"}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="calc__result-label">
+                  {calc.refund > 0 ? "Вы вернёте" : "Вернуть можно"}
+                </div>
+                <div className="calc__result-value">
+                  {calc.refund > 0
+                    ? fmtRub(calc.refund)
+                    : `до ${fmtRub(potentialRefund(draft.types))}`}
+                </div>
+                <div className="calc__result-hint">
+                  {calc.refund > 0
+                    ? "Расчёт обновляется по мере заполнения"
+                    : "Ваша сумма посчитается на шагах «Доходы» и «Расходы»"}
+                </div>
+              </>
+            )}
           </div>
           {/* При включённом автозаполнении «не отправляются на сервер» —
               уже не вся правда: загруженные файлы распознаются на сервере. */}

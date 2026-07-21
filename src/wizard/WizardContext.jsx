@@ -48,6 +48,10 @@ export function initialDraft() {
     iis: { contribution: "" },
     insurance: { amount: "" },
     bank: { bik: "", account: "" },
+    // Продажа имущества (ситуация prodazha_auto): доход, вычет/расходы,
+    // покупатель. Заполняется на шаге «Продажа»; в возвратной декларации
+    // не используется.
+    sale: emptySale(),
     order: null, // { id, provider, amount, status, confirmationUrl?, draftHash? }
     // Оплаченные комплекты: { id, provider, amount, paidAt, draftHash, snapshot }.
     // Одна оплата = один комплект для одного состояния анкеты (draftHash);
@@ -58,6 +62,18 @@ export function initialDraft() {
 
 export function emptyIncome() {
   return { name: "", inn: "", kpp: "", oktmo: "", income: "", withheld: "" };
+}
+
+export function emptySale() {
+  return {
+    kind: "auto", // фаза 1 — только автомобиль (иное имущество)
+    price: "", // цена продажи по ДКП
+    saleDate: "", // дата договора
+    deductionKind: "standard", // "standard" (250 000 ₽) | "expenses"
+    expenses: "", // расходы на покупку (если deductionKind === "expenses")
+    buyerName: "", // ФИО покупателя
+    buyerInn: "", // ИНН покупателя (необязательно)
+  };
 }
 
 function reducer(state, action) {
@@ -166,6 +182,9 @@ export function loadDraft() {
     }
     if (draft?.v !== 2) return null;
     if (!Array.isArray(draft.purchases)) draft.purchases = [];
+    // Черновики до появления продажи не имеют секции sale — добавляем дефолт,
+    // чтобы reducer PATCH("sale", …) и шаг «Продажа» работали.
+    if (!draft.sale) draft.sale = emptySale();
     return draft;
   } catch {
     return null;

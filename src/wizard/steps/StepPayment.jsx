@@ -289,6 +289,15 @@ export default function StepPayment({ onPaid, calc }) {
             .
           </div>
         )}
+        {/* Продажа: подать декларацию — обязанность, штраф за просрочку. */}
+        {calc?.sale && (
+          <div className="doc-note doc-note--ok">
+            Готовим декларацию с рассчитанным налогом
+            {calc.owed > 0 ? <> к уплате <strong>{fmtRub(calc.owed)}</strong></> : null}. Подать
+            её — обязанность: за несданную 3-НДФЛ штраф от 1 000 ₽ и 5% за каждый
+            месяц. Сервис — {fmtRub(selfService.price)}.
+          </div>
+        )}
         <div className="wiz__pay-price">{fmtRub(selfService.price)}</div>
         <button
           type="button"
@@ -331,7 +340,8 @@ export default function StepPayment({ onPaid, calc }) {
 
       <p className="wiz__note">
         После оплаты автоматически откроются: декларация 3-НДФЛ (PDF), файл для
-        Личного кабинета ФНС (XML) и заявление на возврат.
+        Личного кабинета ФНС (XML)
+        {calc?.sale ? " и инструкция по подаче" : " и заявление на возврат"}.
       </p>
     </div>
   );

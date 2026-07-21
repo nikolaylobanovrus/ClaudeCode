@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
+import { isSaleDraft } from "../../data/wizard.js";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
@@ -68,9 +69,11 @@ export default function StepDocuments({ onUnpaid }) {
             import("../../lib/ndfl/instrukciya.js"),
           ]);
         const model = buildDeclarationModel(source);
+        const sale = isSaleDraft(source);
+        // Продажа: налог к уплате — заявления о возврате нет.
         const [declPdf, appPdf, instrPdf] = await Promise.all([
           buildDeclarationPdf(model),
-          buildRefundApplicationPdf(model),
+          sale ? Promise.resolve(null) : buildRefundApplicationPdf(model),
           buildInstructionPdf({ year: source.year, types: source.types }),
         ]);
         const xml = buildDeclarationXml(model);
@@ -79,8 +82,9 @@ export default function StepDocuments({ onUnpaid }) {
           {
             key: "decl",
             title: `Декларация 3-НДФЛ за ${source.year} год`,
-            note:
-              "Напечатана на официальном бланке ФНС за выбранный год — как из программы налоговой. Заявление о возврате уже внутри (Приложение к Разделу 1).",
+            note: sale
+              ? "Напечатана на официальном бланке ФНС. Внутри — Приложение 6 (расчёт по продаже) и налог к уплате в Разделах 1 и 2."
+              : "Напечатана на официальном бланке ФНС за выбранный год — как из программы налоговой. Заявление о возврате уже внутри (Приложение к Разделу 1).",
             filename: `Декларация 3-НДФЛ ${source.year}.pdf`,
             bytes: declPdf,
             mime: PDF_MIME,
@@ -95,7 +99,8 @@ export default function StepDocuments({ onUnpaid }) {
             bytes: xml.bytes,
             mime: "application/xml",
           },
-          {
+          // Заявление на возврат — только для возвратной декларации.
+          appPdf && {
             key: "app",
             title: "Заявление на возврат налога",
             note: "Понадобится, если налоговая попросит отдельное заявление после проверки декларации.",
@@ -107,12 +112,12 @@ export default function StepDocuments({ onUnpaid }) {
             key: "instr",
             title: "Инструкция по подаче (PDF)",
             note:
-              "Три способа подачи шаг за шагом — ЛК ФНС, почтой, лично — и список подтверждающих документов под ваши вычеты. Можно распечатать или переслать.",
+              "Три способа подачи шаг за шагом — ЛК ФНС, почтой, лично — и список подтверждающих документов. Можно распечатать или переслать.",
             filename: `Как подать 3-НДФЛ ${source.year}.pdf`,
             bytes: instrPdf,
             mime: PDF_MIME,
           },
-        ]);
+        ].filter(Boolean));
         setState("ready");
       } catch (e) {
         if (!alive) return;
@@ -242,7 +247,14 @@ export default function StepDocuments({ onUnpaid }) {
         </li>
         <li>Прикрепите подтверждающие документы (договоры, справки, чеки).</li>
         <li>Подпишите неквалифицированной ЭП (создаётся там же) и отправьте.</li>
-        <li>Возврат придёт на ваш счёт после камеральной проверки — до 3 месяцев.</li>
+        {isSaleDraft(draft) ? (
+          <li>
+            Заплатите начисленный налог до 15 июля {Number(draft.year) + 1} года —
+            по реквизитам вашей инспекции или через ЛК ФНС.
+          </li>
+        ) : (
+          <li>Возврат придёт на ваш счёт после камеральной проверки — до 3 месяцев.</li>
+        )}
       </ol>
       <p className="wiz__note">
         Не хотите через интернет? Есть подача почтой и лично в ФНС/МФЦ —{" "}

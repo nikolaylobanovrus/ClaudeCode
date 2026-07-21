@@ -6,13 +6,74 @@
 // лимитом, и остатком годового дохода. Поэтому суммы листов Приложений всегда
 // сходятся с Разделом 2 (иначе ФНС отклоняет декларацию по контрольным
 // соотношениям).
-import { LIMITS, RATE, yearRules, refundDeadlineYear } from "./refs.js";
+import {
+  LIMITS,
+  RATE,
+  SALE_DEDUCTION,
+  SALE_CADASTRAL_COEF,
+  yearRules,
+  refundDeadlineYear,
+} from "./refs.js";
 import { fmtRub } from "../format.js";
 
 const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
+
+// Продажа имущества → Приложение 6, налог К УПЛАТЕ (пп. 1 п. 2 ст. 220 НК).
+// Возвращает null, если ситуация продажи не выбрана. Для авто (иного имущества)
+// доход = цена договора; для недвижимости доход = max(цена, кадастр × 0,7).
+// Вычет — фиксированный (250 000 / 1 000 000 ₽) ИЛИ документально
+// подтверждённые расходы на покупку, но не больше самого дохода.
+function computeSale(draft, warnings) {
+  const types = draft.types || [];
+  const isRealty = types.includes("prodazha_realty"); // фаза 2
+  const isAuto = types.includes("prodazha_auto");
+  if (!isAuto && !isRealty) return null;
+
+  const s = draft.sale || {};
+  const price = num(s.price);
+  const cadastral = isRealty ? num(s.cadastralValue) : 0;
+  const taxable =
+    isRealty && cadastral > 0
+      ? Math.max(price, Math.round(cadastral * SALE_CADASTRAL_COEF))
+      : price;
+  if (isRealty && cadastral > 0 && Math.round(cadastral * SALE_CADASTRAL_COEF) > price) {
+    warnings.push(
+      `Доход по договору (${fmtRub(price)}) меньше кадастровой стоимости × 0,7 (${fmtRub(
+        Math.round(cadastral * SALE_CADASTRAL_COEF)
+      )}) — по ст. 214.10 НК налог считается с большей суммы.`
+    );
+  }
+
+  const limit = isRealty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
+  const useExpenses = s.deductionKind === "expenses";
+  const expenses = num(s.expenses);
+  const deduction = Math.min(useExpenses ? expenses : limit, taxable);
+  if (useExpenses && expenses > taxable && taxable > 0) {
+    warnings.push(
+      "Расходы на покупку превышают доход от продажи — к вычету принят доход целиком, налог к уплате 0 ₽."
+    );
+  }
+  const base = Math.max(0, taxable - deduction);
+  const tax = Math.round(base * RATE);
+
+  return {
+    kind: isRealty ? "realty" : "auto",
+    price,
+    cadastral,
+    taxable,
+    deductionKind: useExpenses ? "expenses" : "standard",
+    deduction,
+    base,
+    tax,
+    buyer: {
+      name: String(s.buyerName || "").trim(),
+      inn: String(s.buyerInn || "").replace(/\D/g, ""),
+    },
+  };
+}
 
 // draft — черновик мастера (см. WizardContext). Возвращает разбивку вычетов,
 // итоговую сумму возврата и предупреждения для клиента.
@@ -22,13 +83,18 @@ export function computeDeclaration(draft) {
   const rules = yearRules(draft.year);
   const warnings = [];
 
+  // Продажа имущества — отдельная декларация с налогом к уплате (Приложение 6).
+  // Считаем первой: для чистой продажи предупреждения о сроке ВОЗВРАТА ниже
+  // неуместны (возврата нет), поэтому они под флагом !sale.
+  const sale = computeSale(draft, warnings);
+
   // Срок возврата: налог за год X возвращают при подаче до конца года X+3.
   // Исключение — пенсионер с переносом остатка имущественного вычета
   // (п. 10 ст. 220 НК): для него возврат за более старые годы законен.
   const pensionerTransfer =
     Boolean(draft.property?.pensioner) && (has("kvartira") || has("ipoteka"));
   const nowYear = new Date().getFullYear();
-  if (nowYear > refundDeadlineYear(draft.year)) {
+  if (!sale && nowYear > refundDeadlineYear(draft.year)) {
     if (!pensionerTransfer) {
       warnings.push(
         `Срок возврата налога за ${draft.year} год истёк (вернуть можно только за три последних года). Декларацию сформируем, но налоговая, скорее всего, откажет в возврате. Исключение — пенсионеры по имущественному вычету: если это ваш случай, отметьте «Я пенсионер» на шаге «Расходы» в блоке «Жильё».`
@@ -38,7 +104,7 @@ export function computeDeclaration(draft) {
         `Как пенсионер вы можете вернуть налог за ${draft.year} год по имущественному вычету (перенос остатка, п. 10 ст. 220 НК). Но по остальным вычетам в этой декларации (лечение, обучение, ИИС, страхование) срок возврата за ${draft.year} год уже истёк.`
       );
     }
-  } else if (nowYear === refundDeadlineYear(draft.year)) {
+  } else if (!sale && nowYear === refundDeadlineYear(draft.year)) {
     warnings.push(
       `${nowYear} — последний год, когда можно вернуть налог за ${draft.year}. Подайте декларацию до конца года.`
     );
@@ -164,6 +230,9 @@ export function computeDeclaration(draft) {
     taxBase,
     assessed,
     refund,
+    // Продажа имущества: sale — разбивка (или null), owed — налог к уплате.
+    sale,
+    owed: sale ? sale.tax : 0,
     carryover,
     warnings,
   };

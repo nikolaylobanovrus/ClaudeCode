@@ -12,7 +12,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildDeclarationXml } from "../src/lib/ndfl/xml3ndfl.js";
 import { buildDeclarationModel } from "../src/lib/ndfl/model.js";
-import { YEARS } from "../src/lib/ndfl/refs.js";
+import { YEARS, SALE_YEARS } from "../src/lib/ndfl/refs.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemaDir = join(root, "docs", "fns-schemas");
@@ -66,6 +66,20 @@ const scenarios = [
   },
 ];
 
+// Продажа имущества (Приложение 6, налог к уплате): проверяем для лет из
+// SALE_YEARS. Черновик без зарплаты и вычетов — чистая продажа авто.
+const saleScenarios = [
+  { tag: "продажа авто, вычет 250к", sale: { kind: "auto", price: "600000", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" } },
+  { tag: "продажа авто, расходы", sale: { kind: "auto", price: "600000", deductionKind: "expenses", expenses: "550000", buyerName: "Петров Пётр Петрович", buyerInn: "500100732259" } },
+];
+const saleDraft = (year, sale) => ({
+  year,
+  types: ["prodazha_auto"],
+  personal: sampleDraft(year).personal,
+  incomes: [],
+  sale,
+});
+
 const tmp = mkdtempSync(join(tmpdir(), "ndfl-xml-"));
 let anySchema = false;
 let failed = 0;
@@ -93,6 +107,24 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
       failed++;
       console.log(`✗ ${year} (${sc.tag}): XML НЕ прошёл схему:`);
       console.log(String(e.stderr || e.message).trim().split("\n").map((l) => "    " + l).join("\n"));
+    }
+  }
+  if (SALE_YEARS.includes(year)) {
+    for (const [i, sc] of saleScenarios.entries()) {
+      const model = buildDeclarationModel(saleDraft(year, sc.sale));
+      const { filename, bytes } = buildDeclarationXml(model);
+      const xmlPath = join(tmp, `s${i}-${filename}`);
+      writeFileSync(xmlPath, bytes);
+      try {
+        execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
+          stdio: ["ignore", "ignore", "pipe"],
+        });
+        console.log(`✓ ${year} (${sc.tag}): OK — XML соответствует схеме ФНС`);
+      } catch (e) {
+        failed++;
+        console.log(`✗ ${year} (${sc.tag}): XML НЕ прошёл схему:`);
+        console.log(String(e.stderr || e.message).trim().split("\n").map((l) => "    " + l).join("\n"));
+      }
     }
   }
 }

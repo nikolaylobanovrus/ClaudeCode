@@ -7,25 +7,39 @@ import { CODES } from "./refs.js";
 import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-2025.pdf (порядок задан при нарезке бланка).
-const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7 };
+// app6 — лист Приложения 6 (доходы от продажи), добавлен восьмой страницей.
+const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8 };
 
 export async function buildOfficialPdf2025(model) {
   const { person, calc } = model;
   const ap = calc.applied;
+  const sale = model.sale;
 
-  const sheets = [
-    { tpl: PG.title, fill: fillTitle },
-    { tpl: PG.r1, fill: fillR1 },
-    { tpl: PG.r1app, fill: fillR1App },
-    { tpl: PG.r2, fill: fillR2 },
-  ];
-  for (const part of chunk(model.incomes, 3))
-    sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
-  if (model.social) {
-    sheets.push({ tpl: PG.app5a, fill: fillApp5a });
-    sheets.push({ tpl: PG.app5b, fill: fillApp5b });
+  // Продажа: без заявления о возврате (Приложение к Разделу 1), Приложение 1 —
+  // покупатель как источник дохода, добавляется Приложение 6. Возврат: как было.
+  const sheets = sale
+    ? [
+        { tpl: PG.title, fill: fillTitle },
+        { tpl: PG.r1, fill: fillR1 },
+        { tpl: PG.r2, fill: fillR2 },
+        { tpl: PG.app1, fill: fillApp1Sale },
+        { tpl: PG.app6, fill: fillApp6 },
+      ]
+    : [
+        { tpl: PG.title, fill: fillTitle },
+        { tpl: PG.r1, fill: fillR1 },
+        { tpl: PG.r1app, fill: fillR1App },
+        { tpl: PG.r2, fill: fillR2 },
+      ];
+  if (!sale) {
+    for (const part of chunk(model.incomes, 3))
+      sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
+    if (model.social) {
+      sheets.push({ tpl: PG.app5a, fill: fillApp5a });
+      sheets.push({ tpl: PG.app5b, fill: fillApp5b });
+    }
+    if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   }
-  if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   const total = sheets.length;
 
   return assembleOnBlank({ blankUrl, person, sheets });
@@ -49,12 +63,12 @@ export async function buildOfficialPdf2025(model) {
     pen.left("1", 34.3, 216, 1); // достоверность подтверждает налогоплательщик
   }
 
-  // --- Раздел 1: налог к возврату ---------------------------------------------
+  // --- Раздел 1: налог к уплате (продажа) или к возврату ----------------------
   function fillR1(pen) {
     pen.left(model.kbk, 295.1, 672, 20); // 020 КБК
     pen.left(person.oktmo, 295.1, 645, 11); // 030 ОКТМО
-    pen.int(0, 295.1, 619, 13); // 040 к уплате
-    pen.int(model.refund, 295.1, 592, 13); // 050 к возврату
+    pen.int(sale ? model.owed : 0, 295.1, 619, 13); // 040 к уплате
+    pen.int(sale ? 0 : model.refund, 295.1, 592, 13); // 050 к возврату
   }
 
   // --- Приложение к Разделу 1: заявление о возврате (ст. 79 НК) ---------------
@@ -65,24 +79,27 @@ export async function buildOfficialPdf2025(model) {
   }
 
   // --- Раздел 2: налоговая база и сумма налога ---------------------------------
+  // Продажа: группа доходов «02», база = доход − вычет Приложения 6, налог
+  // печатается в строку 150 «к уплате». Возврат: как раньше (строка 160).
   function fillR2(pen) {
     const X = 351.8;
-    pen.left("01", X, 710, 2); // 001 код группы доходов
-    pen.money(calc.totalIncome, X, 683, 13); // 010 доходы
+    const income = sale ? sale.taxable : calc.totalIncome;
+    pen.left(sale ? sale.groupCode : "01", X, 710, 2); // 001 код группы доходов
+    pen.money(income, X, 683, 13); // 010 доходы
     pen.money(0, X, 659, 13); // 020 не облагаемые
-    pen.money(calc.totalIncome, X, 630, 13); // 030 облагаемые
-    pen.money(calc.totalDeduction, X, 602, 13); // 040 вычеты
+    pen.money(income, X, 630, 13); // 030 облагаемые
+    pen.money(sale ? sale.deduction : calc.totalDeduction, X, 602, 13); // 040 вычеты
     pen.money(0, X, 573, 13); // 050 расходы
-    pen.money(calc.taxBase, X, 548, 13); // 060 налоговая база
-    pen.int(calc.assessed, X, 495, 13); // 070 исчислено
-    pen.int(calc.totalWithheld, X, 470, 13); // 080 удержано
+    pen.money(sale ? sale.base : calc.taxBase, X, 548, 13); // 060 налоговая база
+    pen.int(sale ? sale.tax : calc.assessed, X, 495, 13); // 070 исчислено
+    pen.int(sale ? 0 : calc.totalWithheld, X, 470, 13); // 080 удержано
     pen.int(0, X, 445, 13); // 090 матвыгода
     pen.int(0, X, 416, 13); // 100 торговый сбор
     pen.int(0, X, 388, 13); // 120 авансовые
     pen.int(0, X, 348, 13); // 130 за рубежом
     pen.int(0, X, 319, 13); // 140 патент
-    pen.int(0, X, 290, 13); // 150 к уплате
-    pen.int(model.refund, X, 265, 13); // 160 к возврату
+    pen.int(sale ? model.owed : 0, X, 290, 13); // 150 к уплате
+    pen.int(sale ? 0 : model.refund, X, 265, 13); // 160 к возврату
     pen.int(0, X, 241, 13); // 170 упрощённый вычет
   }
 
@@ -106,6 +123,30 @@ export async function buildOfficialPdf2025(model) {
       pen.money(inc.income, 14.5, sumY[i], 13); // 070 доход
       pen.int(inc.withheld, 297.9, sumY[i], 13); // 080 удержано
     });
+  }
+
+  // --- Приложение 1 (продажа): источник дохода — покупатель --------------------
+  // Код вида дохода «018» (продажа иного имущества), ставка 13 %, ОКТМО — по
+  // месту жительства продавца; ИНН пишем только для физлица (12 цифр).
+  function fillApp1Sale(pen) {
+    const b = sale.buyer;
+    pen.left(sale.incomeCode, 119.3, 714, 3); // 010 код вида дохода
+    pen.right(String(model.ratePercent), 527.5, 714, 2); // ставка
+    if (b.inn.length === 12) pen.left(b.inn, 14.5, 678, 12); // ИНН физлица
+    pen.left(person.oktmo, 400.0, 678, 11); // ОКТМО по месту жительства
+    fillRows(pen, b.name || "Физическое лицо", 14.5, [642, 618, 595, 572], 40);
+    pen.money(sale.price, 14.5, 533, 13); // 070 сумма дохода
+    pen.int(0, 297.9, 533, 13); // 080 налог удержан — 0
+  }
+
+  // --- Приложение 6: имущественный вычет по доходам от продажи -----------------
+  // Авто (иное имущество, пункт 3): строка 070 — вычет 250 000 ₽ ЛИБО строка
+  // 080 — документально подтверждённые расходы; строка 160 — итог вычета.
+  function fillApp6(pen) {
+    const X = 422.7;
+    if (sale.deductionKind === "expenses") pen.money(sale.deduction, X, 468.7, 8); // 080 расходы
+    else pen.money(sale.deduction, X, 494.2, 8); // 070 вычет
+    pen.money(sale.deduction, X, 64.9, 8); // 160 общая сумма вычетов
   }
 
   // --- Приложение 5, лист 1: соц. вычеты без ограничения + своё обучение -------
