@@ -30,12 +30,13 @@ export default function Order() {
   const say = (text, error = false) => setMsg({ text, error })
 
   // Каталог тарифов — сразу (нужен на шаге 1) + предвыбор из ?pkg=.
+  // Если тариф уже выбран на лендинге, шаг выбора пропускаем — сразу к оплате.
   useEffect(() => {
     api.packages().then((ps) => {
       setPackages(ps)
       if (wantPkg) {
         const p = ps.find((x) => x.code === wantPkg)
-        if (p) setPkg(p)
+        if (p) { setPkg(p); if (!token) setStep(2) }
       }
     }).catch(() => {})
   }, []) // eslint-disable-line
