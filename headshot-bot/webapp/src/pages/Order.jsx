@@ -169,6 +169,17 @@ export default function Order() {
             disabled={paying || !(contact.trim().length > 2 && consent)} onClick={pay}>
             {paying ? 'Переходим к оплате…' : `Оплатить ${pkg?.price_rub} ₽`}
           </button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14,
+            padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12 }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>🛡️</span>
+            <div style={{ fontSize: 13.5 }}>
+              <b>Гарантия возврата денег — 14 дней.</b>{' '}
+              <span style={{ color: 'var(--muted)' }}>
+                Не подойдёт ни один портрет — вернём оплату в течение 14 дней.
+                Условия — в <a href="/offer" target="_blank" rel="noreferrer">оферте</a>.
+              </span>
+            </div>
+          </div>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>
             Нажимая «Оплатить», вы принимаете <a href="/offer" target="_blank" rel="noreferrer">публичную
             оферту</a> и <a href="/privacy" target="_blank" rel="noreferrer">политику конфиденциальности</a>.
