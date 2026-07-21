@@ -24,10 +24,11 @@ class Settings:
         default_factory=lambda: os.environ.get("MANUAL_PAYMENT", "true").lower() == "true"
     )
     # Заглушка оплаты: заказ проходит БЕЗ реального платежа — для сквозного
-    # теста флоу владельцем. ВНИМАНИЕ: при true любой заказ бесплатен,
-    # выключить перед публичным запуском (PAYMENT_STUB=false).
+    # теста флоу владельцем. Сейчас true на время тестирования.
+    # ВНИМАНИЕ: при true любой заказ бесплатен — вернуть false
+    # (PAYMENT_STUB=false) перед публичным запуском/рекламой.
     payment_stub: bool = field(
-        default_factory=lambda: os.environ.get("PAYMENT_STUB", "false").lower() == "true"
+        default_factory=lambda: os.environ.get("PAYMENT_STUB", "true").lower() == "true"
     )
     admin_tg_ids: tuple[int, ...] = field(
         default_factory=lambda: tuple(

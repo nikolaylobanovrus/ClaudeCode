@@ -31,6 +31,7 @@ class StubPayments:
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("PROVIDER", "fake")
+    monkeypatch.setenv("PAYMENT_STUB", "false")  # проверяем реальный путь ЮKassa
     monkeypatch.setenv("DB_URL", f"sqlite+aiosqlite:///{tmp_path}/pay.db")
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     from fastapi.testclient import TestClient
