@@ -54,6 +54,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Деловой Портрет AI", docs_url=None, redoc_url=None, lifespan=lifespan)
 
+from web.admin import router as admin_router  # noqa: E402
+
+app.include_router(admin_router)
+
 
 @app.get("/health")
 async def health() -> dict:

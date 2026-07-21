@@ -51,6 +51,18 @@ class Settings:
     # ЮKassa. Пустые ключи = ручное подтверждение заказов админом.
     yookassa_shop_id: str = field(default_factory=lambda: os.environ.get("YOOKASSA_SHOP_ID", ""))
     yookassa_secret: str = field(default_factory=lambda: os.environ.get("YOOKASSA_SECRET", ""))
+    # Токен HTTPS-хука управления бэкендом (деплой/статус/логи/рестарт).
+    # Пустой = хук выключен, эндпоинты /api/admin/* отдают 404.
+    admin_api_token: str = field(default_factory=lambda: os.environ.get("ADMIN_API_TOKEN", ""))
+    # Ветка, которую подтягивает self-deploy, и путь к git-чекауту на сервере.
+    deploy_branch: str = field(
+        default_factory=lambda: os.environ.get(
+            "DEPLOY_BRANCH", "claude/us-services-russia-gap-5hfawx"
+        )
+    )
+    deploy_src_dir: str = field(
+        default_factory=lambda: os.environ.get("DEPLOY_SRC_DIR", "/root/src")
+    )
     # Конвейер качества (включаем после тюнинга на реальных фотосессиях).
     quality_enhance: bool = field(
         default_factory=lambda: os.environ.get("QUALITY_ENHANCE", "false").lower() == "true"
