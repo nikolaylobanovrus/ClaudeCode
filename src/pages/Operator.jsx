@@ -15,6 +15,8 @@ import {
   sbMarkLeadProcessed,
   getOperatorToken,
   setOperatorToken,
+  operatorTokenExpiresAt,
+  sbOperatorRefresh,
 } from "../lib/supabase.js";
 import { downloadBlob } from "../lib/share.js";
 import { tariffs } from "../data/content.js";
@@ -35,6 +37,9 @@ const fmtRub = (n) => Number(n || 0).toLocaleString("ru-RU") + " ₽";
 
 export default function Operator() {
   const [token, setToken] = useState(getOperatorToken());
+  // ready=false, пока не проверили, не пора ли продлить сохранённый токен при
+  // открытии вкладки — иначе load() успеет уйти с протухшим токеном и словит 401.
+  const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [clients, setClients] = useState([]);
@@ -68,9 +73,52 @@ export default function Operator() {
     [logout]
   );
 
+  // Бутстрап при открытии вкладки: если сохранённый access_token уже истёк
+  // (или вот-вот истечёт), но refresh_token жив — продлеваем ДО первой загрузки,
+  // восстанавливая сессию вместо выброса на форму входа.
   useEffect(() => {
-    if (token) load(token);
-  }, [token, load]);
+    let alive = true;
+    (async () => {
+      const exp = operatorTokenExpiresAt();
+      if (getOperatorToken() && exp && exp - Date.now() < 120000) {
+        const fresh = await sbOperatorRefresh();
+        if (!alive) return;
+        if (fresh) setToken(fresh);
+        else logout(); // refresh отклонён — сессии нет
+      }
+      if (alive) setReady(true);
+    })();
+    return () => {
+      alive = false;
+    };
+    // Один раз на монтирование — logout стабилен (useCallback []).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (ready && token) load(token);
+  }, [ready, token, load]);
+
+  // Фоновое автопродление: пока открыта вкладка, обновляем access_token за
+  // 2 мин до истечения. setToken(fresh) перезапускает эффект → следующий цикл.
+  useEffect(() => {
+    if (!ready || !token) return;
+    let alive = true;
+    const exp = operatorTokenExpiresAt();
+    // exp=0 (legacy без refresh) — продлить нельзя, таймер не ставим.
+    const delay = exp ? Math.max(5000, exp - Date.now() - 120000) : Infinity;
+    if (!Number.isFinite(delay)) return;
+    const timer = setTimeout(async () => {
+      const fresh = await sbOperatorRefresh();
+      if (!alive) return;
+      if (fresh) setToken(fresh);
+      else logout();
+    }, delay);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [ready, token, logout]);
 
   async function handleLogin(e) {
     e.preventDefault();

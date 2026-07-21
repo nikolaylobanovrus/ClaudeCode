@@ -70,23 +70,68 @@ export async function sbRpcOp(fn, args, timeoutMs = 8000) {
 }
 
 // --- Сессия оператора --------------------------------------------------------
-const OP_TOKEN_KEY = "ns.op.token";
+// access_token живёт ~1 час (на free-тарифе Supabase не настраивается), а
+// refresh_token — долго. Раньше сохраняли только access_token, поэтому по
+// истечении часа оператора выкидывало на форму входа. Теперь храним полный
+// набор и продлеваем сессию по refresh_token в фоне (см. Operator.jsx):
+// оператор не перелогинивается, пока открыта вкладка, а при повторном
+// открытии сессия восстанавливается, если refresh_token ещё жив.
+const OP_TOKEN_KEY = "ns.op.token"; // legacy: голый access_token (совместимость)
+const OP_SESSION_KEY = "ns.op.session"; // { access_token, refresh_token, expires_at }
 
-export function getOperatorToken() {
+function readSession() {
   try {
-    return localStorage.getItem(OP_TOKEN_KEY) || "";
+    const raw = localStorage.getItem(OP_SESSION_KEY);
+    if (raw) return JSON.parse(raw);
+    // Миграция со старого формата: был только access_token без refresh —
+    // продлить его нельзя, но текущую сессию не рвём (expires_at=0).
+    const legacy = localStorage.getItem(OP_TOKEN_KEY);
+    return legacy ? { access_token: legacy, refresh_token: "", expires_at: 0 } : null;
   } catch {
-    return "";
+    return null;
   }
 }
 
-export function setOperatorToken(token) {
+function writeSession(sess) {
   try {
-    if (token) localStorage.setItem(OP_TOKEN_KEY, token);
-    else localStorage.removeItem(OP_TOKEN_KEY);
+    if (sess && sess.access_token) {
+      localStorage.setItem(OP_SESSION_KEY, JSON.stringify(sess));
+      localStorage.setItem(OP_TOKEN_KEY, sess.access_token); // для старых читателей
+    } else {
+      localStorage.removeItem(OP_SESSION_KEY);
+      localStorage.removeItem(OP_TOKEN_KEY);
+    }
   } catch {
     /* ignore */
   }
+}
+
+// Ответ /auth/v1/token → сессия. expires_at — абсолютный момент (мс).
+function sessionFromAuth(data) {
+  const ttl = Number(data.expires_in) || 3600;
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || "",
+    expires_at: Date.now() + ttl * 1000,
+  };
+}
+
+export function getOperatorToken() {
+  return readSession()?.access_token || "";
+}
+
+// Момент истечения access_token (мс эпохи); 0 — неизвестно (legacy-сессия).
+export function operatorTokenExpiresAt() {
+  return readSession()?.expires_at || 0;
+}
+
+export function setOperatorToken(token) {
+  // logout() зовёт setOperatorToken("") — чистим весь набор.
+  if (!token) {
+    writeSession(null);
+    return;
+  }
+  writeSession({ ...(readSession() || {}), access_token: token });
 }
 
 export async function sbOperatorLogin(email, password) {
@@ -101,8 +146,43 @@ export async function sbOperatorLogin(email, password) {
     throw err;
   }
   const data = await res.json();
-  setOperatorToken(data.access_token);
+  writeSession(sessionFromAuth(data));
   return data.access_token;
+}
+
+// Продление сессии по refresh_token. Возвращает новый access_token или ""
+// (нет refresh_token / сервер отклонил — вызывающий трактует "" как разлогин).
+// Дедуп по in-flight промису: фоновый таймер и повторный вызов не гонятся
+// (у Supabase включён reuse-interval, но лишний параллельный обмен ни к чему).
+let refreshInFlight = null;
+export function sbOperatorRefresh() {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const s = readSession();
+    if (!s?.refresh_token) return "";
+    try {
+      const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: cfg.anonKey },
+        body: JSON.stringify({ refresh_token: s.refresh_token }),
+      });
+      if (!res.ok) {
+        // 400/401 — refresh_token отозван или протух: сессии больше нет.
+        writeSession(null);
+        return "";
+      }
+      const data = await res.json();
+      writeSession(sessionFromAuth(data));
+      return data.access_token;
+    } catch {
+      // Сетевой сбой — сессию НЕ рвём (refresh_token ещё может быть жив),
+      // просто не продлили в этот раз; таймер попробует снова.
+      return "";
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 // --- Хранилище документов клиентов (bucket client-docs) ----------------------
