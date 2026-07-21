@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import { api, SWATCHES, errText } from '../api.js'
+import { auth, authErr } from '../auth.js'
 
 // Флоу как у HeadshotPro: тариф → оплата → селфи → образы → результат.
 const STEPS = ['Тариф', 'Оплата', 'Селфи', 'Образы', 'Результат']
@@ -17,6 +18,7 @@ export default function Order() {
   const [packages, setPackages] = useState([])
   const [pkg, setPkg] = useState(null)
   const [contact, setContact] = useState('')
+  const [password, setPassword] = useState('')
   const [consent, setConsent] = useState(false)
   const [paying, setPaying] = useState(false)
   const [thumbs, setThumbs] = useState([])
@@ -27,7 +29,9 @@ export default function Order() {
   const [msg, setMsg] = useState({ text: '', error: false })
   const drop = useRef(null)
   const wantPkg = params.get('pkg')
-  const account = useOutletContext()?.account
+  const outlet = useOutletContext()
+  const account = outlet?.account
+  const refresh = outlet?.refresh
 
   const say = (text, error = false) => setMsg({ text, error })
 
@@ -74,9 +78,29 @@ export default function Order() {
 
   async function pay() {
     if (!pkg) return
-    setPaying(true)
+    setPaying(true); say('')
     try {
-      const d = await api.createOrder(pkg.code, contact.trim())
+      // Оплата привязана к аккаунту: у гостя создаём его здесь же (или входим,
+      // если email уже зарегистрирован) — тогда после оплаты он попадёт в ЛК.
+      if (!account) {
+        const email = contact.trim()
+        try {
+          await auth.register(email, password)
+        } catch (e) {
+          if (e.code === 'email_taken') {
+            try {
+              await auth.login(email, password)
+            } catch {
+              say('У этого email уже есть аккаунт, но пароль не подошёл. '
+                + 'Войдите или восстановите пароль.', true)
+              setPaying(false); return
+            }
+          } else { say(authErr(e), true); setPaying(false); return }
+        }
+        await refresh?.()
+      }
+      const email = account ? account.email : contact.trim()
+      const d = await api.createOrder(pkg.code, email)
       setToken(d.token)
       history.replaceState(null, '', `/app/order?t=${d.token}`)
       if (d.payment_url) { window.location.href = d.payment_url; return } // ЮKassa
@@ -158,13 +182,29 @@ export default function Order() {
       {step === 2 && !token && (
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Оплата · {pkg?.title} — {pkg?.price_rub} ₽</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
-            Укажите контакт — пришлём ссылку на заказ, чек и сообщим о готовности.
-          </p>
-          <div className="field">
-            <input type="text" placeholder="Email или телефон" value={contact}
-              onChange={(e) => setContact(e.target.value)} />
-          </div>
+          {account ? (
+            <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
+              Вы вошли как <b>{account.email}</b>. После оплаты продолжите в личном кабинете.
+            </p>
+          ) : (
+            <>
+              <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 16 }}>
+                Создаём аккаунт — по нему вы вернётесь в кабинет и заберёте портреты.
+                Придумайте пароль. Чек и уведомления пришлём на email.
+              </p>
+              <div className="field">
+                <input type="email" placeholder="Email" value={contact} autoComplete="email"
+                  onChange={(e) => setContact(e.target.value)} />
+              </div>
+              <div className="field">
+                <input type="password" placeholder="Пароль (минимум 8 символов)" value={password}
+                  autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <p style={{ fontSize: 13, marginTop: -4, marginBottom: 4 }}>
+                Уже покупали? <Link to="/app/login">Войти</Link> · <Link to="/app/forgot">Забыли пароль?</Link>
+              </p>
+            </>
+          )}
           <label className="consent">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов,
@@ -173,7 +213,8 @@ export default function Order() {
               Фото и модель хранятся не дольше 30 дней и удаляются по запросу.</span>
           </label>
           <button className="btn btn-dark"
-            disabled={paying || !(contact.trim().length > 2 && consent)} onClick={pay}>
+            disabled={paying || !consent || (!account && (!contact.includes('@') || password.length < 8))}
+            onClick={pay}>
             {paying ? 'Переходим к оплате…' : `Оплатить ${pkg?.price_rub} ₽`}
           </button>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14,
