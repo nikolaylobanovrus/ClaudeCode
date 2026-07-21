@@ -175,8 +175,8 @@ export default function Order() {
             <div style={{ fontSize: 13.5 }}>
               <b>Гарантия возврата денег — 14 дней.</b>{' '}
               <span style={{ color: 'var(--muted)' }}>
-                Не подойдёт ни один портрет — вернём оплату в течение 14 дней.
-                Условия — в <a href="/offer" target="_blank" rel="noreferrer">оферте</a>.
+                Не подойдёт ни один портрет — вернём оплату в течение 14 дней,
+                согласно <a href="/offer" target="_blank" rel="noreferrer">Публичной оферте</a>.
               </span>
             </div>
           </div>
