@@ -181,11 +181,27 @@ async def team_lead(
 
 
 @app.post("/api/orders")
-async def create_order(request: Request, contact: str = Form(...), consent: str = Form("")):
+async def create_order(
+    request: Request,
+    package: str = Form(...),
+    contact: str = Form(...),
+    consent: str = Form(""),
+):
+    """Флоу как у HeadshotPro: сначала тариф и оплата, затем сбор фото.
+
+    Заказ создаётся в awaiting_payment. После оплаты (вебхук ЮKassa или
+    заглушка PAYMENT_STUB) переходит в collecting — загрузка селфи и выбор
+    образов. Возвращает payment_url для оплаты либо paid=true при заглушке.
+    """
     if consent != "yes":
         return JSONResponse({"error": "consent_required"}, status_code=400)
     if not (3 <= len(contact.strip()) <= 200):
         return JSONResponse({"error": "bad_contact"}, status_code=422)
+    try:
+        pkg = get_package(package)
+    except ValueError:
+        return JSONResponse({"error": "bad_package"}, status_code=422)
+
     token = secrets.token_urlsafe(24)
     async with request.app.state.session_factory() as session:
         # Синтетический пользователь с отрицательным tg_id: веб-клиент без Telegram.
@@ -193,12 +209,63 @@ async def create_order(request: Request, contact: str = Form(...), consent: str 
         session.add(user)
         await session.flush()
         job = Job(
-            user_id=user.id, state=JobState.COLLECTING, channel="web",
-            contact=contact.strip(), access_token=token,
+            user_id=user.id, state=JobState.AWAITING_PAYMENT, channel="web",
+            package_code=pkg.code, contact=contact.strip(), access_token=token,
         )
         session.add(job)
         await session.commit()
-    return {"token": token}
+        job_id = job.id
+
+    settings = request.app.state.settings
+
+    # Заглушка оплаты: помечаем оплаченным и сразу пускаем к загрузке фото.
+    if settings.payment_stub:
+        async with request.app.state.session_factory() as session:
+            db_job = await session.get(Job, job_id)
+            db_job.state = validate_transition(JobState(db_job.state), JobState.COLLECTING)
+            await session.commit()
+        await _notify_admins(
+            settings,
+            f"🧪 ТЕСТОВЫЙ веб-заказ #{job_id} (заглушка оплаты): «{pkg.title}», "
+            f"контакт: {contact.strip()}. Оплата пропущена.",
+        )
+        return {"token": token, "paid": True, "stub": True, "price_rub": pkg.price_rub}
+
+    payments: YooKassaClient | None = request.app.state.payments
+    if payments is not None:
+        try:
+            payment = await payments.create_payment(
+                amount_rub=pkg.price_rub,
+                description=f"Деловые портреты — пакет «{pkg.title}», заказ #{job_id}",
+                return_url=f"{settings.public_base_url}/app/order?t={token}",
+                metadata={"job_id": str(job_id), "token": token},
+                customer=customer_from_contact(contact.strip()),
+            )
+        except Exception:
+            payment = None
+        if payment is not None and payment.confirmation_url:
+            async with request.app.state.session_factory() as session:
+                db_job = await session.get(Job, job_id)
+                db_job.payment_id = payment.id
+                await session.commit()
+            await _notify_admins(
+                settings,
+                f"💳 ВЕБ-заказ #{job_id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
+                f"контакт: {contact.strip()}",
+            )
+            return {
+                "token": token,
+                "payment_url": payment.confirmation_url,
+                "price_rub": pkg.price_rub,
+            }
+
+    # Ручной режим (нет ключей ЮKassa или сервис недоступен): подтверждает админ.
+    await _notify_admins(
+        settings,
+        f"Новый ВЕБ-заказ #{job_id}: пакет «{pkg.title}», контакт: {contact.strip()}. "
+        f"После оплаты подтвердить: /approve_{job_id}",
+    )
+    return {"token": token, "manual": True, "price_rub": pkg.price_rub}
 
 
 @app.post("/api/orders/{token}/photos")
@@ -226,15 +293,14 @@ async def upload_photo(request: Request, token: str, photo: UploadFile = File(..
     return {"count": existing + 1, "min": MIN_PHOTOS, "max": MAX_PHOTOS}
 
 
-@app.post("/api/orders/{token}/select")
-async def select_package(
-    request: Request, token: str, package: str = Form(...), styles: str = Form(...)
-):
+@app.post("/api/orders/{token}/generate")
+async def start_generation(request: Request, token: str, styles: str = Form(...)):
+    """Оплаченный заказ: выбор образов и запуск генерации (collecting → training)."""
     job = await _job_by_token(request, token)
     if job is None or JobState(job.state) is not JobState.COLLECTING:
         return JSONResponse({"error": "order_not_found"}, status_code=404)
     try:
-        pkg = get_package(package)
+        pkg = get_package(job.package_code or "")
     except ValueError:
         return JSONResponse({"error": "bad_package"}, status_code=422)
     lib = request.app.state.styles
@@ -253,49 +319,16 @@ async def select_package(
         if ((await session.execute(stmt)).scalar() or 0) < MIN_PHOTOS:
             return JSONResponse({"error": "not_enough_photos"}, status_code=409)
         db_job = await session.get(Job, job.id)
-        db_job.package_code = pkg.code
         db_job.styles_csv = ",".join(chosen)
-        db_job.state = validate_transition(JobState(db_job.state), JobState.AWAITING_PAYMENT)
+        db_job.state = validate_transition(JobState(db_job.state), JobState.TRAINING)
         await session.commit()
 
-    settings = request.app.state.settings
-    payments: YooKassaClient | None = request.app.state.payments
-
-    # Онлайн-оплата: создаём платёж ЮKassa и отдаём ссылку на оплату.
-    if payments is not None:
-        try:
-            payment = await payments.create_payment(
-                amount_rub=pkg.price_rub,
-                description=f"Деловые портреты — пакет «{pkg.title}», заказ #{job.id}",
-                return_url=f"{settings.public_base_url}/app/order?t={token}",
-                metadata={"job_id": str(job.id), "token": token},
-                customer=customer_from_contact(job.contact or ""),
-            )
-        except Exception:
-            payment = None  # деградация до ручного подтверждения
-        if payment is not None and payment.confirmation_url:
-            async with request.app.state.session_factory() as session:
-                db_job = await session.get(Job, job.id)
-                db_job.payment_id = payment.id
-                await session.commit()
-            await _notify_admins(
-                settings,
-                f"💳 ВЕБ-заказ #{job.id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
-                f"контакт: {job.contact}",
-            )
-            return {
-                "state": "awaiting_payment",
-                "price_rub": pkg.price_rub,
-                "payment_url": payment.confirmation_url,
-            }
-
-    # Ручной режим (нет ключей или ЮKassa недоступна).
     await _notify_admins(
-        settings,
-        f"Новый ВЕБ-заказ #{job.id}: пакет {pkg.code}, контакт: {job.contact}. "
-        f"Подтвердить: /approve_{job.id}",
+        request.app.state.settings,
+        f"🚀 Заказ #{job.id} («{pkg.title}») — фото загружены, образы выбраны, "
+        f"генерация запущена. Контакт: {job.contact}",
     )
-    return {"state": "awaiting_payment", "price_rub": pkg.price_rub}
+    return {"state": "training", "price_rub": pkg.price_rub}
 
 
 @app.post("/api/payments/yookassa")
@@ -324,13 +357,13 @@ async def yookassa_webhook(request: Request):
         if job is None:
             return JSONResponse({"error": "order_not_found"}, status_code=404)
         if JobState(job.state) is JobState.AWAITING_PAYMENT:
-            job.state = validate_transition(JobState(job.state), JobState.TRAINING)
+            job.state = validate_transition(JobState(job.state), JobState.COLLECTING)
             await session.commit()
             pkg = get_package(job.package_code)
             await _notify_admins(
                 request.app.state.settings,
                 f"✅ ОПЛАЧЕН заказ #{job.id}: «{pkg.title}» {pkg.price_rub} ₽, "
-                f"контакт: {job.contact}. Генерация запущена автоматически.",
+                f"контакт: {job.contact}. Клиент загружает фото.",
             )
     return {"ok": True}
 

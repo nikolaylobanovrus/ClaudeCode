@@ -1,4 +1,8 @@
-"""E2E веб-заказа: создание → фото → пакет → подтверждение → воркер → галерея."""
+"""E2E веб-заказа (флоу как у HeadshotPro): тариф → оплата → фото → образы → галерея.
+
+В тестах включена заглушка оплаты (PAYMENT_STUB): заказ создаётся сразу
+оплаченным (state=collecting), минуя ЮKassa.
+"""
 from io import BytesIO
 
 import pytest
@@ -7,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.models import Job
-from core.states import JobState, validate_transition
 from prompts.library import StyleLibrary
 from providers.fake import FakeProvider
 from storage.files import FileStorage
@@ -17,6 +20,7 @@ from worker import Worker
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("PROVIDER", "fake")
+    monkeypatch.setenv("PAYMENT_STUB", "true")
     monkeypatch.setenv("DB_URL", f"sqlite+aiosqlite:///{tmp_path}/order.db")
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     from fastapi.testclient import TestClient
@@ -34,17 +38,35 @@ def make_photo() -> bytes:
     return buf.getvalue()
 
 
-def test_full_web_order(client):
-    # Создание заказа: без согласия отказ, с согласием — токен.
-    assert client.post("/api/orders", data={"contact": "a@b.ru"}).status_code == 400
-    token = client.post(
-        "/api/orders", data={"contact": "a@b.ru", "consent": "yes"}
-    ).json()["token"]
-
-    # Пакет нельзя выбрать без 10 фото.
+def create_paid_order(client, contact="a@b.ru", package="standard") -> str:
+    """Создаёт заказ с тарифом; заглушка оплаты сразу переводит в collecting."""
     resp = client.post(
-        f"/api/orders/{token}/select",
-        data={"package": "standard", "styles": "studio_grey,hh_white,office_modern,suit_navy"},
+        "/api/orders",
+        data={"package": package, "contact": contact, "consent": "yes"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["paid"] is True
+    return body["token"]
+
+
+def test_full_web_order(client):
+    # Заказ нельзя создать без согласия и без валидного тарифа.
+    assert client.post(
+        "/api/orders", data={"package": "standard", "contact": "a@b.ru"}
+    ).status_code == 400
+    assert client.post(
+        "/api/orders", data={"package": "nope", "contact": "a@b.ru", "consent": "yes"}
+    ).status_code == 422
+
+    token = create_paid_order(client)
+    # Оплачен → сбор фото.
+    assert client.get(f"/api/orders/{token}").json()["state"] == "collecting"
+
+    # Запуск генерации нельзя без 10 фото.
+    resp = client.post(
+        f"/api/orders/{token}/generate",
+        data={"styles": "studio_grey,hh_white,office_modern,suit_navy"},
     )
     assert resp.status_code == 409
 
@@ -58,28 +80,27 @@ def test_full_web_order(client):
         assert resp.status_code == 200, resp.text
     assert client.get(f"/api/orders/{token}").json()["photos"] == 10
 
-    # Неверное число стилей — отказ; правильное — заказ ждёт оплаты.
+    # Неверное число образов — отказ; правильное — генерация запущена.
     resp = client.post(
-        f"/api/orders/{token}/select",
-        data={"package": "standard", "styles": "studio_grey,hh_white"},
+        f"/api/orders/{token}/generate", data={"styles": "studio_grey,hh_white"}
     )
     assert resp.status_code == 422
     resp = client.post(
-        f"/api/orders/{token}/select",
-        data={"package": "standard", "styles": "studio_grey,hh_white,office_modern,suit_navy"},
+        f"/api/orders/{token}/generate",
+        data={"styles": "studio_grey,hh_white,office_modern,suit_navy"},
     )
     assert resp.status_code == 200
-    assert resp.json()["price_rub"] == 990
-    assert client.get(f"/api/orders/{token}").json()["state"] == "awaiting_payment"
+    assert client.get(f"/api/orders/{token}").json()["state"] == "training"
 
 
 @pytest.mark.asyncio
 async def test_worker_completes_web_order(tmp_path):
-    """Подтверждённый веб-заказ проходит конвейер, галерея отдаёт результаты."""
+    """Оплаченный веб-заказ проходит конвейер, галерея отдаёт результаты."""
     db = f"sqlite+aiosqlite:///{tmp_path}/order.db"
     import os
 
     os.environ["PROVIDER"] = "fake"
+    os.environ["PAYMENT_STUB"] = "true"
     os.environ["DB_URL"] = db
     os.environ["DATA_DIR"] = str(tmp_path / "data")
     from fastapi.testclient import TestClient
@@ -87,9 +108,7 @@ async def test_worker_completes_web_order(tmp_path):
     from web.app import app
 
     with TestClient(app) as client:
-        token = client.post(
-            "/api/orders", data={"contact": "+79990000000", "consent": "yes"}
-        ).json()["token"]
+        token = create_paid_order(client, contact="+79990000000")
         photo = make_photo()
         for i in range(10):
             client.post(
@@ -97,19 +116,13 @@ async def test_worker_completes_web_order(tmp_path):
                 files={"photo": (f"p{i}.jpg", photo, "image/jpeg")},
             )
         client.post(
-            f"/api/orders/{token}/select",
-            data={"package": "standard", "styles": "studio_grey,hh_white,office_modern,suit_navy"},
+            f"/api/orders/{token}/generate",
+            data={"styles": "studio_grey,hh_white,office_modern,suit_navy"},
         )
+        assert client.get(f"/api/orders/{token}").json()["state"] == "training"
 
-        # «Оплата подтверждена» (как это делает админ в боте).
         engine = create_async_engine(db)
         sf = async_sessionmaker(engine, expire_on_commit=False)
-        async with sf() as session:
-            job = (await session.execute(select(Job))).scalar_one()
-            job.state = validate_transition(JobState(job.state), JobState.TRAINING)
-            await session.commit()
-            job_id = job.id
-
         delivered = {}
 
         async def deliver(jid, tg_id, keys):
@@ -139,6 +152,7 @@ async def test_full_res_access_sets_downloaded_at(tmp_path):
     """Превью не фиксирует получение результата, полный размер — фиксирует."""
     import os
     os.environ["PROVIDER"] = "fake"
+    os.environ["PAYMENT_STUB"] = "true"
     os.environ["DB_URL"] = f"sqlite+aiosqlite:///{tmp_path}/dl.db"
     os.environ["DATA_DIR"] = str(tmp_path / "data")
     from fastapi.testclient import TestClient
@@ -146,24 +160,17 @@ async def test_full_res_access_sets_downloaded_at(tmp_path):
     from web.app import app
 
     with TestClient(app) as client:
-        token = client.post(
-            "/api/orders", data={"contact": "a@b.ru", "consent": "yes"}
-        ).json()["token"]
+        token = create_paid_order(client)
         photo = make_photo()
         for i in range(10):
             client.post(f"/api/orders/{token}/photos",
                         files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
-        client.post(f"/api/orders/{token}/select",
-                    data={"package": "standard",
-                          "styles": "studio_grey,hh_white,office_modern,suit_navy"})
+        client.post(f"/api/orders/{token}/generate",
+                    data={"styles": "studio_grey,hh_white,office_modern,suit_navy"})
 
         db = f"sqlite+aiosqlite:///{tmp_path}/dl.db"
         engine = create_async_engine(db)
         sf = async_sessionmaker(engine, expire_on_commit=False)
-        async with sf() as session:
-            job = (await session.execute(select(Job))).scalar_one()
-            job.state = validate_transition(JobState(job.state), JobState.TRAINING)
-            await session.commit()
 
         async def deliver(jid, tg_id, keys):
             pass

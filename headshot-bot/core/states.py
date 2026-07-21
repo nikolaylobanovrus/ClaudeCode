@@ -20,8 +20,15 @@ class JobState(StrEnum):
 
 
 ALLOWED_TRANSITIONS: dict[JobState, frozenset[JobState]] = {
-    JobState.COLLECTING: frozenset({JobState.AWAITING_PAYMENT, JobState.CANCELLED}),
-    JobState.AWAITING_PAYMENT: frozenset({JobState.TRAINING, JobState.CANCELLED}),
+    # Бот собирает фото до оплаты (collecting → awaiting_payment); веб-флоу
+    # (как HeadshotPro) берёт оплату первой, потом собирает фото
+    # (awaiting_payment → collecting → training). Отсюда оба направления.
+    JobState.COLLECTING: frozenset(
+        {JobState.AWAITING_PAYMENT, JobState.TRAINING, JobState.CANCELLED}
+    ),
+    JobState.AWAITING_PAYMENT: frozenset(
+        {JobState.COLLECTING, JobState.TRAINING, JobState.CANCELLED}
+    ),
     JobState.TRAINING: frozenset({JobState.GENERATING, JobState.FAILED, JobState.CANCELLED}),
     JobState.GENERATING: frozenset({JobState.DELIVERING, JobState.FAILED, JobState.CANCELLED}),
     JobState.DELIVERING: frozenset({JobState.DONE, JobState.FAILED}),

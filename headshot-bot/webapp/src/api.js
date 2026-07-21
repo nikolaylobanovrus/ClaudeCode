@@ -18,8 +18,10 @@ export const api = {
   packages: () => req('/api/packages'),
   styles: () => req('/api/styles'),
 
-  createOrder(contact) {
+  // Флоу как у HeadshotPro: тариф → оплата → фото → образы.
+  createOrder(pkg, contact) {
     const f = new FormData()
+    f.append('package', pkg)
     f.append('contact', contact)
     f.append('consent', 'yes')
     return req('/api/orders', { method: 'POST', body: f })
@@ -29,11 +31,10 @@ export const api = {
     f.append('photo', file)
     return req(`/api/orders/${token}/photos`, { method: 'POST', body: f })
   },
-  select(token, pkg, styles) {
+  generate(token, styles) {
     const f = new FormData()
-    f.append('package', pkg)
     f.append('styles', styles.join(','))
-    return req(`/api/orders/${token}/select`, { method: 'POST', body: f })
+    return req(`/api/orders/${token}/generate`, { method: 'POST', body: f })
   },
   status: (token) => req(`/api/orders/${token}`),
 }
@@ -61,6 +62,7 @@ export const ERRORS = {
   limit: 'Достигнут максимум 15 фото.',
   not_enough_photos: 'Нужно минимум 10 фото.',
   styles_count: 'Выберите нужное число образов.',
+  bad_package: 'Выберите тариф.',
   order_not_found: 'Заказ не найден или уже в работе.',
 }
 export const errText = (e) => ERRORS[e && e.code] || 'Что-то пошло не так, попробуйте ещё раз.'

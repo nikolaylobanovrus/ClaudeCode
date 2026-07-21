@@ -29,7 +29,7 @@ def test_terminal_states_have_no_transitions():
 @pytest.mark.parametrize(
     "current,target",
     [
-        (JobState.COLLECTING, JobState.TRAINING),  # мимо оплаты нельзя
+        (JobState.GENERATING, JobState.DONE),  # мимо доставки нельзя
         (JobState.AWAITING_PAYMENT, JobState.GENERATING),
         (JobState.DONE, JobState.TRAINING),
         (JobState.FAILED, JobState.DONE),

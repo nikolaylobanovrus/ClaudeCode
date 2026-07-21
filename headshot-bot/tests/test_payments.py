@@ -1,4 +1,5 @@
-"""Оплата ЮKassa: создание платежа при select и вебхук → запуск генерации."""
+"""Оплата ЮKassa: платёж создаётся при оформлении заказа (тариф → оплата),
+вебхук переводит оплаченный заказ к сбору фото (collecting)."""
 from io import BytesIO
 
 import pytest
@@ -42,30 +43,30 @@ def client(monkeypatch, tmp_path):
         yield c
 
 
-def _make_order_ready(client) -> str:
-    token = client.post("/api/orders", data={"contact": "buyer@mail.ru", "consent": "yes"}).json()["token"]
-    photo = make_photo()
-    for i in range(10):
-        client.post(f"/api/orders/{token}/photos", files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
-    return token
+def _create_order(client, package="standard", contact="buyer@mail.ru") -> str:
+    return client.post(
+        "/api/orders",
+        data={"package": package, "contact": contact, "consent": "yes"},
+    ).json()["token"]
 
 
-def test_select_creates_payment_and_webhook_starts_training(client):
-    token = _make_order_ready(client)
+def test_order_creates_payment_and_webhook_starts_collecting(client):
     resp = client.post(
-        f"/api/orders/{token}/select",
-        data={"package": "standard", "styles": "studio_grey,hh_white,office_modern,suit_navy"},
+        "/api/orders",
+        data={"package": "standard", "contact": "buyer@mail.ru", "consent": "yes"},
     )
     assert resp.status_code == 200
     data = resp.json()
+    token = data["token"]
     assert data["payment_url"] == "https://yookassa.test/pay/123"
     assert client.stub.created[0]["amount"] == 990
     assert client.stub.created[0]["customer"] == {"email": "buyer@mail.ru"}
+    assert client.get(f"/api/orders/{token}").json()["state"] == "awaiting_payment"
 
-    # Вебхук: платёж успешен → заказ уходит в training.
+    # Вебхук: платёж успешен → заказ уходит к сбору фото.
     resp = client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
     assert resp.status_code == 200
-    assert client.get(f"/api/orders/{token}").json()["state"] == "training"
+    assert client.get(f"/api/orders/{token}").json()["state"] == "collecting"
 
     # Повторный вебхук идемпотентен (заказ уже не в awaiting_payment).
     resp = client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
@@ -73,11 +74,7 @@ def test_select_creates_payment_and_webhook_starts_training(client):
 
 
 def test_webhook_ignores_unsucceeded_and_unknown(client):
-    token = _make_order_ready(client)
-    client.post(
-        f"/api/orders/{token}/select",
-        data={"package": "standard", "styles": "studio_grey,hh_white,office_modern,suit_navy"},
-    )
+    token = _create_order(client)
     client.stub.status = "canceled"
     client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
     assert client.get(f"/api/orders/{token}").json()["state"] == "awaiting_payment"
