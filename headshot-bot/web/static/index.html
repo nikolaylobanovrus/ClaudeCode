@@ -372,7 +372,7 @@
 
   // Лента портретов: большой кадр «после» + кружок-селфи «до» того же человека
   function card(f,label){ return '<div style="width:148px;aspect-ratio:3/4;border-radius:12px;background:url('+IMG+f+'.jpg) center/cover;position:relative;overflow:hidden;margin-right:16px">'+
-    '<span style="position:absolute;left:8px;top:8px;width:38px;height:38px;border-radius:50%;background:url('+IMG+'src_'+f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 2px 8px rgba(0,0,0,.35)"></span>'+
+    '<span style="position:absolute;left:8px;top:8px;width:40px;height:40px;border-radius:50%;background:url('+IMG+'thumb_'+f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 2px 8px rgba(0,0,0,.35)"></span>'+
     '<span class="chip" style="position:absolute;left:8px;bottom:8px;font-size:11px;padding:3px 8px">'+label+'</span></div>'; }
   var A=SAMPLES.slice(0,8).map(function(s){return card(s[0],s[1]);}).join('');
   var B=SAMPLES.slice(4).map(function(s){return card(s[0],s[1]);}).join('');
@@ -409,7 +409,7 @@
   document.getElementById('styles-grid').innerHTML=styles.map(function(s,i){
     return '<figure class="card card-hover" data-reveal data-delay="'+((i%4)*60)+'" style="margin:0;overflow:hidden">'+
       '<div class="tile" style="background:url('+IMG+s.f+'.jpg) center/cover;position:relative">'+
-        '<span style="position:absolute;left:12px;top:12px;width:68px;height:68px;border-radius:50%;background:url('+IMG+'src_'+s.f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 4px 14px rgba(0,0,0,.35)"></span>'+
+        '<span style="position:absolute;left:12px;top:12px;width:72px;height:72px;border-radius:50%;background:url('+IMG+'thumb_'+s.f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 4px 14px rgba(0,0,0,.35)"></span>'+
       '</div>'+
       '<figcaption style="padding:12px 16px 14px;font-size:14px;font-weight:650">'+s.name+
       '<span style="display:block;font-weight:400;color:var(--muted);font-size:12.5px">'+s.hint+'</span></figcaption></figure>';
