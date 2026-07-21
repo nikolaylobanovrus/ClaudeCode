@@ -32,6 +32,10 @@ class FileStorage:
     def exists(self, key: str) -> bool:
         return self._path(key).exists()
 
+    def delete(self, key: str) -> None:
+        """Удаляет один файл по ключу (идемпотентно)."""
+        self._path(key).unlink(missing_ok=True)
+
     def delete_job(self, job_id: int) -> None:
         shutil.rmtree(self.root / f"jobs/{job_id}", ignore_errors=True)
 

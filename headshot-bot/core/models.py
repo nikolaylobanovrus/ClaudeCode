@@ -28,11 +28,61 @@ class User(Base):
     jobs: Mapped[list["Job"]] = relationship(back_populates="user")
 
 
+class Account(Base):
+    """Веб-аккаунт клиента (email + пароль). Отдельно от User (Telegram)."""
+
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(Text)
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WebSession(Base):
+    """Сессия входа: httpOnly-cookie у клиента, в БД — только хеш токена."""
+
+    __tablename__ = "web_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AuthToken(Base):
+    """Одноразовый токен: сброс пароля (reset) или подтверждение email (verify).
+
+    Хранится только хеш; исходный токен уходит в письмо. Короткий срок жизни,
+    одноразовый (used_at)."""
+
+    __tablename__ = "auth_tokens"
+
+    RESET = "reset"
+    VERIFY = "verify"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
 class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    # Веб-аккаунт-владелец (если заказ оформлен из личного кабинета).
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"), index=True, default=None
+    )
     state: Mapped[str] = mapped_column(String(32), default=JobState.COLLECTING, index=True)
     package_code: Mapped[str | None] = mapped_column(String(32), default=None)
     # Ссылка на обученную identity-модель у провайдера (URL LoRA-весов и т.п.).
@@ -49,6 +99,8 @@ class Job(Base):
     payment_id: Mapped[str | None] = mapped_column(String(64), index=True, default=None)
     # Первый доступ к результату в полном разрешении («скачал» для условий гарантии).
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Момент авто-удаления исходных фото и модели (ретеншн 30 дней, 152-ФЗ).
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     # Состояние, в которое нужно вернуться при ретрае из failed.
     retry_to: Mapped[str | None] = mapped_column(String(32), default=None)

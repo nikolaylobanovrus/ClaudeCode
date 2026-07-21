@@ -63,6 +63,22 @@ class Settings:
     deploy_src_dir: str = field(
         default_factory=lambda: os.environ.get("DEPLOY_SRC_DIR", "/root/src")
     )
+    # SMTP для писем клиентам (подтверждение email, сброс пароля, готовность).
+    # Пустой host → письма не уходят, а складываются в data/outbox (для тестов).
+    smtp_host: str = field(default_factory=lambda: os.environ.get("SMTP_HOST", ""))
+    smtp_port: int = field(default_factory=lambda: int(os.environ.get("SMTP_PORT", "465")))
+    smtp_user: str = field(default_factory=lambda: os.environ.get("SMTP_USER", ""))
+    smtp_password: str = field(default_factory=lambda: os.environ.get("SMTP_PASSWORD", ""))
+    smtp_from: str = field(
+        default_factory=lambda: os.environ.get("SMTP_FROM", "Деловые портреты <hello@d-portret.ru>")
+    )
+    smtp_ssl: bool = field(
+        default_factory=lambda: os.environ.get("SMTP_SSL", "true").lower() == "true"
+    )
+    # Флаг Secure у сессионной cookie (в проде true; в тестах на http — false).
+    session_cookie_secure: bool = field(
+        default_factory=lambda: os.environ.get("SESSION_COOKIE_SECURE", "true").lower() == "true"
+    )
     # Конвейер качества (включаем после тюнинга на реальных фотосессиях).
     quality_enhance: bool = field(
         default_factory=lambda: os.environ.get("QUALITY_ENHANCE", "false").lower() == "true"

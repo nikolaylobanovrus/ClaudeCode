@@ -1,0 +1,319 @@
+"""Веб-аккаунты: регистрация, вход, сессии, сброс/подтверждение, кабинет.
+
+Сессия — httpOnly-cookie ``sid`` (в БД только хеш токена). Одноразовые
+токены сброса пароля и подтверждения email уходят письмом и хранятся как
+хеш. Никакого перечисления пользователей: /forgot всегда отвечает 200.
+"""
+import re
+from datetime import timedelta, timezone
+
+from fastapi import APIRouter, Form, Request, Response
+from fastapi.responses import JSONResponse
+from sqlalchemy import select, update
+
+from core.email import send_email
+from core.models import Account, AuthToken, Job, WebSession, utcnow
+from core.security import (
+    hash_password,
+    new_token,
+    token_hash,
+    verify_password,
+)
+
+router = APIRouter()
+
+SID = "sid"
+SESSION_DAYS = 30
+RESET_TTL = timedelta(hours=1)
+VERIFY_TTL = timedelta(days=3)
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _norm_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def _aware(dt):
+    """SQLite отдаёт время без таймзоны — считаем его UTC для сравнения."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def _valid_password(pw: str) -> bool:
+    return 8 <= len(pw) <= 128
+
+
+def _set_session_cookie(request: Request, resp: Response, token: str) -> None:
+    resp.set_cookie(
+        SID, token,
+        max_age=SESSION_DAYS * 86400,
+        httponly=True,
+        secure=request.app.state.settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+async def _create_session(session, account_id: int) -> str:
+    token = new_token()
+    session.add(WebSession(
+        account_id=account_id,
+        token_hash=token_hash(token),
+        expires_at=utcnow() + timedelta(days=SESSION_DAYS),
+    ))
+    return token
+
+
+async def current_account(request: Request) -> Account | None:
+    """Аккаунт по cookie сессии, либо None. Просроченные сессии игнорируются."""
+    token = request.cookies.get(SID)
+    if not token:
+        return None
+    async with request.app.state.session_factory() as session:
+        ws = (await session.execute(
+            select(WebSession).where(WebSession.token_hash == token_hash(token))
+        )).scalar_one_or_none()
+        if ws is None or _aware(ws.expires_at) <= utcnow():
+            return None
+        return await session.get(Account, ws.account_id)
+
+
+async def _claim_guest_orders(session, account: Account) -> None:
+    """Привязывает прежние гостевые заказы с тем же email к аккаунту."""
+    await session.execute(
+        update(Job)
+        .where(Job.account_id.is_(None), Job.contact.isnot(None),
+               Job.contact == account.email)
+        .values(account_id=account.id)
+    )
+
+
+async def _send_verify(settings, account: Account, session) -> None:
+    token = new_token()
+    session.add(AuthToken(
+        account_id=account.id, kind=AuthToken.VERIFY,
+        token_hash=token_hash(token), expires_at=utcnow() + VERIFY_TTL,
+    ))
+    link = f"{settings.public_base_url}/app/verify?token={token}"
+    await send_email(
+        settings, account.email, "Подтвердите email — Деловые портреты",
+        f"Подтвердите адрес, перейдя по ссылке:\n{link}\n\nСсылка действует 3 дня.",
+        f'<p>Подтвердите адрес:</p><p><a href="{link}">Подтвердить email</a></p>'
+        f"<p style='color:#888;font-size:13px'>Ссылка действует 3 дня.</p>",
+    )
+
+
+@router.post("/api/auth/register")
+async def register(request: Request, email: str = Form(...), password: str = Form(...)):
+    email = _norm_email(email)
+    if not EMAIL_RE.match(email) or len(email) > 200:
+        return JSONResponse({"error": "bad_email"}, status_code=422)
+    if not _valid_password(password):
+        return JSONResponse({"error": "weak_password"}, status_code=422)
+    settings = request.app.state.settings
+    async with request.app.state.session_factory() as session:
+        exists = (await session.execute(
+            select(Account).where(Account.email == email)
+        )).scalar_one_or_none()
+        if exists is not None:
+            return JSONResponse({"error": "email_taken"}, status_code=409)
+        account = Account(email=email, password_hash=hash_password(password))
+        session.add(account)
+        await session.flush()
+        await _claim_guest_orders(session, account)
+        await _send_verify(settings, account, session)
+        token = await _create_session(session, account.id)
+        await session.commit()
+        acc = {"email": account.email, "verified": False}
+    resp = JSONResponse({"account": acc})
+    _set_session_cookie(request, resp, token)
+    return resp
+
+
+@router.post("/api/auth/login")
+async def login(request: Request, email: str = Form(...), password: str = Form(...)):
+    email = _norm_email(email)
+    async with request.app.state.session_factory() as session:
+        account = (await session.execute(
+            select(Account).where(Account.email == email)
+        )).scalar_one_or_none()
+        if account is None or not verify_password(password, account.password_hash):
+            return JSONResponse({"error": "bad_credentials"}, status_code=401)
+        await _claim_guest_orders(session, account)
+        token = await _create_session(session, account.id)
+        await session.commit()
+        acc = {"email": account.email, "verified": account.email_verified_at is not None}
+    resp = JSONResponse({"account": acc})
+    _set_session_cookie(request, resp, token)
+    return resp
+
+
+@router.post("/api/auth/logout")
+async def logout(request: Request):
+    token = request.cookies.get(SID)
+    if token:
+        async with request.app.state.session_factory() as session:
+            ws = (await session.execute(
+                select(WebSession).where(WebSession.token_hash == token_hash(token))
+            )).scalar_one_or_none()
+            if ws is not None:
+                await session.delete(ws)
+                await session.commit()
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(SID, path="/")
+    return resp
+
+
+@router.get("/api/auth/me")
+async def me(request: Request):
+    account = await current_account(request)
+    if account is None:
+        return JSONResponse({"account": None})
+    return {"account": {"email": account.email,
+                        "verified": account.email_verified_at is not None}}
+
+
+@router.post("/api/auth/forgot")
+async def forgot(request: Request, email: str = Form(...)):
+    email = _norm_email(email)
+    settings = request.app.state.settings
+    async with request.app.state.session_factory() as session:
+        account = (await session.execute(
+            select(Account).where(Account.email == email)
+        )).scalar_one_or_none()
+        if account is not None:
+            token = new_token()
+            session.add(AuthToken(
+                account_id=account.id, kind=AuthToken.RESET,
+                token_hash=token_hash(token), expires_at=utcnow() + RESET_TTL,
+            ))
+            await session.commit()
+            link = f"{settings.public_base_url}/app/reset?token={token}"
+            await send_email(
+                settings, account.email, "Сброс пароля — Деловые портреты",
+                f"Чтобы задать новый пароль, перейдите по ссылке:\n{link}\n\n"
+                f"Ссылка действует 1 час. Если вы не запрашивали сброс — просто "
+                f"проигнорируйте это письмо.",
+                f'<p>Задайте новый пароль:</p><p><a href="{link}">Сбросить пароль</a></p>'
+                f"<p style='color:#888;font-size:13px'>Ссылка действует 1 час. "
+                f"Если вы не запрашивали сброс — проигнорируйте письмо.</p>",
+            )
+    # Всегда одинаковый ответ — не раскрываем, есть ли аккаунт.
+    return {"ok": True}
+
+
+async def _consume_token(session, kind: str, token: str) -> AuthToken | None:
+    at = (await session.execute(
+        select(AuthToken).where(
+            AuthToken.token_hash == token_hash(token), AuthToken.kind == kind
+        )
+    )).scalar_one_or_none()
+    if at is None or at.used_at is not None or _aware(at.expires_at) <= utcnow():
+        return None
+    return at
+
+
+@router.post("/api/auth/reset")
+async def reset(request: Request, token: str = Form(...), password: str = Form(...)):
+    if not _valid_password(password):
+        return JSONResponse({"error": "weak_password"}, status_code=422)
+    async with request.app.state.session_factory() as session:
+        at = await _consume_token(session, AuthToken.RESET, token)
+        if at is None:
+            return JSONResponse({"error": "bad_token"}, status_code=400)
+        account = await session.get(Account, at.account_id)
+        account.password_hash = hash_password(password)
+        at.used_at = utcnow()
+        # Сброс пароля завершает все прежние сессии аккаунта.
+        for ws in (await session.execute(
+            select(WebSession).where(WebSession.account_id == account.id)
+        )).scalars().all():
+            await session.delete(ws)
+        new_sid = await _create_session(session, account.id)
+        await session.commit()
+        acc = {"email": account.email, "verified": account.email_verified_at is not None}
+    resp = JSONResponse({"account": acc})
+    _set_session_cookie(request, resp, new_sid)
+    return resp
+
+
+@router.post("/api/auth/verify")
+async def verify(request: Request, token: str = Form(...)):
+    async with request.app.state.session_factory() as session:
+        at = await _consume_token(session, AuthToken.VERIFY, token)
+        if at is None:
+            return JSONResponse({"error": "bad_token"}, status_code=400)
+        account = await session.get(Account, at.account_id)
+        account.email_verified_at = utcnow()
+        at.used_at = utcnow()
+        await session.commit()
+    return {"ok": True}
+
+
+@router.post("/api/auth/resend-verify")
+async def resend_verify(request: Request):
+    account = await current_account(request)
+    if account is None:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if account.email_verified_at is not None:
+        return {"ok": True}
+    async with request.app.state.session_factory() as session:
+        acc = await session.get(Account, account.id)
+        await _send_verify(request.app.state.settings, acc, session)
+        await session.commit()
+    return {"ok": True}
+
+
+@router.post("/api/auth/change-password")
+async def change_password(
+    request: Request, old_password: str = Form(...), new_password: str = Form(...)
+):
+    account = await current_account(request)
+    if account is None:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if not _valid_password(new_password):
+        return JSONResponse({"error": "weak_password"}, status_code=422)
+    async with request.app.state.session_factory() as session:
+        acc = await session.get(Account, account.id)
+        if not verify_password(old_password, acc.password_hash):
+            return JSONResponse({"error": "bad_credentials"}, status_code=401)
+        acc.password_hash = hash_password(new_password)
+        await session.commit()
+    return {"ok": True}
+
+
+@router.get("/api/account/orders")
+async def account_orders(request: Request):
+    from sqlalchemy import func
+
+    from core.models import Photo
+
+    account = await current_account(request)
+    if account is None:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    async with request.app.state.session_factory() as session:
+        jobs = (await session.execute(
+            select(Job).where(Job.account_id == account.id).order_by(Job.id.desc())
+        )).scalars().all()
+        out = []
+        for job in jobs:
+            results = (await session.execute(
+                select(Photo).where(Photo.job_id == job.id, Photo.kind == Photo.RESULT)
+            )).scalars().all()
+            photos = (await session.execute(
+                select(func.count()).select_from(Photo).where(
+                    Photo.job_id == job.id, Photo.kind == Photo.SOURCE
+                )
+            )).scalar() or 0
+            out.append({
+                "token": job.access_token,
+                "state": job.state,
+                "package": job.package_code,
+                "photos": photos,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+                "results": [
+                    {"id": p.id, "url": f"/api/orders/{job.access_token}/result/{p.id}"}
+                    for p in results[:4]
+                ],
+                "results_count": len(results),
+            })
+    return {"orders": out}

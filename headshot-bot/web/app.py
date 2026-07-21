@@ -3,6 +3,7 @@
 Переиспользует core/providers бота. Бесплатное превью — лидоген для
 холодного трафика: одна генерация на IP в сутки, без хранения фото.
 """
+import asyncio
 import base64
 import secrets
 from contextlib import asynccontextmanager
@@ -48,15 +49,41 @@ async def lifespan(app: FastAPI):
         if settings.yookassa_shop_id and settings.yookassa_secret
         else None
     )
+    retention_task = asyncio.create_task(_retention_loop(app))
     yield
+    retention_task.cancel()
+    try:
+        await retention_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
+
+
+async def _retention_loop(app: FastAPI) -> None:
+    """Периодически удаляет исходные фото старше срока хранения (152-ФЗ)."""
+    from core.retention import purge_expired
+
+    settings = app.state.settings
+    # Небольшая задержка перед первым проходом — не конкурируем с запуском.
+    await asyncio.sleep(60)
+    while True:
+        try:
+            await purge_expired(
+                app.state.session_factory, app.state.storage, settings.retention_days
+            )
+        except Exception:
+            pass  # ретеншн не должен ронять сервис
+        await asyncio.sleep(6 * 3600)
 
 
 app = FastAPI(title="Деловой Портрет AI", docs_url=None, redoc_url=None, lifespan=lifespan)
 
 from web.admin import router as admin_router  # noqa: E402
+from web.auth import current_account  # noqa: E402
+from web.auth import router as auth_router  # noqa: E402
 
 app.include_router(admin_router)
+app.include_router(auth_router)
 
 
 @app.get("/health")
@@ -206,6 +233,8 @@ async def create_order(
     except ValueError:
         return JSONResponse({"error": "bad_package"}, status_code=422)
 
+    # Если клиент вошёл в кабинет — привяжем заказ к аккаунту.
+    account = await current_account(request)
     token = secrets.token_urlsafe(24)
     async with request.app.state.session_factory() as session:
         # Синтетический пользователь с отрицательным tg_id: веб-клиент без Telegram.
@@ -215,6 +244,7 @@ async def create_order(
         job = Job(
             user_id=user.id, state=JobState.AWAITING_PAYMENT, channel="web",
             package_code=pkg.code, contact=contact.strip(), access_token=token,
+            account_id=account.id if account else None,
         )
         session.add(job)
         await session.commit()

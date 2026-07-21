@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { api, SWATCHES, errText } from '../api.js'
 
 // Флоу как у HeadshotPro: тариф → оплата → селфи → образы → результат.
@@ -26,8 +27,14 @@ export default function Order() {
   const [msg, setMsg] = useState({ text: '', error: false })
   const drop = useRef(null)
   const wantPkg = params.get('pkg')
+  const account = useOutletContext()?.account
 
   const say = (text, error = false) => setMsg({ text, error })
+
+  // Вошедшему клиенту подставляем email аккаунта в контакт.
+  useEffect(() => {
+    if (account?.email) setContact((c) => c || account.email)
+  }, [account])
 
   // Каталог тарифов — сразу (нужен на шаге 1) + предвыбор из ?pkg=.
   // Если тариф уже выбран на лендинге, шаг выбора пропускаем — сразу к оплате.

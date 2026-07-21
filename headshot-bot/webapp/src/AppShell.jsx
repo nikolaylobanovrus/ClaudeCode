@@ -1,6 +1,29 @@
-import { Outlet, Link } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { Outlet, Link, useNavigate } from 'react-router-dom'
+import { auth } from './auth.js'
 
 export default function AppShell() {
+  const [account, setAccount] = useState(null)
+  const [ready, setReady] = useState(false)
+  const navigate = useNavigate()
+
+  const refresh = useCallback(async () => {
+    try {
+      const d = await auth.me()
+      setAccount(d.account)
+      return d.account
+    } catch { setAccount(null); return null }
+    finally { setReady(true) }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const logout = useCallback(async () => {
+    try { await auth.logout() } catch { /* всё равно чистим */ }
+    setAccount(null)
+    navigate('/app/login')
+  }, [navigate])
+
   return (
     <>
       <div className="appbar">
@@ -30,10 +53,22 @@ export default function AppShell() {
             </svg>
             <span>Деловые портреты <i>AI</i></span>
           </a>
-          <Link to="/app/cabinet" style={{ fontSize: 14, color: 'var(--muted)', textDecoration: 'none' }}>Мои заказы</Link>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'center', fontSize: 14 }}>
+            {account ? (
+              <>
+                <Link to="/app/cabinet" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Мои заказы</Link>
+                <button onClick={logout}
+                  style={{ background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}>
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <Link to="/app/login" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Войти</Link>
+            )}
+          </div>
         </div>
       </div>
-      <Outlet />
+      <Outlet context={{ account, ready, refresh, logout }} />
     </>
   )
 }
