@@ -102,12 +102,15 @@ export async function parseDocuments(fileList, { year, types }) {
         Authorization: `Bearer ${cfg.anonKey}`,
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(120_000),
+      // 150 с — под потолок edge-функции Supabase (~150 с wall-clock). Выше
+      // ставить смысла нет: сервер завершится раньше. Партия из 8–10 фото
+      // объективно долгая, поэтому подсказка в UI советует грузить по 3–5.
+      signal: AbortSignal.timeout(150_000),
     });
   } catch (e) {
     throw new DocParseError(
       e?.name === "TimeoutError"
-        ? "распознавание заняло слишком долго — попробуйте меньше файлов"
+        ? "распознавание идёт дольше обычного — загрузите меньше файлов за раз (по 3–5) и повторите"
         : "нет связи с сервисом распознавания — проверьте интернет"
     );
   }

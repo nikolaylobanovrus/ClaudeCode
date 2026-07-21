@@ -123,7 +123,7 @@ export default function DocAutofill() {
                 }}
               />
               <span className="up-drop__btn">📎 Выбрать файлы</span>
-              <span className="up-drop__hint">фото, скан или PDF — до {MAX_FILES} за раз</span>
+              <span className="up-drop__hint">фото, скан или PDF — лучше по 3–5 за раз, так быстрее</span>
             </label>
             {/* capture открывает камеру сразу, минуя галерею. Камера отдаёт
                 по одному снимку — addFiles дописывает, можно снимать подряд.
@@ -169,7 +169,7 @@ export default function DocAutofill() {
               disabled={busy}
               onClick={recognize}
             >
-              {busy ? "Распознаём… обычно 20–60 секунд" : "Распознать и заполнить"}
+              {busy ? "Распознаём… 20–60 секунд (дольше, если файлов много)" : "Распознать и заполнить"}
             </button>
           )}
 
