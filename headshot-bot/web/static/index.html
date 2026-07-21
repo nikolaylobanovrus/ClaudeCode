@@ -409,10 +409,7 @@
   document.getElementById('styles-grid').innerHTML=styles.map(function(s,i){
     return '<figure class="card card-hover" data-reveal data-delay="'+((i%4)*60)+'" style="margin:0;overflow:hidden">'+
       '<div class="tile" style="background:url('+IMG+s.f+'.jpg) center/cover;position:relative">'+
-        '<span style="position:absolute;left:12px;top:12px;display:flex;flex-direction:column;align-items:center;gap:4px">'+
-          '<span style="width:52px;height:52px;border-radius:50%;background:url('+IMG+'src_'+s.f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 4px 14px rgba(0,0,0,.35)"></span>'+
-          '<span class="chip" style="font-size:10.5px;padding:2px 8px">До</span>'+
-        '</span>'+
+        '<span style="position:absolute;left:12px;top:12px;width:68px;height:68px;border-radius:50%;background:url('+IMG+'src_'+s.f+'.jpg) center/cover;border:2px solid var(--spot);box-shadow:0 4px 14px rgba(0,0,0,.35)"></span>'+
       '</div>'+
       '<figcaption style="padding:12px 16px 14px;font-size:14px;font-weight:650">'+s.name+
       '<span style="display:block;font-weight:400;color:var(--muted);font-size:12.5px">'+s.hint+'</span></figcaption></figure>';
