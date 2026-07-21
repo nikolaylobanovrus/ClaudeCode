@@ -36,6 +36,7 @@ export const api = {
     f.append('styles', styles.join(','))
     return req(`/api/orders/${token}/generate`, { method: 'POST', body: f })
   },
+  repay: (token) => req(`/api/orders/${token}/pay`, { method: 'POST' }),
   status: (token) => req(`/api/orders/${token}`),
 }
 

@@ -211,6 +211,32 @@ async def team_lead(
     return {"ok": True}
 
 
+async def _start_payment(request: Request, job_id: int, pkg, token: str, contact: str):
+    """Создаёт платёж ЮKassa для заказа и сохраняет payment_id. Возвращает
+    ссылку на оплату или None (нет провайдера/сбой → ручной режим)."""
+    settings = request.app.state.settings
+    payments: YooKassaClient | None = request.app.state.payments
+    if payments is None:
+        return None
+    try:
+        payment = await payments.create_payment(
+            amount_rub=pkg.price_rub,
+            description=f"Деловые портреты — пакет «{pkg.title}», заказ #{job_id}",
+            return_url=f"{settings.public_base_url}/app/order?t={token}",
+            metadata={"job_id": str(job_id), "token": token},
+            customer=customer_from_contact(contact or ""),
+        )
+    except Exception:
+        return None
+    if payment is None or not payment.confirmation_url:
+        return None
+    async with request.app.state.session_factory() as session:
+        db_job = await session.get(Job, job_id)
+        db_job.payment_id = payment.id
+        await session.commit()
+    return payment.confirmation_url
+
+
 @app.post("/api/orders")
 async def create_order(
     request: Request,
@@ -237,8 +263,9 @@ async def create_order(
     account = await current_account(request)
     token = secrets.token_urlsafe(24)
     async with request.app.state.session_factory() as session:
-        # Синтетический пользователь с отрицательным tg_id: веб-клиент без Telegram.
-        user = User(tg_id=-secrets.randbits(46), consent_at=utcnow())
+        # Синтетический пользователь со строго отрицательным tg_id: веб-клиент
+        # без Telegram (не 0 — иначе спутается с реальным пользователем).
+        user = User(tg_id=-(secrets.randbits(46) + 1), consent_at=utcnow())
         session.add(user)
         await session.flush()
         job = Job(
@@ -265,33 +292,14 @@ async def create_order(
         )
         return {"token": token, "paid": True, "stub": True, "price_rub": pkg.price_rub}
 
-    payments: YooKassaClient | None = request.app.state.payments
-    if payments is not None:
-        try:
-            payment = await payments.create_payment(
-                amount_rub=pkg.price_rub,
-                description=f"Деловые портреты — пакет «{pkg.title}», заказ #{job_id}",
-                return_url=f"{settings.public_base_url}/app/order?t={token}",
-                metadata={"job_id": str(job_id), "token": token},
-                customer=customer_from_contact(contact.strip()),
-            )
-        except Exception:
-            payment = None
-        if payment is not None and payment.confirmation_url:
-            async with request.app.state.session_factory() as session:
-                db_job = await session.get(Job, job_id)
-                db_job.payment_id = payment.id
-                await session.commit()
-            await _notify_admins(
-                settings,
-                f"💳 ВЕБ-заказ #{job_id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
-                f"контакт: {contact.strip()}",
-            )
-            return {
-                "token": token,
-                "payment_url": payment.confirmation_url,
-                "price_rub": pkg.price_rub,
-            }
+    url = await _start_payment(request, job_id, pkg, token, contact.strip())
+    if url:
+        await _notify_admins(
+            settings,
+            f"💳 ВЕБ-заказ #{job_id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
+            f"контакт: {contact.strip()}",
+        )
+        return {"token": token, "payment_url": url, "price_rub": pkg.price_rub}
 
     # Ручной режим (нет ключей ЮKassa или сервис недоступен): подтверждает админ.
     await _notify_admins(
@@ -300,6 +308,32 @@ async def create_order(
         f"После оплаты подтвердить: /approve_{job_id}",
     )
     return {"token": token, "manual": True, "price_rub": pkg.price_rub}
+
+
+@app.post("/api/orders/{token}/pay")
+async def pay_order(request: Request, token: str):
+    """Повторная оплата заказа, застрявшего в awaiting_payment (например,
+    клиент бросил оплату и вернулся из кабинета). Создаёт новый платёж."""
+    job = await _job_by_token(request, token)
+    if job is None or JobState(job.state) is not JobState.AWAITING_PAYMENT:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    try:
+        pkg = get_package(job.package_code or "")
+    except ValueError:
+        return JSONResponse({"error": "bad_package"}, status_code=422)
+
+    settings = request.app.state.settings
+    if settings.payment_stub:
+        async with request.app.state.session_factory() as session:
+            db_job = await session.get(Job, job.id)
+            db_job.state = validate_transition(JobState(db_job.state), JobState.COLLECTING)
+            await session.commit()
+        return {"paid": True, "stub": True, "price_rub": pkg.price_rub}
+
+    url = await _start_payment(request, job.id, pkg, token, job.contact or "")
+    if url:
+        return {"payment_url": url, "price_rub": pkg.price_rub}
+    return {"manual": True, "price_rub": pkg.price_rub}
 
 
 @app.post("/api/orders/{token}/photos")
@@ -353,6 +387,10 @@ async def start_generation(request: Request, token: str, styles: str = Form(...)
         if ((await session.execute(stmt)).scalar() or 0) < MIN_PHOTOS:
             return JSONResponse({"error": "not_enough_photos"}, status_code=409)
         db_job = await session.get(Job, job.id)
+        # Перечитываем состояние под этой сессией: два параллельных запроса
+        # не должны обе делать collecting→training (второй → InvalidTransition).
+        if JobState(db_job.state) is not JobState.COLLECTING:
+            return JSONResponse({"error": "order_not_found"}, status_code=409)
         db_job.styles_csv = ",".join(chosen)
         db_job.state = validate_transition(JobState(db_job.state), JobState.TRAINING)
         await session.commit()

@@ -74,6 +74,16 @@ def test_order_creates_payment_and_webhook_starts_collecting(client):
     assert resp.status_code == 200
 
 
+def test_pay_recreates_payment_for_abandoned_order(client):
+    token = _create_order(client)  # awaiting_payment, платёж создан
+    r = client.post(f"/api/orders/{token}/pay")
+    assert r.status_code == 200
+    assert r.json()["payment_url"] == "https://yookassa.test/pay/123"
+    # После оплаты заказ уходит в collecting → повторная оплата уже неуместна.
+    client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
+    assert client.post(f"/api/orders/{token}/pay").status_code == 404
+
+
 def test_webhook_ignores_unsucceeded_and_unknown(client):
     token = _create_order(client)
     client.stub.status = "canceled"

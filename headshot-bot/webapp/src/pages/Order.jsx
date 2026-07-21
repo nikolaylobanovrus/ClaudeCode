@@ -56,25 +56,42 @@ export default function Order() {
   useEffect(() => {
     if (!token) return
     api.status(token).then((d) => {
-      if (d.state === 'awaiting_payment') { setOrder(d); setStep(2) }
+      setOrder(d)  // держим d.package, чтобы восстановить тариф ниже
+      if (d.state === 'awaiting_payment') setStep(2)
       else if (d.state === 'collecting') { setCount(d.photos); setStep(3) }
-      else { setOrder(d); setStep(5) }
+      else setStep(5)
     }).catch(() => {})
   }, []) // eslint-disable-line
 
+  // Восстановление тарифа: после возврата из ЮKassa (?t= без ?pkg=) pkg пуст —
+  // берём код пакета из статуса заказа, как только загружен каталог тарифов.
+  useEffect(() => {
+    if (!pkg && packages.length && order?.package) {
+      const p = packages.find((x) => x.code === order.package)
+      if (p) setPkg(p)
+    }
+  }, [packages, order, pkg])
+
   // Поллинг: ждём оплаты (шаг 2 с токеном) и на шаге результата.
+  // Останавливаемся на терминальном статусе, чтобы не долбить сервер вечно.
   useEffect(() => {
     if (!token || (step !== 2 && step !== 5)) return
     let alive = true
+    let id
     const tick = () => api.status(token).then((d) => {
       if (!alive) return
       setOrder(d)
       if (step === 2 && d.state === 'collecting') { setCount(d.photos); setStep(3) }
+      if (['done', 'failed', 'cancelled'].includes(d.state)) clearInterval(id)
     }).catch(() => {})
     tick()
-    const id = setInterval(tick, 5000)
+    id = setInterval(tick, 5000)
     return () => { alive = false; clearInterval(id) }
   }, [step, token])
+
+  // Ревок object URL превью-миниатюр при размонтировании (утечка памяти).
+  const thumbsRef = useRef([])
+  useEffect(() => () => thumbsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
 
   async function pay() {
     if (!pkg) return
@@ -104,19 +121,34 @@ export default function Order() {
       setToken(d.token)
       history.replaceState(null, '', `/app/order?t=${d.token}`)
       if (d.payment_url) { window.location.href = d.payment_url; return } // ЮKassa
-      // Заглушка/ручной режим: реальной оплаты нет — сразу к загрузке фото.
-      setStep(3); say('')
+      if (d.paid) { setStep(3); say(''); return }  // заглушка оплаты
+      // Ручной режим: заказ ждёт подтверждения админом — экран ожидания (token уже задан).
+      say('')
+    } catch (e) { say(errText(e), true) } finally { setPaying(false) }
+  }
+
+  // Повторная оплата брошенного заказа (возврат по ссылке в awaiting_payment).
+  async function repay() {
+    setPaying(true); say('')
+    try {
+      const d = await api.repay(token)
+      if (d.payment_url) { window.location.href = d.payment_url; return }
+      if (d.paid) { setStep(3); say('') }
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
   }
 
   async function upload(files) {
+    let n = count
     for (const f of files) {
-      if (count >= 15) break
+      if (n >= 15) break
       say(`Загружаем «${f.name}»…`)
       try {
         const d = await api.uploadPhoto(token, f)
+        n = d.count
         setCount(d.count)
-        setThumbs((t) => [...t, URL.createObjectURL(f)])
+        const url = URL.createObjectURL(f)
+        thumbsRef.current.push(url)
+        setThumbs((t) => [...t, url])
         say(d.count >= 10 ? 'Фото достаточно — можно добавить ещё или идти дальше.' : '')
       } catch (e) { say(errText(e), true) }
     }
@@ -239,11 +271,15 @@ export default function Order() {
 
       {step === 2 && token && (
         <div className="card">
-          <h2 style={{ fontSize: 22 }}>Ждём подтверждения оплаты</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 14.5, marginTop: 8 }}>
-            Как только банк подтвердит платёж, откроется загрузка фото — обычно меньше минуты.
+          <h2 style={{ fontSize: 22 }}>Завершите оплату</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14.5, margin: '8px 0 16px' }}>
+            Заказ создан и ждёт оплаты. Нажмите кнопку — после оплаты откроется загрузка фото.
             Сохраните ссылку на эту страницу: по ней вы вернётесь к заказу.
           </p>
+          <button className="btn btn-dark" disabled={paying} onClick={repay}>
+            {paying ? 'Открываем оплату…' : (pkg ? `Оплатить ${pkg.price_rub} ₽` : 'Оплатить')}
+          </button>
+          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}
 

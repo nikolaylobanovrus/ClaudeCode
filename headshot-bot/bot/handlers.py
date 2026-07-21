@@ -41,7 +41,19 @@ _photo_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 # Превью в платном флоу нет намеренно (якорение качества) — бесплатная
 # генерация живёт на отдельной странице сайта для холодного трафика.
 _offer_tasks: dict[int, asyncio.Task] = {}
+# Заказы, которым предложение пакетов уже отправлено — чтобы не слать повторно
+# при каждой новой паузе в загрузке.
+_offered: set[int] = set()
 OFFER_DEBOUNCE_SECONDS = 3.0
+
+
+async def _say(query: CallbackQuery, text: str, reply_markup=None) -> None:
+    """Ответ на callback: обычно в исходное сообщение, но оно может быть
+    недоступно (старше 48 часов) — тогда шлём напрямую пользователю."""
+    if query.message is not None:
+        await query.message.answer(text, reply_markup=reply_markup)
+    else:
+        await query.bot.send_message(query.from_user.id, text, reply_markup=reply_markup)
 
 # Зависимости кладутся в workflow_data диспетчера (см. main.py):
 # settings, session_factory, provider, file_storage, styles.
@@ -130,7 +142,7 @@ async def on_consent(query: CallbackQuery, session_factory: async_sessionmaker) 
         if job is None:
             session.add(Job(user_id=user.id, state=JobState.COLLECTING))
         await session.commit()
-    await query.message.answer(texts.CONSENT_SAVED)
+    await _say(query, texts.CONSENT_SAVED)
     await query.answer()
 
 
@@ -190,9 +202,9 @@ async def on_photo(
                 texts.PHOTO_ACCEPTED_EXTRA.format(n=n, max=settings.max_source_photos)
             )
 
-    # Фото достаточно — планируем предложение пакетов; каждое следующее фото
-    # сдвигает таймер, так что оно придёт после окончания альбома.
-    if n >= settings.min_source_photos:
+    # Фото достаточно — планируем предложение пакетов (один раз на заказ);
+    # каждое следующее фото сдвигает таймер, так что оно придёт после альбома.
+    if n >= settings.min_source_photos and job_id not in _offered:
         pending = _offer_tasks.pop(job_id, None)
         if pending is not None:
             pending.cancel()
@@ -210,9 +222,13 @@ async def _offer_packages_after_quiet(
 
     async with session_factory() as session:
         job = await session.get(Job, job_id)
-        if job is None or job.package_code is not None:
-            return  # пакет уже выбран — предложение не дублируем
+        # Предлагаем только пока идёт сбор и пакет ещё не выбран (заказ мог
+        # быть отменён через /delete_my_data за время паузы).
+        if job is None or job.package_code is not None \
+                or JobState(job.state) is not JobState.COLLECTING:
+            return
 
+    _offered.add(job_id)
     await message.answer(texts.PACKAGES_OFFER, reply_markup=_packages_kb())
 
 
@@ -241,8 +257,9 @@ async def _request_payment(
     query: CallbackQuery, settings: Settings, job_id: int, package
 ) -> None:
     if settings.manual_payment:
-        await query.message.answer(
-            texts.MANUAL_PAYMENT_INFO.format(title=package.title, price=package.price_rub)
+        await _say(
+            query,
+            texts.MANUAL_PAYMENT_INFO.format(title=package.title, price=package.price_rub),
         )
         for admin_id in settings.admin_tg_ids:
             await query.bot.send_message(
@@ -250,7 +267,17 @@ async def _request_payment(
                 f"Новый заказ #{job_id}: пакет {package.code}, "
                 f"пользователь {query.from_user.id}. Подтвердить: /approve_{job_id}",
             )
-    # Ветка Telegram Payments/ЮKassa добавляется на этапе 3.
+    else:
+        # Онлайн-оплата в боте пока не подключена: не оставляем клиента молча
+        # в awaiting_payment — говорим, что свяжемся, и уведомляем админов.
+        await _say(query, texts.MANUAL_PAYMENT_INFO.format(
+            title=package.title, price=package.price_rub))
+        for admin_id in settings.admin_tg_ids:
+            await query.bot.send_message(
+                admin_id,
+                f"Заказ #{job_id} ждёт оплаты (пакет {package.code}, "
+                f"пользователь {query.from_user.id}). Подтвердить: /approve_{job_id}",
+            )
 
 
 @router.callback_query(F.data.startswith("buy:"))
@@ -273,7 +300,8 @@ async def on_buy(
             # Пакет с выбором образов: остаёмся в сборе, ждём отметки стилей.
             job.styles_csv = ""
             await session.commit()
-            await query.message.answer(
+            await _say(
+                query,
                 texts.CHOOSE_STYLES.format(
                     title=package.title,
                     k=package.styles,
@@ -318,9 +346,10 @@ async def on_style_toggle(
         job.styles_csv = ",".join(sorted(chosen))
         await session.commit()
 
-    await query.message.edit_reply_markup(
-        reply_markup=_styles_kb(styles, chosen, package.styles)
-    )
+    if query.message is not None:
+        await query.message.edit_reply_markup(
+            reply_markup=_styles_kb(styles, chosen, package.styles)
+        )
     await query.answer()
 
 
@@ -362,12 +391,19 @@ async def on_approve(
         if job is None or JobState(job.state) is not JobState.AWAITING_PAYMENT:
             await message.answer(f"Заказ {job_id} не найден или не ждёт оплаты.")
             return
-        job.state = validate_transition(JobState(job.state), JobState.TRAINING)
+        # Бот собирает фото ДО оплаты → сразу в тренировку. Веб — «оплата
+        # вперёд»: после подтверждения клиент ещё загружает фото (collecting).
+        is_web = job.channel == "web"
+        target = JobState.COLLECTING if is_web else JobState.TRAINING
+        job.state = validate_transition(JobState(job.state), target)
         tg_id = (await job.awaitable_attrs.user).tg_id
         await session.commit()
-    if tg_id > 0:  # веб-заказам сообщение в Telegram не шлём
+    if not is_web and tg_id > 0:  # веб-заказам сообщение в Telegram не шлём
         await bot.send_message(tg_id, texts.PAYMENT_CONFIRMED)
-    await message.answer(f"Заказ {job_id} запущен в работу.")
+    await message.answer(
+        f"Заказ {job_id} — оплата подтверждена. "
+        + ("Клиент загружает фото на сайте." if is_web else "Запущен в работу.")
+    )
 
 
 @router.message(Command("delete_my_data"))
@@ -387,6 +423,12 @@ async def cmd_delete_my_data(
             await message.answer(texts.NO_DATA_TO_DELETE)
             return
         for job in jobs:
+            # Отменяем отложенное предложение пакетов, чтобы оно не пришло
+            # уже после удаления данных.
+            pending = _offer_tasks.pop(job.id, None)
+            if pending is not None:
+                pending.cancel()
+            _offered.discard(job.id)
             file_storage.delete_job(job.id)
             for photo in await session.execute(select(Photo).where(Photo.job_id == job.id)):
                 await session.delete(photo[0])
@@ -405,15 +447,17 @@ async def deliver_results(
     Веб-заказы (синтетический отрицательный tg_id) в Telegram не доставляются —
     клиент смотрит галерею по своей ссылке /order на сайте.
     """
-    if tg_id < 0:
+    if tg_id <= 0:  # синтетические веб-пользователи имеют tg_id <= 0
         return
     for start in range(0, len(result_keys), 10):
         chunk = result_keys[start : start + 10]
-        media = [
-            InputMediaPhoto(
-                media=BufferedInputFile(storage.get(key), filename=key.rsplit("/", 1)[-1])
-            )
+        files = [
+            BufferedInputFile(storage.get(key), filename=key.rsplit("/", 1)[-1])
             for key in chunk
         ]
-        await bot.send_media_group(tg_id, media)
+        # send_media_group требует 2–10 элементов; одиночный кадр шлём как фото.
+        if len(files) == 1:
+            await bot.send_photo(tg_id, files[0])
+        else:
+            await bot.send_media_group(tg_id, [InputMediaPhoto(media=f) for f in files])
     await bot.send_message(tg_id, texts.DELIVERY_DONE)

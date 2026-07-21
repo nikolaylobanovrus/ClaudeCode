@@ -7,9 +7,9 @@
 import re
 from datetime import timedelta, timezone
 
-from fastapi import APIRouter, Form, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Form, Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from core.email import send_email
 from core.models import Account, AuthToken, Job, WebSession, utcnow
@@ -27,6 +27,9 @@ SESSION_DAYS = 30
 RESET_TTL = timedelta(hours=1)
 VERIFY_TTL = timedelta(days=3)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# Фиктивный хеш: сверяем с ним пароль при отсутствии аккаунта, чтобы время
+# ответа не выдавало, зарегистрирован ли email (защита от перечисления).
+_DUMMY_HASH = hash_password("timing-equalizer-not-a-real-password")
 
 
 def _norm_email(email: str) -> str:
@@ -78,11 +81,16 @@ async def current_account(request: Request) -> Account | None:
 
 
 async def _claim_guest_orders(session, account: Account) -> None:
-    """Привязывает прежние гостевые заказы с тем же email к аккаунту."""
+    """Привязывает прежние гостевые заказы с тем же email к аккаунту.
+
+    Вызывается ТОЛЬКО для аккаунта с подтверждённым email — иначе, зная чужой
+    email, можно было бы присвоить чужой гостевой заказ (и его результаты).
+    Сравнение без учёта регистра: email аккаунта в нижнем регистре, а contact
+    заказа хранится как введён."""
     await session.execute(
         update(Job)
         .where(Job.account_id.is_(None), Job.contact.isnot(None),
-               Job.contact == account.email)
+               func.lower(Job.contact) == account.email)
         .values(account_id=account.id)
     )
 
@@ -119,7 +127,9 @@ async def register(request: Request, email: str = Form(...), password: str = For
         account = Account(email=email, password_hash=hash_password(password))
         session.add(account)
         await session.flush()
-        await _claim_guest_orders(session, account)
+        # Гостевые заказы НЕ подхватываем здесь: email ещё не подтверждён
+        # (клейм — после верификации). Заказ, оформленный сразу после
+        # регистрации, и так привязывается к аккаунту при создании.
         await _send_verify(settings, account, session)
         token = await _create_session(session, account.id)
         await session.commit()
@@ -136,9 +146,14 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         account = (await session.execute(
             select(Account).where(Account.email == email)
         )).scalar_one_or_none()
-        if account is None or not verify_password(password, account.password_hash):
+        # Пароль сверяем всегда (в т.ч. с фиктивным хешем при отсутствии
+        # аккаунта) — одинаковое время ответа против перечисления email.
+        ok = verify_password(password, account.password_hash if account else _DUMMY_HASH)
+        if account is None or not ok:
             return JSONResponse({"error": "bad_credentials"}, status_code=401)
-        await _claim_guest_orders(session, account)
+        # Подхватываем гостевые заказы только у подтверждённого email.
+        if account.email_verified_at is not None:
+            await _claim_guest_orders(session, account)
         token = await _create_session(session, account.id)
         await session.commit()
         acc = {"email": account.email, "verified": account.email_verified_at is not None}
@@ -172,32 +187,39 @@ async def me(request: Request):
                         "verified": account.email_verified_at is not None}}
 
 
-@router.post("/api/auth/forgot")
-async def forgot(request: Request, email: str = Form(...)):
-    email = _norm_email(email)
-    settings = request.app.state.settings
-    async with request.app.state.session_factory() as session:
+async def _do_forgot(app, email: str) -> None:
+    """Создание токена сброса и письмо — в фоне (после ответа), чтобы время
+    ответа /forgot не выдавало существование аккаунта."""
+    settings = app.state.settings
+    async with app.state.session_factory() as session:
         account = (await session.execute(
             select(Account).where(Account.email == email)
         )).scalar_one_or_none()
-        if account is not None:
-            token = new_token()
-            session.add(AuthToken(
-                account_id=account.id, kind=AuthToken.RESET,
-                token_hash=token_hash(token), expires_at=utcnow() + RESET_TTL,
-            ))
-            await session.commit()
-            link = f"{settings.public_base_url}/app/reset?token={token}"
-            await send_email(
-                settings, account.email, "Сброс пароля — Деловые портреты",
-                f"Чтобы задать новый пароль, перейдите по ссылке:\n{link}\n\n"
-                f"Ссылка действует 1 час. Если вы не запрашивали сброс — просто "
-                f"проигнорируйте это письмо.",
-                f'<p>Задайте новый пароль:</p><p><a href="{link}">Сбросить пароль</a></p>'
-                f"<p style='color:#888;font-size:13px'>Ссылка действует 1 час. "
-                f"Если вы не запрашивали сброс — проигнорируйте письмо.</p>",
-            )
-    # Всегда одинаковый ответ — не раскрываем, есть ли аккаунт.
+        if account is None:
+            return
+        token = new_token()
+        to_email = account.email
+        session.add(AuthToken(
+            account_id=account.id, kind=AuthToken.RESET,
+            token_hash=token_hash(token), expires_at=utcnow() + RESET_TTL,
+        ))
+        await session.commit()
+    link = f"{settings.public_base_url}/app/reset?token={token}"
+    await send_email(
+        settings, to_email, "Сброс пароля — Деловые портреты",
+        f"Чтобы задать новый пароль, перейдите по ссылке:\n{link}\n\n"
+        f"Ссылка действует 1 час. Если вы не запрашивали сброс — просто "
+        f"проигнорируйте это письмо.",
+        f'<p>Задайте новый пароль:</p><p><a href="{link}">Сбросить пароль</a></p>'
+        f"<p style='color:#888;font-size:13px'>Ссылка действует 1 час. "
+        f"Если вы не запрашивали сброс — проигнорируйте письмо.</p>",
+    )
+
+
+@router.post("/api/auth/forgot")
+async def forgot(request: Request, background: BackgroundTasks, email: str = Form(...)):
+    background.add_task(_do_forgot, request.app, _norm_email(email))
+    # Всегда одинаковый быстрый ответ — не раскрываем, есть ли аккаунт.
     return {"ok": True}
 
 
@@ -245,6 +267,8 @@ async def verify(request: Request, token: str = Form(...)):
         account = await session.get(Account, at.account_id)
         account.email_verified_at = utcnow()
         at.used_at = utcnow()
+        # Теперь email подтверждён — безопасно подхватить гостевые заказы.
+        await _claim_guest_orders(session, account)
         await session.commit()
     return {"ok": True}
 
@@ -272,11 +296,19 @@ async def change_password(
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     if not _valid_password(new_password):
         return JSONResponse({"error": "weak_password"}, status_code=422)
+    current = request.cookies.get(SID)
+    current_hash = token_hash(current) if current else None
     async with request.app.state.session_factory() as session:
         acc = await session.get(Account, account.id)
         if not verify_password(old_password, acc.password_hash):
             return JSONResponse({"error": "bad_credentials"}, status_code=401)
         acc.password_hash = hash_password(new_password)
+        # Гасим прочие сессии (возможная компрометация), текущую оставляем.
+        for ws in (await session.execute(
+            select(WebSession).where(WebSession.account_id == acc.id)
+        )).scalars().all():
+            if ws.token_hash != current_hash:
+                await session.delete(ws)
         await session.commit()
     return {"ok": True}
 

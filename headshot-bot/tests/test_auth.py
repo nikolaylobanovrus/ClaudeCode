@@ -121,18 +121,39 @@ def _make_order(client, contact):
 
 
 def test_account_orders_and_guest_claim(client, sent):
-    # Гостевой заказ создан ДО регистрации, с тем же email.
+    # Гостевой заказ создан ДО регистрации (без сессии), с тем же email.
     token = _make_order(client, "owner@x.ru")
     client.post("/api/auth/register", data={"email": "owner@x.ru", "password": "longenough1"})
 
+    # До подтверждения email гостевой заказ НЕ подхватывается (защита от присвоения).
+    assert client.get("/api/account/orders").json()["orders"] == []
+
+    # Подтверждаем email → гостевой заказ привязывается к аккаунту.
+    vtoken = _token(next(m for m in sent if m["subject"].startswith("Подтвердите"))["text"])
+    assert client.post("/api/auth/verify", data={"token": vtoken}).status_code == 200
     orders = client.get("/api/account/orders").json()["orders"]
     assert len(orders) == 1
     assert orders[0]["token"] == token
     assert orders[0]["package"] == "standard"
 
-    # Новый заказ из-под аккаунта тоже виден.
+    # Новый заказ из-под аккаунта привязывается сразу.
     _make_order(client, "owner@x.ru")
     assert len(client.get("/api/account/orders").json()["orders"]) == 2
+
+
+def test_change_password_invalidates_other_sessions(client, sent):
+    client.post("/api/auth/register", data={"email": "u@x.ru", "password": "firstpass12"})
+    sid_a = client.cookies.get("sid")
+    client.post("/api/auth/login", data={"email": "u@x.ru", "password": "firstpass12"})
+    sid_b = client.cookies.get("sid")
+    assert sid_a and sid_b and sid_a != sid_b
+
+    # Смена пароля из сессии B гасит прочие (A), текущую (B) оставляет.
+    assert client.post("/api/auth/change-password",
+                       data={"old_password": "firstpass12", "new_password": "secondpass12"}
+                       ).status_code == 200
+    assert client.get("/api/auth/me", cookies={"sid": sid_a}).json()["account"] is None
+    assert client.get("/api/auth/me").json()["account"]["email"] == "u@x.ru"
 
 
 def test_account_orders_requires_auth(client):

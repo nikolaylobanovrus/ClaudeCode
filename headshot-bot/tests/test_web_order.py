@@ -92,6 +92,13 @@ def test_full_web_order(client):
     assert resp.status_code == 200
     assert client.get(f"/api/orders/{token}").json()["state"] == "training"
 
+    # Повторный запуск на уже не-collecting заказе не ломает (не 500).
+    resp = client.post(
+        f"/api/orders/{token}/generate",
+        data={"styles": "studio_grey,hh_white,office_modern,suit_navy"},
+    )
+    assert resp.status_code in (404, 409)
+
 
 @pytest.mark.asyncio
 async def test_worker_completes_web_order(tmp_path):

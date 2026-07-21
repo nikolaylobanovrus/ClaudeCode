@@ -19,15 +19,6 @@ from worker import Worker
 from providers.factory import make_provider
 
 
-async def retention_loop(storage: FileStorage, retention_days: int) -> None:
-    """Автоудаление данных старше retention_days (проверка раз в час)."""
-    while True:
-        purged = storage.purge_older_than(retention_days * 86400)
-        if purged:
-            logging.info("Автоудаление: очищены заказы %s", purged)
-        await asyncio.sleep(3600)
-
-
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     settings = load_settings()
@@ -82,9 +73,11 @@ async def main() -> None:
         qc=qc,
     )
 
+    # Ретеншн (авто-удаление исходных фото по сроку) держит веб-процесс
+    # (core.retention.purge_expired) — единый владелец, чтобы не гонять
+    # две очистки на общей БД и не удалить оплаченные результаты.
     background = [
         asyncio.create_task(worker.run_forever()),
-        asyncio.create_task(retention_loop(storage, settings.retention_days)),
     ]
     try:
         # start_polling сам обрабатывает SIGTERM/SIGINT; по его завершении

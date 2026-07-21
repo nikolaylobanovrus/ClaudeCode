@@ -14,7 +14,7 @@ const ACTION = {
 }
 
 export default function Cabinet() {
-  const { account, ready, refresh } = useOutletContext()
+  const { account, ready } = useOutletContext()
   const navigate = useNavigate()
   const [orders, setOrders] = useState(null)
 
@@ -40,7 +40,7 @@ export default function Cabinet() {
         <Link className="btn btn-dark" to="/app/order">Создать новые портреты</Link>
       </div>
 
-      {!account.verified && <VerifyBanner email={account.email} refresh={refresh} />}
+      {!account.verified && <VerifyBanner email={account.email} />}
 
       {orders === null && <p style={{ color: 'var(--muted)' }}>Загружаем заказы…</p>}
       {orders && orders.length === 0 && (
