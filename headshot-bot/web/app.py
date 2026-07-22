@@ -322,12 +322,14 @@ async def create_order(
     package: str = Form(...),
     contact: str = Form(...),
     consent: str = Form(""),
+    styles: str = Form(...),
 ):
-    """Флоу как у HeadshotPro: сначала тариф и оплата, затем сбор фото.
+    """Флоу: тариф → образы → оплата → селфи → результат.
 
-    Заказ создаётся в awaiting_payment. После оплаты (вебхук ЮKassa или
-    заглушка PAYMENT_STUB) переходит в collecting — загрузка селфи и выбор
-    образов. Возвращает payment_url для оплаты либо paid=true при заглушке.
+    Образы выбираются ДО оплаты, поэтому сохраняем их на заказе сразу (после
+    редиректа в ЮKassa состояние фронта теряется). Заказ создаётся в
+    awaiting_payment; после оплаты переходит в collecting (загрузка селфи),
+    затем /generate запускает обучение на уже выбранных образах.
     """
     if consent != "yes":
         return JSONResponse({"error": "consent_required"}, status_code=400)
@@ -337,6 +339,14 @@ async def create_order(
         pkg = get_package(package)
     except ValueError:
         return JSONResponse({"error": "bad_package"}, status_code=422)
+    lib = request.app.state.styles
+    chosen = [s for s in styles.split(",") if s]
+    try:
+        lib.resolve(chosen)
+    except ValueError:
+        return JSONResponse({"error": "bad_styles"}, status_code=422)
+    if len(chosen) != pkg.styles:
+        return JSONResponse({"error": "styles_count"}, status_code=422)
 
     # Если клиент вошёл в кабинет — привяжем заказ к аккаунту.
     account = await current_account(request)
@@ -349,7 +359,8 @@ async def create_order(
         await session.flush()
         job = Job(
             user_id=user.id, state=JobState.AWAITING_PAYMENT, channel="web",
-            package_code=pkg.code, contact=contact.strip(), access_token=token,
+            package_code=pkg.code, styles_csv=",".join(chosen),
+            contact=contact.strip(), access_token=token,
             account_id=account.id if account else None,
         )
         session.add(job)
@@ -441,8 +452,10 @@ async def upload_photo(request: Request, token: str, photo: UploadFile = File(..
 
 
 @app.post("/api/orders/{token}/generate")
-async def start_generation(request: Request, token: str, styles: str = Form(...)):
-    """Оплаченный заказ: выбор образов и запуск генерации (collecting → training)."""
+async def start_generation(request: Request, token: str, styles: str = Form("")):
+    """Оплаченный заказ: запуск генерации после загрузки селфи (collecting →
+    training). Образы уже выбраны при оформлении; styles можно не передавать
+    (берём сохранённые). Если переданы — валидируем и обновляем."""
     job = await _job_by_token(request, token)
     if job is None or JobState(job.state) is not JobState.COLLECTING:
         return JSONResponse({"error": "order_not_found"}, status_code=404)
@@ -451,7 +464,8 @@ async def start_generation(request: Request, token: str, styles: str = Form(...)
     except ValueError:
         return JSONResponse({"error": "bad_package"}, status_code=422)
     lib = request.app.state.styles
-    chosen = [s for s in styles.split(",") if s]
+    # По умолчанию — образы, выбранные при оформлении заказа.
+    chosen = [s for s in (styles or job.styles_csv or "").split(",") if s]
     try:
         lib.resolve(chosen)
     except ValueError:

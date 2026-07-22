@@ -3,8 +3,9 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { api, SWATCHES, errText } from '../api.js'
 import { auth, authErr } from '../auth.js'
 
-// Флоу как у HeadshotPro: тариф → оплата → селфи → образы → результат.
-const STEPS = ['Тариф', 'Оплата', 'Селфи', 'Образы', 'Результат']
+// Флоу: тариф → образы (выбор вдохновляет и делает покупку конкретной) →
+// оплата → селфи (тяжёлый/приватный шаг для уже оплатившего) → результат.
+const STEPS = ['Тариф', 'Образы', 'Оплата', 'Селфи', 'Результат']
 const PROGRESS = [
   ['training', 'Обучение нейросети на ваших фото (~30 минут)'],
   ['generating', 'Генерация портретов'],
@@ -28,26 +29,27 @@ export default function Order() {
   const [order, setOrder] = useState(null)
   const [msg, setMsg] = useState({ text: '', error: false })
   const drop = useRef(null)
+  const thumbsRef = useRef([])
   const wantPkg = params.get('pkg')
   const outlet = useOutletContext()
   const account = outlet?.account
   const refresh = outlet?.refresh
 
   const say = (text, error = false) => setMsg({ text, error })
+  const allStyles = pkg && stylesLib.length > 0 && pkg.styles >= stylesLib.length
 
   // Вошедшему клиенту подставляем email аккаунта в контакт.
   useEffect(() => {
     if (account?.email) setContact((c) => c || account.email)
   }, [account])
 
-  // Каталог тарифов — сразу (нужен на шаге 1) + предвыбор из ?pkg=.
-  // Если тариф уже выбран на лендинге, шаг выбора пропускаем — сразу к оплате.
+  // Каталог тарифов — сразу; предвыбор из ?pkg= ведёт прямо к образам.
   useEffect(() => {
     api.packages().then((ps) => {
       setPackages(ps)
-      if (wantPkg) {
+      if (wantPkg && !token) {
         const p = ps.find((x) => x.code === wantPkg)
-        if (p) { setPkg(p); if (!token) setStep(2) }
+        if (p) { setPkg(p); enterStyles(p) }
       }
     }).catch(() => {})
   }, []) // eslint-disable-line
@@ -56,15 +58,14 @@ export default function Order() {
   useEffect(() => {
     if (!token) return
     api.status(token).then((d) => {
-      setOrder(d)  // держим d.package, чтобы восстановить тариф ниже
-      if (d.state === 'awaiting_payment') setStep(2)
-      else if (d.state === 'collecting') { setCount(d.photos); setStep(3) }
+      setOrder(d)
+      if (d.state === 'awaiting_payment') setStep(3)
+      else if (d.state === 'collecting') { setCount(d.photos); setStep(4) }
       else setStep(5)
     }).catch(() => {})
   }, []) // eslint-disable-line
 
-  // Восстановление тарифа: после возврата из ЮKassa (?t= без ?pkg=) pkg пуст —
-  // берём код пакета из статуса заказа, как только загружен каталог тарифов.
+  // Восстановление тарифа после возврата из ЮKassa (?t= без ?pkg=).
   useEffect(() => {
     if (!pkg && packages.length && order?.package) {
       const p = packages.find((x) => x.code === order.package)
@@ -72,16 +73,15 @@ export default function Order() {
     }
   }, [packages, order, pkg])
 
-  // Поллинг: ждём оплаты (шаг 2 с токеном) и на шаге результата.
-  // Останавливаемся на терминальном статусе, чтобы не долбить сервер вечно.
+  // Поллинг: ждём подтверждения оплаты (шаг 3 с токеном) и на шаге результата.
   useEffect(() => {
-    if (!token || (step !== 2 && step !== 5)) return
+    if (!token || (step !== 3 && step !== 5)) return
     let alive = true
     let id
     const tick = () => api.status(token).then((d) => {
       if (!alive) return
       setOrder(d)
-      if (step === 2 && d.state === 'collecting') { setCount(d.photos); setStep(3) }
+      if (step === 3 && d.state === 'collecting') { setCount(d.photos); setStep(4) }
       if (['done', 'failed', 'cancelled'].includes(d.state)) clearInterval(id)
     }).catch(() => {})
     tick()
@@ -89,15 +89,26 @@ export default function Order() {
     return () => { alive = false; clearInterval(id) }
   }, [step, token])
 
-  // Ревок object URL превью-миниатюр при размонтировании (утечка памяти).
-  const thumbsRef = useRef([])
+  // Ревок object URL превью-миниатюр при размонтировании.
   useEffect(() => () => thumbsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
+
+  async function enterStyles(p) {
+    let lib = stylesLib
+    if (!lib.length) { lib = await api.styles(); setStylesLib(lib) }
+    // Пакет со всеми образами — отмечаем все сразу; иначе клиент выбирает.
+    setChosen(p.styles >= lib.length ? lib.map((s) => s.key) : [])
+    setStep(2); say('')
+  }
+  function toggleStyle(key) {
+    setChosen((c) => c.includes(key) ? c.filter((k) => k !== key)
+      : (c.length < pkg.styles ? [...c, key] : c))
+  }
 
   async function pay() {
     if (!pkg) return
     setPaying(true); say('')
     try {
-      // Оплата привязана к аккаунту: у гостя создаём его здесь же (или входим,
+      // Оплата привязана к аккаунту: у гостя создаём его здесь (или входим,
       // если email уже зарегистрирован) — тогда после оплаты он попадёт в ЛК.
       if (!account) {
         const email = contact.trim()
@@ -117,12 +128,12 @@ export default function Order() {
         await refresh?.()
       }
       const email = account ? account.email : contact.trim()
-      const d = await api.createOrder(pkg.code, email)
+      const d = await api.createOrder(pkg.code, email, chosen)  // образы сохраняются в заказе
       setToken(d.token)
       history.replaceState(null, '', `/app/order?t=${d.token}`)
       if (d.payment_url) { window.location.href = d.payment_url; return } // ЮKassa
-      if (d.paid) { setStep(3); say(''); return }  // заглушка оплаты
-      // Ручной режим: заказ ждёт подтверждения админом — экран ожидания (token уже задан).
+      if (d.paid) { setStep(4); say(''); return }  // заглушка оплаты → к селфи
+      // Ручной режим: заказ ждёт подтверждения — экран ожидания (token уже задан).
       say('')
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
   }
@@ -133,7 +144,7 @@ export default function Order() {
     try {
       const d = await api.repay(token)
       if (d.payment_url) { window.location.href = d.payment_url; return }
-      if (d.paid) { setStep(3); say('') }
+      if (d.paid) { setStep(4); say('') }
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
   }
 
@@ -149,26 +160,14 @@ export default function Order() {
         const url = URL.createObjectURL(f)
         thumbsRef.current.push(url)
         setThumbs((t) => [...t, url])
-        say(d.count >= 10 ? 'Фото достаточно — можно добавить ещё или идти дальше.' : '')
+        say(d.count >= 10 ? 'Фото достаточно — можно добавить ещё или запускать.' : '')
       } catch (e) { say(errText(e), true) }
     }
   }
 
-  async function toStyles() {
-    setStylesLib(await api.styles())
-    setChosen([])
-    setStep(4)
-  }
-  function toggleStyle(key) {
-    setChosen((c) => c.includes(key) ? c.filter((k) => k !== key)
-      : (c.length < pkg.styles ? [...c, key] : c))
-  }
-
   async function generate() {
-    const all = pkg.styles >= stylesLib.length
-    const styles = all ? stylesLib.map((s) => s.key) : chosen
     try {
-      await api.generate(token, styles)
+      await api.generate(token)  // образы уже выбраны при оформлении
       setOrder({ state: 'training', results: [] })
       setStep(5); say('')
     } catch (e) { say(errText(e), true) }
@@ -179,8 +178,6 @@ export default function Order() {
     onDragLeave: () => drop.current?.classList.remove('drag'),
     onDrop: (e) => { e.preventDefault(); drop.current?.classList.remove('drag'); upload(e.dataTransfer.files) },
   }
-
-  const allStyles = pkg && stylesLib.length > 0 && pkg.styles >= stylesLib.length
 
   return (
     <div className="wrap">
@@ -194,7 +191,7 @@ export default function Order() {
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Выберите тариф</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
-            Оплата — один раз. Портреты остаются вашими навсегда. После оплаты загрузите селфи и выберите образы.
+            Оплата — один раз, портреты остаются вашими навсегда. Дальше выберете образы, оплатите и загрузите селфи.
           </p>
           <div className="plans">
             {packages.map((p) => (
@@ -207,16 +204,44 @@ export default function Order() {
               </div>
             ))}
           </div>
-          <button className="btn btn-dark" disabled={!pkg} onClick={() => { setStep(2); say('') }}>Продолжить к оплате</button>
+          <button className="btn btn-dark" disabled={!pkg} onClick={() => enterStyles(pkg)}>Дальше — выбрать образы</button>
         </div>
       )}
 
-      {step === 2 && !token && (
+      {step === 2 && pkg && (
+        <div className="card">
+          <h2 style={{ fontSize: 22, marginBottom: 12 }}>Выберите образы</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
+            {allStyles
+              ? `В тариф «${pkg.title}» входят все ${stylesLib.length} образов — вот они.`
+              : `Тариф «${pkg.title}»: выберите ${pkg.styles} образа из ${stylesLib.length}.`}
+          </p>
+          <div className="styles-grid">
+            {stylesLib.map((s) => {
+              const sel = allStyles || chosen.includes(s.key)
+              return (
+                <div key={s.key} className={`style-opt ${sel ? 'sel' : ''}`}
+                  onClick={() => !allStyles && toggleStyle(s.key)} style={allStyles ? { cursor: 'default' } : null}>
+                  <span className="sw" style={{ background: SWATCHES[s.key] || '#ccc' }} />{s.title}
+                </div>
+              )
+            })}
+          </div>
+          <button className="btn btn-dark"
+            disabled={!(chosen.length === pkg.styles)} onClick={() => { setStep(3); say('') }}>
+            Продолжить к оплате
+          </button>
+          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(1)}>← Назад к тарифам</button>
+          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
+        </div>
+      )}
+
+      {step === 3 && !token && (
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Оплата · {pkg?.title} — {pkg?.price_rub} ₽</h2>
           {account ? (
             <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
-              Вы вошли как <b>{account.email}</b>. После оплаты продолжите в личном кабинете.
+              Вы вошли как <b>{account.email}</b>. После оплаты загрузите селфи — и запустим генерацию.
             </p>
           ) : (
             <>
@@ -264,12 +289,12 @@ export default function Order() {
             Нажимая «Оплатить», вы принимаете <a href="/offer" target="_blank" rel="noreferrer">публичную
             оферту</a> и <a href="/privacy" target="_blank" rel="noreferrer">политику конфиденциальности</a>.
           </p>
-          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(1)}>← Назад к тарифам</button>
+          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(2)}>← Назад к образам</button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}
 
-      {step === 2 && token && (
+      {step === 3 && token && (
         <div className="card">
           <h2 style={{ fontSize: 22 }}>Завершите оплату</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, margin: '8px 0 16px' }}>
@@ -283,7 +308,7 @@ export default function Order() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Загрузите 10–15 селфи</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
@@ -296,34 +321,7 @@ export default function Order() {
           </label>
           <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
           <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
-          <button className="btn btn-dark" disabled={count < 10} onClick={toStyles}>Дальше — выбрать образы</button>
-          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
-        </div>
-      )}
-
-      {step === 4 && (
-        <div className="card">
-          <h2 style={{ fontSize: 22, marginBottom: 12 }}>Выберите образы</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-            {allStyles
-              ? `В тариф «${pkg.title}» входят все ${stylesLib.length} образов.`
-              : `Тариф «${pkg.title}»: выберите ${pkg.styles} образа из ${stylesLib.length}.`}
-          </p>
-          <div className="styles-grid">
-            {stylesLib.map((s) => {
-              const sel = allStyles || chosen.includes(s.key)
-              return (
-                <div key={s.key} className={`style-opt ${sel ? 'sel' : ''}`}
-                  onClick={() => !allStyles && toggleStyle(s.key)} style={allStyles ? { cursor: 'default' } : null}>
-                  <span className="sw" style={{ background: SWATCHES[s.key] || '#ccc' }} />{s.title}
-                </div>
-              )
-            })}
-          </div>
-          <button className="btn btn-dark"
-            disabled={!(allStyles || chosen.length === pkg.styles)} onClick={generate}>
-            Запустить генерацию
-          </button>
+          <button className="btn btn-dark" disabled={count < 10} onClick={generate}>Запустить генерацию</button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}

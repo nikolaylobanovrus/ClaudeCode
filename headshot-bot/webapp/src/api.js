@@ -18,12 +18,13 @@ export const api = {
   packages: () => req('/api/packages'),
   styles: () => req('/api/styles'),
 
-  // Флоу как у HeadshotPro: тариф → оплата → фото → образы.
-  createOrder(pkg, contact) {
+  // Флоу: тариф → образы → оплата → селфи. Образы сохраняются при оформлении.
+  createOrder(pkg, contact, styles) {
     const f = new FormData()
     f.append('package', pkg)
     f.append('contact', contact)
     f.append('consent', 'yes')
+    f.append('styles', styles.join(','))
     return req('/api/orders', { method: 'POST', body: f })
   },
   uploadPhoto(token, file) {
@@ -31,10 +32,9 @@ export const api = {
     f.append('photo', file)
     return req(`/api/orders/${token}/photos`, { method: 'POST', body: f })
   },
-  generate(token, styles) {
-    const f = new FormData()
-    f.append('styles', styles.join(','))
-    return req(`/api/orders/${token}/generate`, { method: 'POST', body: f })
+  // Запуск генерации после загрузки селфи — образы уже сохранены в заказе.
+  generate(token) {
+    return req(`/api/orders/${token}/generate`, { method: 'POST', body: new FormData() })
   },
   repay: (token) => req(`/api/orders/${token}/pay`, { method: 'POST' }),
   status: (token) => req(`/api/orders/${token}`),

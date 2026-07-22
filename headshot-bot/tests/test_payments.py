@@ -44,17 +44,21 @@ def client(monkeypatch, tmp_path):
         yield c
 
 
+STD_STYLES = "studio_grey,hh_white,office_modern,suit_navy"
+
+
 def _create_order(client, package="standard", contact="buyer@mail.ru") -> str:
     return client.post(
         "/api/orders",
-        data={"package": package, "contact": contact, "consent": "yes"},
+        data={"package": package, "contact": contact, "consent": "yes", "styles": STD_STYLES},
     ).json()["token"]
 
 
 def test_order_creates_payment_and_webhook_starts_collecting(client):
     resp = client.post(
         "/api/orders",
-        data={"package": "standard", "contact": "buyer@mail.ru", "consent": "yes"},
+        data={"package": "standard", "contact": "buyer@mail.ru", "consent": "yes",
+              "styles": STD_STYLES},
     )
     assert resp.status_code == 200
     data = resp.json()

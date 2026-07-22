@@ -108,7 +108,8 @@ def test_change_password(client, sent):
 def _make_order(client, contact):
     return client.post(
         "/api/orders",
-        data={"package": "standard", "contact": contact, "consent": "yes"},
+        data={"package": "standard", "contact": contact, "consent": "yes",
+              "styles": "studio_grey,hh_white,office_modern,suit_navy"},
     ).json()["token"]
 
 
