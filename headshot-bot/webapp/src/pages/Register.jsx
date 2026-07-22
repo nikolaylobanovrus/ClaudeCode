@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { auth, authErr } from '../auth.js'
 
 export default function Register() {
-  const { refresh } = useOutletContext()
+  const { account, ready, refresh } = useOutletContext()
   const navigate = useNavigate()
+  // Уже вошёл — регистрация не нужна, сразу к оформлению заказа.
+  useEffect(() => {
+    if (ready && account) navigate('/app/order', { replace: true })
+  }, [ready, account, navigate])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -23,6 +27,8 @@ export default function Register() {
       navigate('/app/cabinet')
     } catch (e) { setErr(authErr(e)) } finally { setBusy(false) }
   }
+
+  if (account) return null  // редирект в процессе — форму не показываем
 
   return (
     <div className="wrap" style={{ maxWidth: 440 }}>

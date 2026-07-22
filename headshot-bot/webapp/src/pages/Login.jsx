@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { auth, authErr } from '../auth.js'
 
 export default function Login() {
-  const { refresh } = useOutletContext()
+  const { account, ready, refresh } = useOutletContext()
   const navigate = useNavigate()
+  // Уже вошёл — сразу в кабинет.
+  useEffect(() => {
+    if (ready && account) navigate('/app/cabinet', { replace: true })
+  }, [ready, account, navigate])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -19,6 +23,8 @@ export default function Login() {
       navigate('/app/cabinet')
     } catch (e) { setErr(authErr(e)) } finally { setBusy(false) }
   }
+
+  if (account) return null  // редирект в процессе — форму не показываем
 
   return (
     <div className="wrap" style={{ maxWidth: 440 }}>
