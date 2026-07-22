@@ -5,10 +5,13 @@ import { auth, authErr } from '../auth.js'
 export default function Register() {
   const { account, ready, refresh } = useOutletContext()
   const navigate = useNavigate()
-  // Уже вошёл — регистрация не нужна, сразу к оформлению заказа.
+  // Число сотрудников из ползунка на главной (B2B) — несём в кабинет.
+  const team = new URLSearchParams(location.search).get('team')
+  const dest = '/app/cabinet' + (team ? `?team=${encodeURIComponent(team)}` : '')
+  // Уже вошёл — регистрация не нужна, сразу в кабинет.
   useEffect(() => {
-    if (ready && account) navigate('/app/order', { replace: true })
-  }, [ready, account, navigate])
+    if (ready && account) navigate(dest, { replace: true })
+  }, [ready, account, navigate, dest])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -24,7 +27,7 @@ export default function Register() {
     try {
       await auth.register(email.trim(), password)
       await refresh()
-      navigate('/app/cabinet')
+      navigate(dest)
     } catch (e) { setErr(authErr(e)) } finally { setBusy(false) }
   }
 

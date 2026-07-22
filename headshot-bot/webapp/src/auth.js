@@ -30,6 +30,8 @@ export const auth = {
   changePassword: (old_password, new_password) =>
     req('/api/auth/change-password', { old_password, new_password }),
   orders: () => req('/api/account/orders'),
+  teamQuote: (n) => req(`/api/team/quote?n=${encodeURIComponent(n)}`),
+  teamCheckout: (data) => req('/api/team/checkout', data),
 }
 
 export const AUTH_ERRORS = {

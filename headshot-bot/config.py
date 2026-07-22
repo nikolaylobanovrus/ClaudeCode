@@ -75,6 +75,10 @@ class Settings:
     smtp_ssl: bool = field(
         default_factory=lambda: os.environ.get("SMTP_SSL", "true").lower() == "true"
     )
+    # Куда уходят B2B-заявки (счёт / «оплатить картой»).
+    sales_email: str = field(
+        default_factory=lambda: os.environ.get("SALES_EMAIL", "hello@d-portret.ru")
+    )
     # Флаг Secure у сессионной cookie (в проде true; в тестах на http — false).
     session_cookie_secure: bool = field(
         default_factory=lambda: os.environ.get("SESSION_COOKIE_SECURE", "true").lower() == "true"

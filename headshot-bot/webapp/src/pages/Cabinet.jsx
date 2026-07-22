@@ -17,6 +17,8 @@ export default function Cabinet() {
   const { account, ready } = useOutletContext()
   const navigate = useNavigate()
   const [orders, setOrders] = useState(null)
+  const team = new URLSearchParams(location.search).get('team')
+  const [quote, setQuote] = useState(null)
 
   // Не авторизован — на вход.
   useEffect(() => {
@@ -26,6 +28,11 @@ export default function Cabinet() {
   useEffect(() => {
     if (account) auth.orders().then((d) => setOrders(d.orders)).catch(() => setOrders([]))
   }, [account])
+
+  // Расчёт по числу сотрудников из ползунка на главной (B2B).
+  useEffect(() => {
+    if (account && team) auth.teamQuote(team).then(setQuote).catch(() => {})
+  }, [account, team])
 
   if (!account) return null
 
@@ -40,6 +47,8 @@ export default function Cabinet() {
         <Link className="btn btn-dark" to="/app/order">Создать новые портреты</Link>
       </div>
 
+      {quote && <TeamOffer quote={quote} navigate={navigate} />}
+
       {orders === null && <p style={{ color: 'var(--muted)' }}>Загружаем заказы…</p>}
       {orders && orders.length === 0 && (
         <div className="card" style={{ textAlign: 'center' }}>
@@ -53,6 +62,60 @@ export default function Cabinet() {
       {orders && orders.map((o) => <OrderCard key={o.token} o={o} />)}
 
       <ChangePassword />
+    </div>
+  )
+}
+
+function TeamOffer({ quote, navigate }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const fmt = (x) => x.toLocaleString('ru-RU') + ' ₽'
+
+  async function payCard() {
+    setBusy(true); setErr('')
+    try {
+      await auth.teamCheckout({ mode: 'card', headcount: quote.headcount })
+      navigate('/app/team-pending')
+    } catch { setErr('Не удалось отправить заявку. Попробуйте ещё раз.'); setBusy(false) }
+  }
+
+  const Row = ({ label, value, accent }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0' }}>
+      <span style={{ color: '#B9BCC2', fontSize: 14 }}>{label}</span>
+      <b style={{ color: accent ? '#E8B96A' : '#F2F0EC', fontSize: 15 }}>{value}</b>
+    </div>
+  )
+
+  return (
+    <div className="card" style={{ marginBottom: 16, background: '#1B1D22', borderColor: 'transparent' }}>
+      <h3 style={{ fontSize: 20, margin: '0 0 4px', color: '#F2F0EC' }}>Портреты для команды</h3>
+      <p style={{ color: '#B9BCC2', fontSize: 14, margin: '0 0 12px' }}>
+        Расчёт по вашему выбору — {quote.headcount} сотрудников. Оплата один раз, без подписки.
+      </p>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
+        <Row label="Сотрудников" value={quote.headcount} />
+        <Row label={`Цена за сотрудника (−${quote.percent}%)`} value={fmt(quote.per_seat)} />
+        <Row label="Экономия против тарифа для одного" value={fmt(quote.discount)} accent />
+        <Row label="Каждый сотрудник получит"
+          value={`${quote.portraits_per_seat} портретов · ${quote.styles_per_seat} образов`} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '12px 0 2px',
+        borderTop: '1px solid rgba(255,255,255,.12)', marginTop: 6, color: '#F2F0EC' }}>
+        <span style={{ fontSize: 15 }}>Итого</span>
+        <b style={{ fontSize: 22, fontFamily: 'Georgia, serif' }}>{fmt(quote.total)}</b>
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+        <Link className="btn" to={`/app/team-invoice?team=${quote.headcount}`}
+          style={{ background: '#fff', color: 'var(--ink)', padding: '12px 22px', fontSize: 15, textDecoration: 'none' }}>
+          Получить счёт
+        </Link>
+        <button className="btn" disabled={busy} onClick={payCard}
+          style={{ padding: '12px 22px', fontSize: 15, background: 'transparent',
+            border: '1.5px solid rgba(242,240,236,.35)', color: '#F2F0EC' }}>
+          {busy ? 'Отправляем…' : 'Оплатить картой/СБП'}
+        </button>
+      </div>
+      {err && <p className="status error" style={{ color: '#ffb4ab' }}>{err}</p>}
     </div>
   )
 }

@@ -9,6 +9,8 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Forgot from './pages/Forgot.jsx'
 import Reset from './pages/Reset.jsx'
+import TeamInvoice from './pages/TeamInvoice.jsx'
+import TeamPending from './pages/TeamPending.jsx'
 
 const router = createBrowserRouter([
   {
@@ -22,6 +24,8 @@ const router = createBrowserRouter([
       { path: 'register', element: <Register /> },
       { path: 'forgot', element: <Forgot /> },
       { path: 'reset', element: <Reset /> },
+      { path: 'team-invoice', element: <TeamInvoice /> },
+      { path: 'team-pending', element: <TeamPending /> },
     ],
   },
 ])

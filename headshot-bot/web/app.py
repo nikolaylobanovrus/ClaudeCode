@@ -18,7 +18,9 @@ from sqlalchemy import func, select
 
 from config import load_settings
 from core.db import init_db, make_engine, make_session_factory
+from core.email import send_email
 from core.models import FreePreview, Job, Photo, TeamLead, User, utcnow
+from core.teams import team_quote
 from core.packages import PACKAGES, RECOMMENDED_CODE, get_package
 from core.payments import YooKassaClient, customer_from_contact
 from core.states import JobState, validate_transition
@@ -209,6 +211,80 @@ async def team_lead(
         + (f"\nКомментарий: {message.strip()}" if message.strip() else ""),
     )
     return {"ok": True}
+
+
+@app.get("/api/team/quote")
+async def team_quote_api(n: int = 1):
+    """Расчёт командной цены по числу сотрудников (для кабинета)."""
+    return team_quote(n)
+
+
+@app.post("/api/team/checkout")
+async def team_checkout(
+    request: Request,
+    mode: str = Form(...),
+    headcount: int = Form(...),
+    company: str = Form(""),
+    inn: str = Form(""),
+    kpp: str = Form(""),
+    address: str = Form(""),
+    name: str = Form(""),
+    phone: str = Form(""),
+    comment: str = Form(""),
+):
+    """B2B-заявка из кабинета: mode=invoice (запрос счёта с реквизитами) или
+    mode=card (клиент нажал «Оплатить картой/СБП»). Шлём письмо в продажи и
+    дублируем админам; оплата пока обрабатывается вручную."""
+    account = await current_account(request)
+    if account is None:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if mode not in ("invoice", "card"):
+        return JSONResponse({"error": "bad_mode"}, status_code=422)
+    q = team_quote(headcount)
+    settings = request.app.state.settings
+
+    lines = [
+        f"Сотрудников: {q['headcount']}",
+        f"Цена за сотрудника: {q['per_seat']} ₽ (скидка {q['percent']}%)",
+        f"Итого: {q['total']} ₽ (экономия {q['discount']} ₽)",
+        f"Каждый сотрудник: {q['portraits_per_seat']} портретов, {q['styles_per_seat']} образов",
+        f"Аккаунт клиента: {account.email}",
+    ]
+    if mode == "invoice":
+        if len(company.strip()) < 2 or len(inn.strip()) < 5:
+            return JSONResponse({"error": "bad_requisites"}, status_code=422)
+        subject = f"B2B: запрос счёта — {company.strip()} ({q['headcount']} чел., {q['total']} ₽)"
+        req = [x for x in (
+            f"Организация: {company.strip()}",
+            f"ИНН: {inn.strip()}" + (f"  КПП: {kpp.strip()}" if kpp.strip() else ""),
+            f"Адрес: {address.strip()}" if address.strip() else "",
+            f"Контакт: {name.strip()}, {phone.strip()}" if (name.strip() or phone.strip()) else "",
+            f"Комментарий: {comment.strip()}" if comment.strip() else "",
+        ) if x]
+        body = "Заявка на счёт (B2B):\n\n" + "\n".join([*req, "", *lines])
+        details = " | ".join(req)
+    else:  # card
+        subject = f"B2B: клиент нажал «Оплатить картой/СБП» ({q['headcount']} чел., {q['total']} ₽)"
+        body = ("Клиент нажал «Оплатить картой/СБП» (B2B).\n"
+                "→ Направить ему ссылку и QR для оплаты на email.\n\n" + "\n".join(lines))
+        details = "нажал «Оплатить картой/СБП»"
+
+    try:
+        await send_email(settings, settings.sales_email, subject, body)
+    except Exception:
+        pass
+    await _notify_admins(settings, "🏢 " + subject + "\n" + "\n".join(lines))
+
+    async with request.app.state.session_factory() as session:
+        session.add(TeamLead(
+            company=(company.strip() or account.email),
+            name=(name.strip() or account.email),
+            contact=account.email,
+            headcount=q["headcount"],
+            message=f"[{mode}] {details}; итого {q['total']}₽",
+        ))
+        await session.commit()
+    return {"ok": True, "mode": mode}
 
 
 async def _start_payment(request: Request, job_id: int, pkg, token: str, contact: str):
