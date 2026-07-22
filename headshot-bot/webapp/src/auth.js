@@ -27,8 +27,6 @@ export const auth = {
   logout: () => req('/api/auth/logout', { _: '1' }),
   forgot: (email) => req('/api/auth/forgot', { email }),
   reset: (token, password) => req('/api/auth/reset', { token, password }),
-  verify: (token) => req('/api/auth/verify', { token }),
-  resendVerify: () => req('/api/auth/resend-verify', { _: '1' }),
   changePassword: (old_password, new_password) =>
     req('/api/auth/change-password', { old_password, new_password }),
   orders: () => req('/api/account/orders'),

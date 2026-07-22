@@ -1,15 +1,15 @@
-"""Веб-аккаунты: регистрация, вход, сессии, сброс/подтверждение, кабинет.
+"""Веб-аккаунты: регистрация, вход, сессии, сброс пароля, кабинет.
 
-Сессия — httpOnly-cookie ``sid`` (в БД только хеш токена). Одноразовые
-токены сброса пароля и подтверждения email уходят письмом и хранятся как
-хеш. Никакого перечисления пользователей: /forgot всегда отвечает 200.
+Сессия — httpOnly-cookie ``sid`` (в БД только хеш токена). Токен сброса
+пароля уходит письмом и хранится как хеш. Никакого перечисления
+пользователей: /forgot всегда отвечает 200. Подтверждения email нет.
 """
 import re
 from datetime import timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Form, Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, update
+from sqlalchemy import select
 
 from core.email import send_email
 from core.models import Account, AuthToken, Job, WebSession, utcnow
@@ -25,7 +25,6 @@ router = APIRouter()
 SID = "sid"
 SESSION_DAYS = 30
 RESET_TTL = timedelta(hours=1)
-VERIFY_TTL = timedelta(days=3)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 # Фиктивный хеш: сверяем с ним пароль при отсутствии аккаунта, чтобы время
 # ответа не выдавало, зарегистрирован ли email (защита от перечисления).
@@ -80,36 +79,6 @@ async def current_account(request: Request) -> Account | None:
         return await session.get(Account, ws.account_id)
 
 
-async def _claim_guest_orders(session, account: Account) -> None:
-    """Привязывает прежние гостевые заказы с тем же email к аккаунту.
-
-    Вызывается ТОЛЬКО для аккаунта с подтверждённым email — иначе, зная чужой
-    email, можно было бы присвоить чужой гостевой заказ (и его результаты).
-    Сравнение без учёта регистра: email аккаунта в нижнем регистре, а contact
-    заказа хранится как введён."""
-    await session.execute(
-        update(Job)
-        .where(Job.account_id.is_(None), Job.contact.isnot(None),
-               func.lower(Job.contact) == account.email)
-        .values(account_id=account.id)
-    )
-
-
-async def _send_verify(settings, account: Account, session) -> None:
-    token = new_token()
-    session.add(AuthToken(
-        account_id=account.id, kind=AuthToken.VERIFY,
-        token_hash=token_hash(token), expires_at=utcnow() + VERIFY_TTL,
-    ))
-    link = f"{settings.public_base_url}/app/verify?token={token}"
-    await send_email(
-        settings, account.email, "Подтвердите email — Деловые портреты",
-        f"Подтвердите адрес, перейдя по ссылке:\n{link}\n\nСсылка действует 3 дня.",
-        f'<p>Подтвердите адрес:</p><p><a href="{link}">Подтвердить email</a></p>'
-        f"<p style='color:#888;font-size:13px'>Ссылка действует 3 дня.</p>",
-    )
-
-
 @router.post("/api/auth/register")
 async def register(request: Request, email: str = Form(...), password: str = Form(...)):
     email = _norm_email(email)
@@ -117,7 +86,6 @@ async def register(request: Request, email: str = Form(...), password: str = For
         return JSONResponse({"error": "bad_email"}, status_code=422)
     if not _valid_password(password):
         return JSONResponse({"error": "weak_password"}, status_code=422)
-    settings = request.app.state.settings
     async with request.app.state.session_factory() as session:
         exists = (await session.execute(
             select(Account).where(Account.email == email)
@@ -127,13 +95,9 @@ async def register(request: Request, email: str = Form(...), password: str = For
         account = Account(email=email, password_hash=hash_password(password))
         session.add(account)
         await session.flush()
-        # Гостевые заказы НЕ подхватываем здесь: email ещё не подтверждён
-        # (клейм — после верификации). Заказ, оформленный сразу после
-        # регистрации, и так привязывается к аккаунту при создании.
-        await _send_verify(settings, account, session)
         token = await _create_session(session, account.id)
         await session.commit()
-        acc = {"email": account.email, "verified": False}
+        acc = {"email": account.email}
     resp = JSONResponse({"account": acc})
     _set_session_cookie(request, resp, token)
     return resp
@@ -151,12 +115,9 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         ok = verify_password(password, account.password_hash if account else _DUMMY_HASH)
         if account is None or not ok:
             return JSONResponse({"error": "bad_credentials"}, status_code=401)
-        # Подхватываем гостевые заказы только у подтверждённого email.
-        if account.email_verified_at is not None:
-            await _claim_guest_orders(session, account)
         token = await _create_session(session, account.id)
         await session.commit()
-        acc = {"email": account.email, "verified": account.email_verified_at is not None}
+        acc = {"email": account.email}
     resp = JSONResponse({"account": acc})
     _set_session_cookie(request, resp, token)
     return resp
@@ -183,8 +144,7 @@ async def me(request: Request):
     account = await current_account(request)
     if account is None:
         return JSONResponse({"account": None})
-    return {"account": {"email": account.email,
-                        "verified": account.email_verified_at is not None}}
+    return {"account": {"email": account.email}}
 
 
 async def _do_forgot(app, email: str) -> None:
@@ -252,39 +212,10 @@ async def reset(request: Request, token: str = Form(...), password: str = Form(.
             await session.delete(ws)
         new_sid = await _create_session(session, account.id)
         await session.commit()
-        acc = {"email": account.email, "verified": account.email_verified_at is not None}
+        acc = {"email": account.email}
     resp = JSONResponse({"account": acc})
     _set_session_cookie(request, resp, new_sid)
     return resp
-
-
-@router.post("/api/auth/verify")
-async def verify(request: Request, token: str = Form(...)):
-    async with request.app.state.session_factory() as session:
-        at = await _consume_token(session, AuthToken.VERIFY, token)
-        if at is None:
-            return JSONResponse({"error": "bad_token"}, status_code=400)
-        account = await session.get(Account, at.account_id)
-        account.email_verified_at = utcnow()
-        at.used_at = utcnow()
-        # Теперь email подтверждён — безопасно подхватить гостевые заказы.
-        await _claim_guest_orders(session, account)
-        await session.commit()
-    return {"ok": True}
-
-
-@router.post("/api/auth/resend-verify")
-async def resend_verify(request: Request):
-    account = await current_account(request)
-    if account is None:
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
-    if account.email_verified_at is not None:
-        return {"ok": True}
-    async with request.app.state.session_factory() as session:
-        acc = await session.get(Account, account.id)
-        await _send_verify(request.app.state.settings, acc, session)
-        await session.commit()
-    return {"ok": True}
 
 
 @router.post("/api/auth/change-password")
@@ -311,6 +242,12 @@ async def change_password(
                 await session.delete(ws)
         await session.commit()
     return {"ok": True}
+
+
+def _package_title(code: str | None) -> str | None:
+    from core.packages import PACKAGES
+    pkg = PACKAGES.get(code or "")
+    return pkg.title if pkg else code
 
 
 @router.get("/api/account/orders")
@@ -340,6 +277,7 @@ async def account_orders(request: Request):
                 "token": job.access_token,
                 "state": job.state,
                 "package": job.package_code,
+                "package_title": _package_title(job.package_code),
                 "photos": photos,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
                 "results": [

@@ -40,8 +40,6 @@ export default function Cabinet() {
         <Link className="btn btn-dark" to="/app/order">Создать новые портреты</Link>
       </div>
 
-      {!account.verified && <VerifyBanner email={account.email} />}
-
       {orders === null && <p style={{ color: 'var(--muted)' }}>Загружаем заказы…</p>}
       {orders && orders.length === 0 && (
         <div className="card" style={{ textAlign: 'center' }}>
@@ -67,7 +65,7 @@ function OrderCard({ o }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontWeight: 650, fontSize: 15.5 }}>
-            Заказ {o.package ? `«${o.package}»` : ''} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {date}</span>
+            {o.package_title ? `Пакет «${o.package_title}»` : 'Заказ'} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· {date}</span>
           </div>
           <div style={{ fontSize: 13.5, color: 'var(--accent-deep)', marginTop: 3 }}>
             {ORDER_STATE[o.state] || o.state}
@@ -87,26 +85,6 @@ function OrderCard({ o }) {
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function VerifyBanner({ email }) {
-  const [sent, setSent] = useState(false)
-  async function resend() {
-    try { await auth.resendVerify(); setSent(true) } catch { /* ничего */ }
-  }
-  return (
-    <div className="card" style={{ marginBottom: 14, background: '#FBF3E1', borderColor: '#EBD9B3' }}>
-      <div style={{ fontSize: 14 }}>
-        <b>Подтвердите email.</b> Мы отправили письмо на <b>{email}</b> — перейдите по ссылке из него.
-        {sent
-          ? <span style={{ color: 'var(--muted)' }}> Письмо отправлено повторно.</span>
-          : <> <button onClick={resend}
-              style={{ background: 'none', border: 0, color: 'var(--accent-deep)', cursor: 'pointer', fontSize: 14, textDecoration: 'underline', padding: 0 }}>
-              Отправить снова
-            </button></>}
-      </div>
     </div>
   )
 }

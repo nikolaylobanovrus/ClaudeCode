@@ -9,7 +9,6 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Forgot from './pages/Forgot.jsx'
 import Reset from './pages/Reset.jsx'
-import Verify from './pages/Verify.jsx'
 
 const router = createBrowserRouter([
   {
@@ -23,7 +22,6 @@ const router = createBrowserRouter([
       { path: 'register', element: <Register /> },
       { path: 'forgot', element: <Forgot /> },
       { path: 'reset', element: <Reset /> },
-      { path: 'verify', element: <Verify /> },
     ],
   },
 ])

@@ -36,9 +36,9 @@ def _token(text: str) -> str:
 def test_register_login_logout(client, sent):
     r = client.post("/api/auth/register", data={"email": "U@X.ru", "password": "longenough1"})
     assert r.status_code == 200
-    assert r.json()["account"] == {"email": "u@x.ru", "verified": False}
-    # Письмо-подтверждение ушло.
-    assert any(m["subject"].startswith("Подтвердите") for m in sent)
+    assert r.json()["account"] == {"email": "u@x.ru"}
+    # Подтверждения email нет — писем при регистрации не шлём.
+    assert sent == []
     assert client.get("/api/auth/me").json()["account"]["email"] == "u@x.ru"
 
     client.post("/api/auth/logout")
@@ -92,14 +92,6 @@ def test_forgot_reset_flow(client, sent):
                        data={"token": token, "password": "another123"}).status_code == 400
 
 
-def test_verify_email(client, sent):
-    client.post("/api/auth/register", data={"email": "u@x.ru", "password": "longenough1"})
-    verify_mail = next(m for m in sent if m["subject"].startswith("Подтвердите"))
-    token = _token(verify_mail["text"])
-    assert client.post("/api/auth/verify", data={"token": token}).status_code == 200
-    assert client.get("/api/auth/me").json()["account"]["verified"] is True
-
-
 def test_change_password(client, sent):
     client.post("/api/auth/register", data={"email": "u@x.ru", "password": "firstpass12"})
     assert client.post("/api/auth/change-password",
@@ -120,25 +112,19 @@ def _make_order(client, contact):
     ).json()["token"]
 
 
-def test_account_orders_and_guest_claim(client, sent):
-    # Гостевой заказ создан ДО регистрации (без сессии), с тем же email.
-    token = _make_order(client, "owner@x.ru")
+def test_account_orders_lists_account_orders(client):
+    # Гостевой заказ (до входа) по email НЕ подхватывается — подтверждения email
+    # нет, поэтому клейма по совпадению email нет (защита от присвоения).
+    _make_order(client, "owner@x.ru")
     client.post("/api/auth/register", data={"email": "owner@x.ru", "password": "longenough1"})
-
-    # До подтверждения email гостевой заказ НЕ подхватывается (защита от присвоения).
     assert client.get("/api/account/orders").json()["orders"] == []
 
-    # Подтверждаем email → гостевой заказ привязывается к аккаунту.
-    vtoken = _token(next(m for m in sent if m["subject"].startswith("Подтвердите"))["text"])
-    assert client.post("/api/auth/verify", data={"token": vtoken}).status_code == 200
+    # Заказ из-под аккаунта привязывается сразу и показывает название тарифа.
+    _make_order(client, "owner@x.ru")
     orders = client.get("/api/account/orders").json()["orders"]
     assert len(orders) == 1
-    assert orders[0]["token"] == token
     assert orders[0]["package"] == "standard"
-
-    # Новый заказ из-под аккаунта привязывается сразу.
-    _make_order(client, "owner@x.ru")
-    assert len(client.get("/api/account/orders").json()["orders"]) == 2
+    assert orders[0]["package_title"] == "Стандарт"
 
 
 def test_change_password_invalidates_other_sessions(client, sent):
