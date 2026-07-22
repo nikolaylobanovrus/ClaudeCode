@@ -81,8 +81,9 @@ export default function StepDeductions({ errors }) {
         </div>
         {saleActive && (
           <div className="doc-note doc-note--ok" style={{ marginTop: 10 }}>
-            Продажу автомобиля декларируем за {SALE_YEARS[0]} год (действующая
-            форма ФНС). За другие годы — напишите в поддержку.
+            Продажу автомобиля декларируем за{" "}
+            {[...SALE_YEARS].sort((a, b) => a - b).join(" и ")} год — выберите
+            нужный. За более ранние годы напишите в поддержку.
           </div>
         )}
         {note && (

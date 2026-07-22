@@ -148,7 +148,8 @@ export function buildDeclarationXml(model) {
           sale
             ? el(
                 "НалБаза",
-                { ГрупДоход: sale.groupCode },
+                // 2025 — ГрупДоход «02»; до 2025 — ВидДоход «10» (основная база).
+                is2025 ? { ГрупДоход: sale.groupCode } : { ВидДоход: sale.groupCode },
                 el("РасчНалБаза", {
                   СумДох: kop2(sale.taxable),
                   СумДохНеНал: "0.00",
@@ -156,10 +157,15 @@ export function buildDeclarationXml(model) {
                   СумНалВыч: kop2(sale.deduction),
                   СумРасх: "0.00",
                   НалБаза: kop2(sale.base),
+                  // Поля прогрессивной базы/иного — только до 2025 (как в возврате).
+                  "НалБаза2.1.224": is2025 ? undefined : "0.00",
+                  "НалБаза3.1.224": is2025 ? undefined : "0.00",
+                  СумИное: is2025 ? undefined : "0.00",
                 }),
                 el("РасчНалПУ", {
                   Исчисл: rub(sale.tax),
                   Удерж: "0",
+                  СумУдержИст224: is2025 ? undefined : "0", // убрано с 2025
                   СумУдержМат: "0",
                   ТСУплПерЗач: "0",
                   СумФиксАван: "0",

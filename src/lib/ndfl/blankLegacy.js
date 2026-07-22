@@ -24,7 +24,8 @@ import { CODES } from "./refs.js";
 import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-20XX.pdf (порядок задан при нарезке бланков).
-const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7 };
+// app6 (доходы от продажи) добавлен восьмой страницей в бланки с продажей.
+const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8 };
 
 // --- Координатные карты (pt, левый нижний угол; см. docs/fns-blank-2025.md) --
 // Формы 2022 и 2023 сверстаны одинаково, кроме листа 1 Приложения 5
@@ -101,6 +102,9 @@ const MAPS = {
       x: 425.5, cost: 396, interest: 369, prior: 336, priorInt: 312,
       base: [368.8, 199], claim: 176, claimInt: 146, rest: 116, restInt: 93,
     },
+    // Приложение 6 (доходы от продажи) формы 757@ свёрстано как в 913@:
+    // координаты строк 070/080/160 совпали с бланком 2025 (сверено pdfminer).
+    app6: { x: 422.7, y070: 494.2, y080: 468.7, y160: 64.9 },
   },
 };
 
@@ -109,20 +113,33 @@ export async function buildOfficialPdfLegacy(model) {
   if (!M) throw new Error(`Нет карты бланка для года ${model.year}`);
   const { person, calc } = model;
   const ap = calc.applied;
+  const sale = model.sale;
 
-  const sheets = [
-    { tpl: PG.title, fill: fillTitle },
-    { tpl: PG.r1, fill: fillR1 },
-    { tpl: PG.r1app, fill: fillR1App },
-    { tpl: PG.r2, fill: fillR2 },
-  ];
-  for (const part of chunk(model.incomes, 3))
-    sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
-  if (model.social) {
-    sheets.push({ tpl: PG.app5a, fill: fillApp5a });
-    sheets.push({ tpl: PG.app5b, fill: fillApp5b });
+  // Продажа: без заявления о возврате, Приложение 1 — покупатель, плюс
+  // Приложение 6. Возврат: как раньше.
+  const sheets = sale
+    ? [
+        { tpl: PG.title, fill: fillTitle },
+        { tpl: PG.r1, fill: fillR1 },
+        { tpl: PG.r2, fill: fillR2 },
+        { tpl: PG.app1, fill: fillApp1Sale },
+        { tpl: PG.app6, fill: fillApp6 },
+      ]
+    : [
+        { tpl: PG.title, fill: fillTitle },
+        { tpl: PG.r1, fill: fillR1 },
+        { tpl: PG.r1app, fill: fillR1App },
+        { tpl: PG.r2, fill: fillR2 },
+      ];
+  if (!sale) {
+    for (const part of chunk(model.incomes, 3))
+      sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
+    if (model.social) {
+      sheets.push({ tpl: PG.app5a, fill: fillApp5a });
+      sheets.push({ tpl: PG.app5b, fill: fillApp5b });
+    }
+    if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   }
-  if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   const total = sheets.length;
 
   // В сканах 2022/2023 линия «Фамилия» в шапке выше, чем в векторных бланках.
@@ -154,8 +171,8 @@ export async function buildOfficialPdfLegacy(model) {
   function fillR1(pen) {
     pen.left(model.kbk, M.r1.x, M.r1.kbk, 20); // 020
     pen.left(person.oktmo, M.r1.x, M.r1.oktmo, 11); // 030
-    pen.int(0, M.r1.x, M.r1.pay, 13); // 040
-    pen.int(model.refund, M.r1.x, M.r1.refund, 13); // 050
+    pen.int(sale ? model.owed : 0, M.r1.x, M.r1.pay, 13); // 040 к уплате
+    pen.int(sale ? 0 : model.refund, M.r1.x, M.r1.refund, 13); // 050 к возврату
   }
 
   // --- Приложение к Разделу 1: заявление о возврате -----------------------------
@@ -169,15 +186,22 @@ export async function buildOfficialPdfLegacy(model) {
   // --- Раздел 2 ------------------------------------------------------------------
   function fillR2(pen) {
     const { x, code, money, ints } = M.r2;
-    pen.left(CODES.incomeKind, x, code, 2); // 001 код вида дохода — 10
+    // Продажа: код вида дохода «10» (основная база), суммы из sale, налог
+    // печатается в строку 150 «к уплате». Возврат: как раньше (строка 160).
+    const income = sale ? sale.taxable : calc.totalIncome;
+    const base = sale ? sale.base : calc.taxBase;
+    pen.left(sale ? sale.groupCode : CODES.incomeKind, x, code, 2); // 001
     const mv = {
-      "010": calc.totalIncome, "020": 0, "030": calc.totalIncome,
-      "040": calc.totalDeduction, "050": 0, "060": calc.taxBase,
-      "061": calc.taxBase, "062": 0, "063": 0, // база по ставке абз. 2 п. 1 ст. 224
+      "010": income, "020": 0, "030": income,
+      "040": sale ? sale.deduction : calc.totalDeduction, "050": 0, "060": base,
+      "061": base, "062": 0, "063": 0, // база по ставке абз. 2 п. 1 ст. 224
     };
     for (const [k, y] of Object.entries(money)) pen.money(mv[k] ?? 0, x, y, 13);
     const iv = {
-      "070": calc.assessed, "080": calc.totalWithheld, "160": model.refund,
+      "070": sale ? sale.tax : calc.assessed,
+      "080": sale ? 0 : calc.totalWithheld,
+      "150": sale ? model.owed : 0,
+      "160": sale ? 0 : model.refund,
     };
     for (const [k, y] of Object.entries(ints)) pen.int(iv[k] ?? 0, x, y, 13);
   }
@@ -195,6 +219,26 @@ export async function buildOfficialPdfLegacy(model) {
       pen.money(inc.income, A.innX, A.sumY[i], 13); // 070
       pen.int(inc.withheld, A.taxX, A.sumY[i], 13); // 080
     });
+  }
+
+  // --- Приложение 1 (продажа): источник дохода — покупатель --------------------
+  function fillApp1Sale(pen) {
+    const A = M.app1, b = sale.buyer;
+    pen.left(sale.incomeCode, A.codeX, A.codeY[0], 2); // 010 код вида дохода — 03
+    pen.right(String(model.ratePercent), A.rateX, A.codeY[0], 2);
+    if (b.inn.length === 12) pen.left(b.inn, A.innX, A.idY[0], 12); // ИНН физлица
+    pen.left(person.oktmo, A.oktmoX, A.idY[0], 11); // ОКТМО по месту жительства
+    fillRows(pen, b.name || "Физическое лицо", A.innX, A.nameY[0], 40);
+    pen.money(sale.price, A.innX, A.sumY[0], 13); // 070 сумма дохода
+    pen.int(0, A.taxX, A.sumY[0], 13); // 080 налог удержан — 0
+  }
+
+  // --- Приложение 6: имущественный вычет по доходам от продажи -----------------
+  function fillApp6(pen) {
+    const A = M.app6;
+    if (sale.deductionKind === "expenses") pen.money(sale.deduction, A.x, A.y080, 8); // 080 расходы
+    else pen.money(sale.deduction, A.x, A.y070, 8); // 070 вычет
+    pen.money(sale.deduction, A.x, A.y160, 8); // 160 общая сумма вычетов
   }
 
   // --- Приложение 5, лист 1 -------------------------------------------------------
