@@ -1,16 +1,69 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
-import { api, SWATCHES, errText } from '../api.js'
+import { api, errText } from '../api.js'
 import { auth, authErr } from '../auth.js'
 
-// Флоу: тариф → образы (выбор вдохновляет и делает покупку конкретной) →
-// оплата → селфи (тяжёлый/приватный шаг для уже оплатившего) → результат.
+// Флоу: тариф → образы (пол → одежда → фон) → оплата → селфи → результат.
 const STEPS = ['Тариф', 'Образы', 'Оплата', 'Селфи', 'Результат']
 const PROGRESS = [
   ['training', 'Обучение нейросети на ваших фото (~30 минут)'],
   ['generating', 'Генерация портретов'],
   ['done', 'Готово'],
 ]
+
+// Цвет-заглушка для позиции без превью (детерминированно по категории) —
+// сетка остаётся без «дыр», флоу работает и на неполном каталоге.
+function catColor(cat) {
+  let h = 0
+  for (const ch of cat || '') h = (h * 31 + ch.charCodeAt(0)) % 360
+  return `hsl(${h} 24% 42%)`
+}
+
+// Плитка каталога: фото с фолбэком на цветной свотч категории.
+function WCard({ item, selected, onToggle }) {
+  const [broken, setBroken] = useState(false)
+  return (
+    <div className={`wcard ${selected ? 'sel' : ''}`} onClick={() => onToggle(item.key)}>
+      <span className="chk">✓</span>
+      {broken
+        ? <div className="wthumb ph" style={{ background: catColor(item.category) }}>{item.label}</div>
+        : <img className="wthumb" loading="lazy" src={item.thumb} alt={item.label}
+            onError={() => setBroken(true)} />}
+      <div className="lbl">{item.label}</div>
+    </div>
+  )
+}
+
+// Галерея с поиском и табами-категориями, мультивыбор пула.
+function WardrobeGallery({ catalog, selected, onToggle }) {
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const items = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    return (catalog.items || []).filter((it) =>
+      (!cat || it.category === cat) &&
+      (!needle || it.label.toLowerCase().includes(needle)))
+  }, [catalog, q, cat])
+  return (
+    <>
+      <input className="wsearch" placeholder="Поиск по названию…" value={q}
+        onChange={(e) => setQ(e.target.value)} />
+      <div className="wtabs">
+        <span className={`wtab ${!cat ? 'active' : ''}`} onClick={() => setCat('')}>Все</span>
+        {(catalog.categories || []).map((c) => (
+          <span key={c} className={`wtab ${cat === c ? 'active' : ''}`}
+            onClick={() => setCat(c)}>{c}</span>
+        ))}
+      </div>
+      <div className="wgrid">
+        {items.map((it) => (
+          <WCard key={it.key} item={it} selected={selected.includes(it.key)} onToggle={onToggle} />
+        ))}
+        {items.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено.</p>}
+      </div>
+    </>
+  )
+}
 
 export default function Order() {
   const params = new URLSearchParams(location.search)
@@ -24,8 +77,13 @@ export default function Order() {
   const [paying, setPaying] = useState(false)
   const [thumbs, setThumbs] = useState([])
   const [count, setCount] = useState(0)
-  const [stylesLib, setStylesLib] = useState([])
-  const [chosen, setChosen] = useState([])
+  // Конструктор образов: подшаг, пол и пулы одежды/фона.
+  const [sub, setSub] = useState('gender')        // gender | clothing | background
+  const [gender, setGender] = useState('')
+  const [cloCat, setCloCat] = useState({ categories: [], items: [] })
+  const [bgCat, setBgCat] = useState({ categories: [], items: [] })
+  const [selClo, setSelClo] = useState([])
+  const [selBg, setSelBg] = useState([])
   const [order, setOrder] = useState(null)
   const [msg, setMsg] = useState({ text: '', error: false })
   const drop = useRef(null)
@@ -36,7 +94,10 @@ export default function Order() {
   const refresh = outlet?.refresh
 
   const say = (text, error = false) => setMsg({ text, error })
-  const allStyles = pkg && stylesLib.length > 0 && pkg.styles >= stylesLib.length
+  // Сколько комбинаций даёт выбранный пул и сколько образов нужно собрать.
+  const combos = selClo.length * selBg.length
+  const needN = pkg?.styles || 0
+  const poolOk = selClo.length >= 1 && selBg.length >= 1 && combos >= needN
 
   // Вошедшему клиенту подставляем email аккаунта в контакт.
   useEffect(() => {
@@ -49,7 +110,7 @@ export default function Order() {
       setPackages(ps)
       if (wantPkg && !token) {
         const p = ps.find((x) => x.code === wantPkg)
-        if (p) { setPkg(p); enterStyles(p) }
+        if (p) { setPkg(p); enterWardrobe(p) }
       }
     }).catch(() => {})
   }, []) // eslint-disable-line
@@ -92,17 +153,25 @@ export default function Order() {
   // Ревок object URL превью-миниатюр при размонтировании.
   useEffect(() => () => thumbsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
 
-  async function enterStyles(p) {
-    let lib = stylesLib
-    if (!lib.length) { lib = await api.styles(); setStylesLib(lib) }
-    // Пакет со всеми образами — отмечаем все сразу; иначе клиент выбирает.
-    setChosen(p.styles >= lib.length ? lib.map((s) => s.key) : [])
-    setStep(2); say('')
+  function enterWardrobe(p) {
+    setPkg(p); setStep(2); setSub('gender')
+    setGender(''); setSelClo([]); setSelBg([]); say('')
   }
-  function toggleStyle(key) {
-    setChosen((c) => c.includes(key) ? c.filter((k) => k !== key)
-      : (c.length < pkg.styles ? [...c, key] : c))
+  async function pickGender(g) {
+    setGender(g); setSelClo([]); say('')
+    setSub('clothing')
+    try {
+      const [clo, bg] = await Promise.all([
+        api.wardrobe('clothing', g),
+        bgCat.items.length ? Promise.resolve(bgCat) : api.wardrobe('background'),
+      ])
+      setCloCat(clo); setBgCat(bg)
+    } catch (e) { say(errText(e), true) }
   }
+  const toggleClo = (key) =>
+    setSelClo((c) => c.includes(key) ? c.filter((k) => k !== key) : [...c, key])
+  const toggleBg = (key) =>
+    setSelBg((c) => c.includes(key) ? c.filter((k) => k !== key) : [...c, key])
 
   async function pay() {
     if (!pkg) return
@@ -128,7 +197,9 @@ export default function Order() {
         await refresh?.()
       }
       const email = account ? account.email : contact.trim()
-      const d = await api.createOrder(pkg.code, email, chosen)  // образы сохраняются в заказе
+      // Пулы одежды/фона сохраняются в заказе; воркер соберёт N образов.
+      const d = await api.createOrder(pkg.code, email,
+        { gender, clothing: selClo, backgrounds: selBg })
       setToken(d.token)
       history.replaceState(null, '', `/app/order?t=${d.token}`)
       if (d.payment_url) { window.location.href = d.payment_url; return } // ЮKassa
@@ -199,39 +270,73 @@ export default function Order() {
                 {p.recommended && <span className="plan-badge">Рекомендуем</span>}
                 <h3>{p.title}</h3>
                 <div className="pr">{p.price_rub} ₽</div>
-                <small>{p.portraits} портретов · {p.styles >= 8 ? 'все' : ''} {p.styles} образов
-                  × {Math.round(p.portraits / p.styles)} кадров</small>
+                <small>{p.portraits} портретов · {p.styles} образов
+                  × {Math.round(p.portraits / p.styles)} кадров
+                  {p.remixes ? ` · ${p.remixes} перегенерации` : ''}</small>
               </div>
             ))}
           </div>
-          <button className="btn btn-dark" disabled={!pkg} onClick={() => enterStyles(pkg)}>Дальше — выбрать образы</button>
+          <button className="btn btn-dark" disabled={!pkg} onClick={() => enterWardrobe(pkg)}>Дальше — выбрать образы</button>
         </div>
       )}
 
-      {step === 2 && pkg && (
+      {step === 2 && pkg && sub === 'gender' && (
         <div className="card">
-          <h2 style={{ fontSize: 22, marginBottom: 12 }}>Выберите образы</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-            {allStyles
-              ? `В тариф «${pkg.title}» входят все ${stylesLib.length} образов — вот они.`
-              : `Тариф «${pkg.title}»: выберите ${pkg.styles} образа из ${stylesLib.length}.`}
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>Для кого портреты?</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14.5 }}>
+            От этого зависит подбор одежды. Фоны — общие.
           </p>
-          <div className="styles-grid">
-            {stylesLib.map((s) => {
-              const sel = allStyles || chosen.includes(s.key)
-              return (
-                <div key={s.key} className={`style-opt ${sel ? 'sel' : ''}`}
-                  onClick={() => !allStyles && toggleStyle(s.key)} style={allStyles ? { cursor: 'default' } : null}>
-                  <span className="sw" style={{ background: SWATCHES[s.key] || '#ccc' }} />{s.title}
-                </div>
-              )
-            })}
+          <div className="gender-pick">
+            <div className={`gender-opt ${gender === 'male' ? 'sel' : ''}`} onClick={() => pickGender('male')}>
+              <span className="em">👔</span>Мужские
+            </div>
+            <div className={`gender-opt ${gender === 'female' ? 'sel' : ''}`} onClick={() => pickGender('female')}>
+              <span className="em">👗</span>Женские
+            </div>
           </div>
-          <button className="btn btn-dark"
-            disabled={!(chosen.length === pkg.styles)} onClick={() => { setStep(3); say('') }}>
+          <button className="btn btn-ghost" onClick={() => setStep(1)}>← Назад к тарифам</button>
+          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
+        </div>
+      )}
+
+      {step === 2 && pkg && sub === 'clothing' && (
+        <div className="card">
+          <h2 style={{ fontSize: 22, marginBottom: 4 }}>Выберите одежду</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
+            Отметьте понравившиеся варианты — из них и фонов соберём {needN} образов.
+            Чем больше выбор, тем разнообразнее портреты.
+          </p>
+          <WardrobeGallery catalog={cloCat} selected={selClo} onToggle={toggleClo} />
+          <div className="wcount">Выбрано одежды: <b>{selClo.length}</b></div>
+          <button className="btn btn-dark" style={{ marginTop: 10 }}
+            disabled={selClo.length < 1} onClick={() => { setSub('background'); say('') }}>
+            Далее — выбрать фон
+          </button>
+          <button className="btn btn-ghost" style={{ marginTop: 6 }}
+            onClick={() => setSub('gender')}>← Назад к полу</button>
+          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
+        </div>
+      )}
+
+      {step === 2 && pkg && sub === 'background' && (
+        <div className="card">
+          <h2 style={{ fontSize: 22, marginBottom: 4 }}>Выберите фон</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
+            Отметьте фоны — мы разнообразно скомбинируем их с выбранной одеждой.
+          </p>
+          <WardrobeGallery catalog={bgCat} selected={selBg} onToggle={toggleBg} />
+          <div className="wcount">
+            Одежда: <b>{selClo.length}</b> · Фоны: <b>{selBg.length}</b> · Комбинаций: <b>{combos}</b>{' '}
+            {poolOk
+              ? <span style={{ color: 'var(--good)' }}>— соберём {needN} образов ✓</span>
+              : <span style={{ color: 'var(--bad)' }}>— нужно ≥ {needN} (добавьте одежду или фон)</span>}
+          </div>
+          <button className="btn btn-dark" style={{ marginTop: 10 }}
+            disabled={!poolOk} onClick={() => { setStep(3); say('') }}>
             Продолжить к оплате
           </button>
-          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(1)}>← Назад к тарифам</button>
+          <button className="btn btn-ghost" style={{ marginTop: 6 }}
+            onClick={() => setSub('clothing')}>← Назад к одежде</button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}

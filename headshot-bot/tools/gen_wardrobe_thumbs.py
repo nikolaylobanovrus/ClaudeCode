@@ -1,0 +1,149 @@
+"""Массовая генерация превью каталога гардероба через Pollinations.ai (бесплатно,
+без ключа). Гибрид: одежда — на обезличенной модели, фоны — пустые.
+
+Кладёт JPEG 384×512 в web/static/img/wardrobe/{clothing|background}/{key}.jpg
+(самохостинг: картинки в репозитории, рантайм от Pollinations не зависит).
+Резюмируемый (пропускает готовые), с ретраями, лёгкой параллельностью.
+
+  ./venv/bin/python tools/gen_wardrobe_thumbs.py [--only clothing|background]
+      [--limit N] [--overwrite] [--workers 4]
+"""
+import argparse
+import io
+import sys
+import time
+import urllib.parse
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from urllib.request import ProxyHandler, build_opener, getproxies
+
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from prompts.wardrobe import WardrobeLibrary  # noqa: E402
+
+OUT = ROOT / "web" / "static" / "img" / "wardrobe"
+CA_BUNDLE = "/root/.ccr/ca-bundle.crt"
+W, H = 384, 512
+
+_opener = build_opener(ProxyHandler(getproxies()))
+
+
+def _stable_seed(key: str) -> int:
+    # Детерминированный seed без hash() (рандомизирован от запуска к запуску).
+    s = 0
+    for ch in key:
+        s = (s * 131 + ord(ch)) % 1_000_000
+    return s
+
+
+def _clothing_prompt(gender: str, fragment: str) -> str:
+    who = "a professional businesswoman" if gender == "female" else "a professional businessman"
+    outfit = fragment.replace("wearing ", "", 1)
+    return (f"corporate fashion catalog photo of {who} {outfit}, "
+            f"upper body, standing against a plain light grey studio background, "
+            f"soft even studio lighting, clean, photorealistic, high detail, no text")
+
+
+def _background_prompt(fragment: str, lighting: str) -> str:
+    scene = fragment
+    for pre in ("against ", "in "):
+        if scene.startswith(pre):
+            scene = scene[len(pre):]
+            break
+    return (f"empty professional portrait photography backdrop, {scene}, {lighting}, "
+            f"no people, no person, empty scene, photorealistic, high detail, no text")
+
+
+_REFERRER = "d-portret.ru"
+_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Referer": "https://d-portret.ru"}
+
+
+def _pollinations_url(prompt: str, seed: int) -> str:
+    enc = urllib.parse.quote(prompt, safe="")
+    return (f"https://image.pollinations.ai/prompt/{enc}"
+            f"?width={W}&height={H}&seed={seed}&nologo=true&model=flux"
+            f"&referrer={_REFERRER}")
+
+
+def _fetch(url: str, tries: int = 4) -> bytes:
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=_HEADERS)
+            with _opener.open(req, timeout=120) as r:
+                data = r.read()
+            if len(data) > 2000:  # отсекаем страницы-ошибки
+                return data
+            last = RuntimeError(f"слишком маленький ответ ({len(data)} б)")
+        except Exception as e:  # noqa: BLE001
+            last = e
+        time.sleep(2 * (i + 1))
+    raise last  # type: ignore[misc]
+
+
+def _save(data: bytes, path: Path) -> None:
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    img = img.resize((W, H), Image.LANCZOS)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path, format="JPEG", quality=80, optimize=True)
+
+
+def _tasks(lib: WardrobeLibrary, only: str | None):
+    out = []
+    if only in (None, "clothing"):
+        for gender in ("male", "female"):
+            for c in lib.clothing(gender):
+                out.append(("clothing", c.key, _clothing_prompt(gender, c.fragment)))
+    if only in (None, "background"):
+        for b in lib.backgrounds():
+            out.append(("background", b.key, _background_prompt(b.fragment, b.lighting)))
+    return out
+
+
+def _one(kind: str, key: str, prompt: str, overwrite: bool) -> str:
+    path = OUT / kind / f"{key}.jpg"
+    if path.exists() and not overwrite:
+        return f"skip {kind}/{key}"
+    data = _fetch(_pollinations_url(prompt, _stable_seed(key)))
+    _save(data, path)
+    return f"ok   {kind}/{key} ({path.stat().st_size // 1024} КБ)"
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", choices=["clothing", "background"])
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--workers", type=int, default=4)
+    a = ap.parse_args()
+
+    lib = WardrobeLibrary.load()
+    tasks = _tasks(lib, a.only)
+    if a.limit:
+        tasks = tasks[:a.limit]
+    print(f"Всего позиций: {len(tasks)} (workers={a.workers})", flush=True)
+
+    done = fail = 0
+    with ThreadPoolExecutor(max_workers=a.workers) as ex:
+        futs = {ex.submit(_one, k, key, pr, a.overwrite): (k, key)
+                for k, key, pr in tasks}
+        for i, fut in enumerate(as_completed(futs), 1):
+            k, key = futs[fut]
+            try:
+                msg = fut.result()
+                done += 1
+            except Exception as e:  # noqa: BLE001
+                msg = f"FAIL {k}/{key}: {e}"
+                fail += 1
+            print(f"[{i}/{len(tasks)}] {msg}", flush=True)
+
+    print(f"Готово: {done} ок, {fail} ошибок", flush=True)
+
+
+if __name__ == "__main__":
+    main()

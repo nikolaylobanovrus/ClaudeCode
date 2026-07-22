@@ -21,6 +21,12 @@ GENERATE_ENDPOINT = "fal-ai/flux-lora"
 # fal-client ограничивает параллелизм сам, но батчи по стилям гоняем аккуратно.
 _GENERATE_BATCH = 4
 
+# Параметры качества генерации (flux-lora). Подобраны под фотореализм портретов;
+# точная настройка — по итогам контрольной съёмки.
+_LORA_SCALE = 1.0           # вес обученной identity-LoRA (сходство лица)
+_GUIDANCE_SCALE = 3.5       # следование промпту без «пережаренности»
+_NUM_STEPS = 34             # шагов диффузии — детализация vs скорость
+
 
 def _photos_zip(photos: list[bytes]) -> bytes:
     buf = io.BytesIO()
@@ -86,10 +92,14 @@ class FalFluxProvider(ImageGenProvider):
                 GENERATE_ENDPOINT,
                 arguments={
                     "prompt": prompt,
-                    "loras": [{"path": model_ref, "scale": 1.0}],
+                    "loras": [{"path": model_ref, "scale": _LORA_SCALE}],
                     "num_images": batch,
                     "image_size": "portrait_4_3",
+                    "guidance_scale": _GUIDANCE_SCALE,
+                    "num_inference_steps": _NUM_STEPS,
                     "output_format": "jpeg",
+                    # Портреты «в костюме» иногда ложно триггерят фильтр → чёрные кадры.
+                    "enable_safety_checker": False,
                 },
             )
             downloaded = await asyncio.gather(

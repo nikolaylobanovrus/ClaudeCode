@@ -53,4 +53,34 @@ h1,h2,h3{font-family:Georgia,serif; font-weight:600; margin:0}
 @keyframes pulse{50%{opacity:.4}}
 .gallery{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:16px}
 .gallery img{width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:10px}
-@media (max-width:640px){ .plans,.styles-grid{grid-template-columns:1fr} .gallery{grid-template-columns:repeat(2,1fr)} }
+/* Конструктор образов: пол + галереи одежды/фона */
+.gender-pick{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:18px 0}
+.gender-opt{border:2px solid var(--line); border-radius:14px; padding:26px 16px; cursor:pointer;
+  text-align:center; font:600 18px Georgia,serif; transition:border-color .2s,transform .15s}
+.gender-opt:hover{border-color:var(--ink); transform:translateY(-1px)}
+.gender-opt.sel{border-color:var(--accent)}
+.gender-opt .em{display:block; font-size:34px; margin-bottom:6px}
+.wsearch{width:100%; padding:11px 14px; border:1px solid var(--line); border-radius:10px;
+  font:inherit; background:var(--bg); margin:6px 0 10px}
+.wtabs{display:flex; gap:7px; overflow-x:auto; padding-bottom:6px; margin-bottom:6px; -webkit-overflow-scrolling:touch}
+.wtab{white-space:nowrap; border:1px solid var(--line); background:#fff; color:var(--muted);
+  border-radius:999px; padding:6px 13px; font-size:13px; cursor:pointer; transition:all .15s}
+.wtab.active{border-color:var(--ink); color:var(--ink); font-weight:650}
+.wgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:12px 0;
+  max-height:60vh; overflow-y:auto; padding:2px}
+.wcard{position:relative; border:2px solid var(--line); border-radius:12px; overflow:hidden;
+  cursor:pointer; background:var(--bg); transition:border-color .15s}
+.wcard.sel{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent) inset}
+.wthumb{width:100%; aspect-ratio:3/4; object-fit:cover; display:block}
+.wthumb.ph{display:flex; align-items:center; justify-content:center; color:#fff;
+  font:600 13px system-ui; text-align:center; padding:8px}
+.wcard .lbl{padding:7px 9px; font-size:12.5px; line-height:1.3; color:var(--ink)}
+.wcard .chk{position:absolute; top:7px; right:7px; width:24px; height:24px; border-radius:50%;
+  background:rgba(255,255,255,.9); border:1px solid var(--line); display:flex; align-items:center;
+  justify-content:center; font-size:14px; color:var(--accent-deep); opacity:0; transition:opacity .15s}
+.wcard.sel .chk{opacity:1}
+.wcount{position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--line);
+  padding:12px 0 2px; margin-top:6px; font-size:14px}
+.wcount b{color:var(--accent-deep)}
+@media (max-width:640px){ .plans,.styles-grid{grid-template-columns:1fr} .gallery{grid-template-columns:repeat(2,1fr)}
+  .wgrid{grid-template-columns:repeat(2,1fr)} .gender-pick{grid-template-columns:1fr} }

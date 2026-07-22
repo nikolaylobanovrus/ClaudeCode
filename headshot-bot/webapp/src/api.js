@@ -17,14 +17,20 @@ async function req(url, opts) {
 export const api = {
   packages: () => req('/api/packages'),
   styles: () => req('/api/styles'),
+  // Каталог конструктора: kind=clothing|background, gender=male|female.
+  wardrobe: (kind, gender = 'male') =>
+    req(`/api/wardrobe?kind=${kind}&gender=${gender}`),
 
-  // Флоу: тариф → образы → оплата → селфи. Образы сохраняются при оформлении.
-  createOrder(pkg, contact, styles) {
+  // Флоу: тариф → образы (пол + пул одежды + пул фонов) → оплата → селфи.
+  // Образы (пулы) сохраняются при оформлении; воркер собирает N образов.
+  createOrder(pkg, contact, { gender, clothing, backgrounds }) {
     const f = new FormData()
     f.append('package', pkg)
     f.append('contact', contact)
     f.append('consent', 'yes')
-    f.append('styles', styles.join(','))
+    f.append('gender', gender)
+    f.append('clothing', clothing.join(','))
+    f.append('backgrounds', backgrounds.join(','))
     return req('/api/orders', { method: 'POST', body: f })
   },
   uploadPhoto(token, file) {
@@ -64,6 +70,10 @@ export const ERRORS = {
   not_enough_photos: 'Нужно минимум 10 фото.',
   styles_count: 'Выберите нужное число образов.',
   bad_package: 'Выберите тариф.',
+  bad_gender: 'Выберите пол.',
+  bad_wardrobe: 'Некоторые позиции недоступны — обновите страницу.',
+  empty_pool: 'Выберите хотя бы одну одежду и один фон.',
+  pool_too_small: 'Добавьте больше одежды или фонов для нужного числа образов.',
   order_not_found: 'Заказ не найден или уже в работе.',
 }
 export const errText = (e) => ERRORS[e && e.code] || 'Что-то пошло не так, попробуйте ещё раз.'
