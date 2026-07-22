@@ -4,11 +4,14 @@
 о заявке. Цена за сотрудника — со скидкой от тарифа «Оптимальный» (BASE) по
 объёмной лесенке. Каждый сотрудник получает эквивалент «Оптимального».
 """
-BASE = 1490  # цена за 1 сотрудника без скидки (тариф «Оптимальный»)
+from core.packages import get_package
+
+_BASE_PKG = get_package("pro")  # эквивалент «Оптимального» каждому сотруднику
+BASE = _BASE_PKG.price_rub  # цена за 1 сотрудника без скидки
 # (порог сотрудников, цена за сотрудника) — от большего к меньшему.
 LADDER = [(100, 790), (50, 890), (25, 990), (10, 1090), (5, 1290)]
-PORTRAITS_PER_SEAT = 80
-STYLES_PER_SEAT = 8
+PORTRAITS_PER_SEAT = _BASE_PKG.portraits
+STYLES_PER_SEAT = _BASE_PKG.styles
 MAX_HEADCOUNT = 100_000
 
 
