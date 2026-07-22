@@ -170,6 +170,9 @@ export function mergePatch(draft, patch) {
     buyerName: "покупатель",
     buyerInn: "ИНН покупателя",
     expenses: "расходы на покупку",
+    cadastralNumber: "кадастровый номер",
+    cadastralValue: "кадастровая стоимость",
+    acquireDate: "дата приобретения",
   });
   mergeSection("medical", { ordinary: "лечение", expensive: "дорогостоящее лечение" });
   mergeSection("iis", { contribution: "взносы на ИИС" });

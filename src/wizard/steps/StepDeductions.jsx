@@ -2,8 +2,8 @@
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
 import { useWizard } from "../WizardContext.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
-import { wizardDeductions, HINTS, SALE_SLUGS, isSaleDraft } from "../../data/wizard.js";
-import { YEARS, refundDeadlineYear, SALE_YEARS, saleSupported } from "../../lib/ndfl/refs.js";
+import { wizardDeductions, HINTS, SALE_SLUGS, isSaleDraft, saleKindOf } from "../../data/wizard.js";
+import { YEARS, refundDeadlineYear, saleYearsFor, saleSupportedFor } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
 
 // Подпись о сроке возврата под выбором года: возврат возможен за три
@@ -46,18 +46,24 @@ export default function StepDeductions({ errors }) {
     const next = cur.includes(slug) ? cur.filter((t) => t !== slug) : [...cur, slug];
     dispatch({ type: "SET", key: "types", value: next });
   };
-  const toggleSale = () => {
-    if (saleActive) {
+  // Продажа авто и недвижимости — разные декларации, взаимоисключающие и с
+  // возвратом несовместимы. Повторный клик по активной плитке снимает продажу.
+  // Список поддержанных лет зависит от типа продажи (у недвижимости уже).
+  const toggleSale = (slug) => {
+    if (draft.types.includes(slug)) {
       dispatch({ type: "SET", key: "types", value: [] });
-    } else {
-      dispatch({ type: "SET", key: "types", value: ["prodazha_auto"] });
-      if (!saleSupported(draft.year))
-        dispatch({ type: "SET", key: "year", value: SALE_YEARS[0] });
+      return;
     }
+    const kind = slug === "prodazha_realty" ? "realty" : "auto";
+    dispatch({ type: "SET", key: "types", value: [slug] });
+    dispatch({ type: "PATCH", section: "sale", patch: { kind } });
+    if (!saleSupportedFor(kind, draft.year))
+      dispatch({ type: "SET", key: "year", value: saleYearsFor(kind)[0] });
   };
 
-  // При продаже год ограничен поддержанными формами.
-  const years = saleActive ? [...YEARS].filter(saleSupported) : YEARS;
+  // При продаже год ограничен поддержанными формами (у недвижимости — уже).
+  const saleYears = saleYearsFor(saleKindOf(draft));
+  const years = saleActive ? [...YEARS].filter((y) => saleYears.includes(y)) : YEARS;
 
   return (
     <div>
@@ -81,8 +87,8 @@ export default function StepDeductions({ errors }) {
         </div>
         {saleActive && (
           <div className="doc-note doc-note--ok" style={{ marginTop: 10 }}>
-            Продажу автомобиля декларируем за{" "}
-            {[...SALE_YEARS].sort((a, b) => a - b).join(" и ")} год — выберите
+            Продажу декларируем за{" "}
+            {[...saleYears].sort((a, b) => a - b).join(", ")} год — выберите
             нужный. За более ранние годы напишите в поддержку.
           </div>
         )}
@@ -126,19 +132,28 @@ export default function StepDeductions({ errors }) {
       <div className="form__field">
         <label>…или задекларируйте доход от продажи</label>
         <div className="wiz__types">
-          <button
-            type="button"
-            className={"wiz__type" + (saleActive ? " is-active" : "")}
-            aria-pressed={saleActive}
-            onClick={toggleSale}
-          >
-            <span className="wiz__type-icon" aria-hidden="true">🚗</span>
-            <span>
-              <span className="wiz__type-title">Продал автомобиль</span>
-              <span className="wiz__type-limit">рассчитаем налог к уплате</span>
-            </span>
-            <span className="wiz__type-check" aria-hidden="true">{saleActive ? "✓" : ""}</span>
-          </button>
+          {[
+            { slug: "prodazha_auto", icon: "🚗", title: "Продал автомобиль" },
+            { slug: "prodazha_realty", icon: "🏠", title: "Продал недвижимость" },
+          ].map((t) => {
+            const active = draft.types.includes(t.slug);
+            return (
+              <button
+                key={t.slug}
+                type="button"
+                className={"wiz__type" + (active ? " is-active" : "")}
+                aria-pressed={active}
+                onClick={() => toggleSale(t.slug)}
+              >
+                <span className="wiz__type-icon" aria-hidden="true">{t.icon}</span>
+                <span>
+                  <span className="wiz__type-title">{t.title}</span>
+                  <span className="wiz__type-limit">рассчитаем налог к уплате</span>
+                </span>
+                <span className="wiz__type-check" aria-hidden="true">{active ? "✓" : ""}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

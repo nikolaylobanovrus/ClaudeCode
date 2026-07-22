@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "./WizardContext.jsx";
-import { isSaleDraft } from "../data/wizard.js";
+import { isSaleDraft, saleKindOf } from "../data/wizard.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { parseDocuments, mergePatch, DocParseError, MAX_FILES } from "../lib/docParse.js";
 import { ymGoal } from "../lib/metrika.js";
@@ -18,6 +18,7 @@ const ACCEPT = "image/*,.pdf,.heic,.heif";
 export default function DocAutofill() {
   const { draft, dispatch } = useWizard();
   const sale = isSaleDraft(draft);
+  const saleRealty = sale && saleKindOf(draft) === "realty";
   const enabled = useFeatureFlag("doc_autofill");
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState([]);
@@ -108,9 +109,11 @@ export default function DocAutofill() {
           <p className="autofill__hint">
             {sale ? (
               <>
-                Подойдёт фото или PDF договора купли-продажи автомобиля (и
-                договора покупки, если заявляете расходы). Распознаем цену, дату
-                и покупателя и подставим только в пустые поля — введённое вами не
+                Подойдёт фото или PDF договора купли-продажи
+                {saleRealty ? " недвижимости и выписки ЕГРН" : " автомобиля"} (и
+                договора покупки, если заявляете расходы). Распознаем
+                {saleRealty ? " цену, кадастровый номер, даты" : " цену, дату"} и
+                покупателя и подставим только в пустые поля — введённое вами не
                 изменится.
               </>
             ) : (

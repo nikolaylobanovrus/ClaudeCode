@@ -112,6 +112,17 @@ export function validateName(value, label) {
   return "";
 }
 
+// Кадастровый номер: группы цифр, разделённые двоеточиями (обычно 4 группы,
+// напр. 74:36:0000000:1234). Проверка мягкая — формат кадастрового номера у
+// разных объектов различается длиной групп.
+export function validateCadastral(value) {
+  const v = String(value || "").trim();
+  if (!v) return "Укажите кадастровый номер";
+  if (!/^\d{1,3}(:\d{1,14}){2,3}$/.test(v))
+    return "Кадастровый номер — цифры, разделённые двоеточиями (напр. 74:36:0000000:1234)";
+  return "";
+}
+
 // Сегодняшняя дата в формате YYYY-MM-DD по ЛОКАЛЬНОМУ времени пользователя.
 // new Date("YYYY-MM-DD") парсится как полночь UTC — сравнение с ней ошибочно
 // отбраковывало «сегодня» у пользователей восточнее Гринвича сразу после
@@ -226,12 +237,25 @@ export function validateStep(stepKey, draft) {
 
   if (stepKey === "sale") {
     const s = draft.sale || {};
+    const realty = (draft.types || []).includes("prodazha_realty");
     put(e, "sale.price", validateMoney(s.price, "цену продажи"));
     if (!e["sale.price"] && !positive(s.price))
       put(e, "sale.price", "Укажите цену продажи");
     put(e, "sale.saleDate", validateDate(s.saleDate, "дату продажи"));
     if (!e["sale.saleDate"] && String(s.saleDate).slice(0, 4) !== String(draft.year))
       put(e, "sale.saleDate", `Дата продажи должна быть в ${draft.year} году`);
+    if (realty) {
+      // Кадастровый номер и стоимость нужны для «Расчёта к Приложению 1»
+      // (сверка по правилу кадастр × 0,7) — в XML все поля обязательны.
+      put(e, "sale.cadastralNumber", validateCadastral(s.cadastralNumber));
+      put(e, "sale.cadastralValue", validateMoney(s.cadastralValue, "кадастровую стоимость"));
+      if (!e["sale.cadastralValue"] && !positive(s.cadastralValue))
+        put(e, "sale.cadastralValue", "Укажите кадастровую стоимость (можно узнать на сайте Росреестра)");
+      // Дата приобретения — для проверки срока владения.
+      put(e, "sale.acquireDate", validateDate(s.acquireDate, "дату приобретения"));
+      if (!e["sale.acquireDate"] && !e["sale.saleDate"] && s.acquireDate > s.saleDate)
+        put(e, "sale.acquireDate", "Дата приобретения не может быть позже даты продажи");
+    }
     put(e, "sale.buyerName", validateName(s.buyerName, "покупателя"));
     if (s.deductionKind === "expenses") {
       put(e, "sale.expenses", validateMoney(s.expenses, "расходы на покупку"));

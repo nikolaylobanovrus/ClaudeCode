@@ -8,7 +8,7 @@ import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-2025.pdf (порядок задан при нарезке бланка).
 // app6 — лист Приложения 6 (доходы от продажи), добавлен восьмой страницей.
-const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8 };
+const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9 };
 
 export async function buildOfficialPdf2025(model) {
   const { person, calc } = model;
@@ -24,6 +24,9 @@ export async function buildOfficialPdf2025(model) {
         { tpl: PG.r2, fill: fillR2 },
         { tpl: PG.app1, fill: fillApp1Sale },
         { tpl: PG.app6, fill: fillApp6 },
+        // Недвижимость: лист «Расчёт к Приложению 1» — сверка дохода с
+        // кадастровой стоимостью (ст. 214.10 НК).
+        ...(sale.kind === "realty" ? [{ tpl: PG.raschet, fill: fillRaschet }] : []),
       ]
     : [
         { tpl: PG.title, fill: fillTitle },
@@ -140,13 +143,35 @@ export async function buildOfficialPdf2025(model) {
   }
 
   // --- Приложение 6: имущественный вычет по доходам от продажи -----------------
-  // Авто (иное имущество, пункт 3): строка 070 — вычет 250 000 ₽ ЛИБО строка
-  // 080 — документально подтверждённые расходы; строка 160 — итог вычета.
+  // Строка 160 — итоговая сумма вычетов (общая для всех пунктов). Пункт по типу
+  // имущества: жильё и земля (пункт 1) — строка 010 (вычет до 1 млн ₽) ЛИБО 020
+  // (расходы); авто и иное движимое (пункт 3) — строка 070 (вычет 250 тыс ₽)
+  // ЛИБО 080 (расходы).
   function fillApp6(pen) {
     const X = 422.7;
-    if (sale.deductionKind === "expenses") pen.money(sale.deduction, X, 468.7, 8); // 080 расходы
-    else pen.money(sale.deduction, X, 494.2, 8); // 070 вычет
+    const expenses = sale.deductionKind === "expenses";
+    if (sale.kind === "realty") {
+      if (expenses) pen.money(sale.deduction, X, 652.9, 8); // 020 расходы
+      else pen.money(sale.deduction, X, 678.4, 8); // 010 вычет 1 млн
+    } else {
+      if (expenses) pen.money(sale.deduction, X, 468.7, 8); // 080 расходы
+      else pen.money(sale.deduction, X, 494.2, 8); // 070 вычет 250 тыс
+    }
     pen.money(sale.deduction, X, 64.9, 8); // 160 общая сумма вычетов
+  }
+
+  // --- Расчёт к Приложению 1: сверка дохода с кадастровой стоимостью -----------
+  // Пункт 1 (недвижимость): 010 — признак «1» (отчуждение); 020 — кадастровый
+  // номер; 030 — кадастровая стоимость (ст. 214.10); 040 — доход по цене
+  // договора; 050 — кадастр × коэффициент 0,7; 060 — доход к налогообложению
+  // (большее из 040 и 050). Кадастровую стоимость требуем на шаге «Продажа».
+  function fillRaschet(pen) {
+    pen.left("1", 17.3, 685, 1); // 010 признак — отчуждение
+    pen.left(sale.cadastralNumber, 14.2, 645, 40); // 020 кадастровый номер
+    pen.money(sale.cadastral, 14.2, 558.8, 13); // 030 кадастровая стоимость
+    pen.money(sale.price, 334.8, 558.8, 13); // 040 доход по цене договора
+    pen.money(sale.cadastralTaxable, 14.2, 501.1, 13); // 050 кадастр × 0,7
+    pen.money(sale.taxable, 334.8, 501.1, 13); // 060 доход к налогообложению
   }
 
   // --- Приложение 5, лист 1: соц. вычеты без ограничения + своё обучение -------

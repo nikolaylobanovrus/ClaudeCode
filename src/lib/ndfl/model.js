@@ -67,10 +67,18 @@ export function buildDeclarationModel(draft) {
   // берём из SALE_CODES; для источника-физлица (покупателя) в Приложении 1
   // пишем ФИО и, если известен, ИНН.
   const saleCodes = SALE_CODES[draft.year] || SALE_CODES[2025];
+  // Код вида дохода (Приложение 1, строка 010) — единый для любой продажи
+  // имущества (недвижимость и авто), см. SALE_CODES.
+  const saleIncomeCode = calc.sale ? saleCodes.income : "";
   const sale = calc.sale
     ? {
-        kind: calc.sale.kind,
+        kind: calc.sale.kind, // "auto" | "realty"
+        objectKind: calc.sale.objectKind, // вид объекта недвижимости (flat/house/…)
         price: calc.sale.price,
+        cadastral: calc.sale.cadastral, // кадастровая стоимость (недвижимость)
+        cadastralTaxable: calc.sale.cadastralTaxable, // кадастр × 0,7
+        cadastralNumber: trim(calc.sale.cadastralNumber),
+        byCadastral: calc.sale.byCadastral, // доход исчислен по кадастру
         taxable: calc.sale.taxable,
         deductionKind: calc.sale.deductionKind, // "standard" | "expenses"
         deduction: calc.sale.deduction,
@@ -81,7 +89,7 @@ export function buildDeclarationModel(draft) {
           inn: digits(calc.sale.buyer.inn),
         },
         groupCode: saleCodes.group, // Раздел 2, строка 001
-        incomeCode: saleCodes.incomeAuto, // Приложение 1, строка 010 (авто/иное)
+        incomeCode: saleIncomeCode, // Приложение 1, строка 010
       }
     : null;
 

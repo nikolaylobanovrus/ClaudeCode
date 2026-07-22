@@ -71,13 +71,18 @@ const scenarios = [
 const saleScenarios = [
   { tag: "продажа авто, вычет 250к", sale: { kind: "auto", price: "600000", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" } },
   { tag: "продажа авто, расходы", sale: { kind: "auto", price: "600000", deductionKind: "expenses", expenses: "550000", buyerName: "Петров Пётр Петрович", buyerInn: "500100732259" } },
+  // Недвижимость: (1) доход по цене договора (договор ≥ кадастр × 0,7),
+  // (2) доход по кадастру (кадастр × 0,7 > договор) — разные коды Прил. 1.
+  { tag: "продажа квартиры, доход по договору", sale: { kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1234", cadastralValue: "3000000", price: "4000000", saleDate: `${2025}-06-10`, acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" } },
+  { tag: "продажа дома, доход по кадастру", sale: { kind: "realty", objectKind: "house", cadastralNumber: "74:36:0000000:5678", cadastralValue: "8000000", price: "3000000", saleDate: `${2025}-06-10`, acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "expenses", expenses: "2000000", buyerName: "Петров Пётр Петрович", buyerInn: "500100732259" } },
 ];
 const saleDraft = (year, sale) => ({
   year,
-  types: ["prodazha_auto"],
+  types: [sale.kind === "realty" ? "prodazha_realty" : "prodazha_auto"],
   personal: sampleDraft(year).personal,
   incomes: [],
-  sale,
+  // saleDate завязан на отчётный год — подставляем текущий год сценария.
+  sale: { ...sale, saleDate: sale.saleDate ? `${year}-06-10` : sale.saleDate },
 });
 
 const tmp = mkdtempSync(join(tmpdir(), "ndfl-xml-"));

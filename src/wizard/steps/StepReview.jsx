@@ -2,7 +2,7 @@
 // calc приходит из WizardShell — расчёт выполняется один раз на рендер.
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
-import { yearRules, SALE_DEDUCTION } from "../../lib/ndfl/refs.js";
+import { yearRules, SALE_DEDUCTION, SALE_REALTY_OBJECTS } from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
 
 export default function StepReview({ calc }) {
@@ -14,10 +14,20 @@ export default function StepReview({ calc }) {
   if (calc.sale) {
     const s = calc.sale;
     const expenses = s.deductionKind === "expenses";
+    const realty = s.kind === "realty";
+    const objectLabel = realty
+      ? SALE_REALTY_OBJECTS.find((o) => o.value === s.objectKind)?.label || "Недвижимость"
+      : "Автомобиль (иное имущество)";
     const saleRows = [
       ["Отчётный год", draft.year, "types"],
-      ["Что продали", "Автомобиль (иное имущество)", "sale"],
+      ["Что продали", objectLabel, "sale"],
       ["Цена продажи", fmtRub(s.price), "sale"],
+      ...(realty
+        ? [
+            ["Кадастровый номер", s.cadastralNumber || "—", "sale"],
+            ["Кадастровая стоимость", fmtRub(s.cadastral), "sale"],
+          ]
+        : []),
       [expenses ? "Расходы на покупку" : "Вычет", fmtRub(s.deduction), "sale"],
       ["Покупатель", draft.sale?.buyerName || "—", "sale"],
       ["ФИО", [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" "), "personal"],
@@ -47,7 +57,11 @@ export default function StepReview({ calc }) {
             <span>{fmtRub(s.taxable)}</span>
           </div>
           <div className="wiz__calc-row">
-            <span>{expenses ? "Расходы на покупку" : `Вычет ${fmtRub(SALE_DEDUCTION.other)}`}</span>
+            <span>
+              {expenses
+                ? "Расходы на покупку"
+                : `Вычет ${fmtRub(realty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other)}`}
+            </span>
             <span>−{fmtRub(s.deduction)}</span>
           </div>
           <div className="wiz__calc-row wiz__calc-row--total">

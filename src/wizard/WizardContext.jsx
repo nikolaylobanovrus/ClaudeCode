@@ -66,13 +66,19 @@ export function emptyIncome() {
 
 export function emptySale() {
   return {
-    kind: "auto", // фаза 1 — только автомобиль (иное имущество)
+    kind: "auto", // "auto" (иное имущество) | "realty" (недвижимость)
     price: "", // цена продажи по ДКП
     saleDate: "", // дата договора
-    deductionKind: "standard", // "standard" (250 000 ₽) | "expenses"
+    deductionKind: "standard", // "standard" (250 000 / 1 000 000 ₽) | "expenses"
     expenses: "", // расходы на покупку (если deductionKind === "expenses")
     buyerName: "", // ФИО покупателя
     buyerInn: "", // ИНН покупателя (необязательно)
+    // --- Только недвижимость (kind === "realty") ---
+    objectKind: "flat", // вид объекта (квартира/дом/комната/участок)
+    cadastralNumber: "", // кадастровый номер (для «Расчёта к Приложению 1»)
+    cadastralValue: "", // кадастровая стоимость, ₽ (правило кадастр × 0,7)
+    acquireDate: "", // дата приобретения (для проверки срока владения)
+    realtyBasis: "purchase", // основание приобретения (влияет на льготный срок)
   };
 }
 

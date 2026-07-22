@@ -11,6 +11,7 @@ import {
   RATE,
   SALE_DEDUCTION,
   SALE_CADASTRAL_COEF,
+  saleMinHolding,
   yearRules,
   refundDeadlineYear,
 } from "./refs.js";
@@ -20,6 +21,20 @@ const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
+
+// Полных лет владения между покупкой и продажей (обе даты ISO «ГГГГ-ММ-ДД»).
+// Возвращает null, если какой-то даты нет. Считаем календарные годы: срок
+// истекает в ту же дату спустя N лет (день покупки — начало владения).
+function holdingYears(acquireIso, saleIso) {
+  if (!acquireIso || !saleIso) return null;
+  const a = String(acquireIso).split("-").map(Number);
+  const s = String(saleIso).split("-").map(Number);
+  if (a.length !== 3 || s.length !== 3 || a.some(Number.isNaN) || s.some(Number.isNaN))
+    return null;
+  let years = s[0] - a[0];
+  if (s[1] < a[1] || (s[1] === a[1] && s[2] < a[2])) years -= 1; // ещё не «доллетал»
+  return years;
+}
 
 // Продажа имущества → Приложение 6, налог К УПЛАТЕ (пп. 1 п. 2 ст. 220 НК).
 // Возвращает null, если ситуация продажи не выбрана. Для авто (иного имущества)
@@ -35,18 +50,23 @@ function computeSale(draft, warnings) {
   const s = draft.sale || {};
   const price = num(s.price);
   const cadastral = isRealty ? num(s.cadastralValue) : 0;
-  const taxable =
-    isRealty && cadastral > 0
-      ? Math.max(price, Math.round(cadastral * SALE_CADASTRAL_COEF))
-      : price;
-  if (isRealty && cadastral > 0 && Math.round(cadastral * SALE_CADASTRAL_COEF) > price) {
+  const cadastralTaxable = cadastral > 0 ? Math.round(cadastral * SALE_CADASTRAL_COEF) : 0;
+  // Доход к налогообложению: для недвижимости — большее из цены договора и
+  // 0,7 кадастра (ст. 214.10); для авто — цена договора. Основание дохода
+  // (договор/кадастр) определяет код вида дохода в Приложении 1.
+  const byCadastral = isRealty && cadastralTaxable > price;
+  const taxable = byCadastral ? cadastralTaxable : price;
+  if (byCadastral) {
     warnings.push(
       `Доход по договору (${fmtRub(price)}) меньше кадастровой стоимости × 0,7 (${fmtRub(
-        Math.round(cadastral * SALE_CADASTRAL_COEF)
+        cadastralTaxable
       )}) — по ст. 214.10 НК налог считается с большей суммы.`
     );
   }
 
+  // Вычет: жильё и земля целиком — 1 000 000 ₽ (пункт 1 Приложения 6), иное
+  // имущество (авто) — 250 000 ₽. Либо документально подтверждённые расходы
+  // на покупку. Вычет не может превышать доход.
   const limit = isRealty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
   const useExpenses = s.deductionKind === "expenses";
   const expenses = num(s.expenses);
@@ -59,15 +79,37 @@ function computeSale(draft, warnings) {
   const base = Math.max(0, taxable - deduction);
   const tax = Math.round(base * RATE);
 
+  // Честная проверка срока владения (ст. 217.1 НК): владел дольше минимального
+  // срока — доход НЕ облагается и декларацию подавать не нужно. Не берём за это
+  // деньги — прямо сообщаем клиенту. minHolding: авто 3 года; недвижимость 5
+  // лет (3 в льготных случаях — наследство/дар/приватизация/рента/единственное).
+  const minHolding = saleMinHolding(isRealty ? "realty" : "auto", s.realtyBasis);
+  const held = holdingYears(s.acquireDate, s.saleDate);
+  const holdingExempt = held !== null && held >= minHolding;
+  if (holdingExempt) {
+    warnings.push(
+      `Вы владели этим имуществом ${held} ${held === 1 ? "год" : "лет"} — это не меньше ` +
+        `минимального срока (${minHolding} ${minHolding === 3 ? "года" : "лет"}). ` +
+        `Доход от продажи налогом не облагается и декларацию 3-НДФЛ подавать НЕ нужно.`
+    );
+  }
+
   return {
     kind: isRealty ? "realty" : "auto",
+    objectKind: isRealty ? String(s.objectKind || "flat") : "",
+    cadastralNumber: isRealty ? String(s.cadastralNumber || "").trim() : "",
     price,
     cadastral,
+    cadastralTaxable,
     taxable,
+    byCadastral, // доход исчислен по кадастру (влияет на код Приложения 1)
     deductionKind: useExpenses ? "expenses" : "standard",
     deduction,
     base,
     tax,
+    minHolding,
+    held,
+    holdingExempt,
     buyer: {
       name: String(s.buyerName || "").trim(),
       inn: String(s.buyerInn || "").replace(/\D/g, ""),

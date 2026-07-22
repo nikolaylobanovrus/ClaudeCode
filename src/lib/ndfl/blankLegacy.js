@@ -24,8 +24,9 @@ import { CODES } from "./refs.js";
 import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-20XX.pdf (порядок задан при нарезке бланков).
-// app6 (доходы от продажи) добавлен восьмой страницей в бланки с продажей.
-const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8 };
+// app6 (доходы от продажи) добавлен восьмой страницей в бланки с продажей;
+// raschet (Расчёт к Приложению 1, недвижимость) — девятой, где он есть.
+const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9 };
 
 // --- Координатные карты (pt, левый нижний угол; см. docs/fns-blank-2025.md) --
 // Формы 2022 и 2023 сверстаны одинаково, кроме листа 1 Приложения 5
@@ -109,8 +110,16 @@ const MAPS = {
       base: [368.8, 199], claim: 176, claimInt: 146, rest: 116, restInt: 93,
     },
     // Приложение 6 (доходы от продажи) формы 757@ свёрстано как в 913@:
-    // координаты строк 070/080/160 совпали с бланком 2025 (сверено pdfminer).
-    app6: { x: 422.7, y070: 494.2, y080: 468.7, y160: 64.9 },
+    // координаты строк совпали с бланком 2025 (сверено pdfminer). Строки жилья
+    // 010/020 (пункт 1) — как в 2025.
+    app6: { x: 422.7, y010: 678.4, y020: 652.9, y070: 494.2, y080: 468.7, y160: 64.9 },
+    // Расчёт к Приложению 1 (недвижимость), лист 757@ штрихкод 0332 1157. В
+    // отличие от 913@ строки-признака нет (плоский ДохПродОНИ): 010 —
+    // кадастровый номер; 020 — кадастровая стоимость (левый столбец) и 030 —
+    // доход по цене договора (правый) в одном ряду; 040 — кадастр × коэф.
+    // (левый) и 050 — доход к налогообложению (правый) в следующем ряду.
+    // Денежные X/точки — как на других листах (сверено pdfminer, offset +6,4).
+    raschet: { cadNum: [14.2, 714.6], cadX: 14.2, docX: 334.8, rub: 13, yTop: 633.8, yBot: 580.4 },
   },
 };
 
@@ -130,6 +139,8 @@ export async function buildOfficialPdfLegacy(model) {
         { tpl: PG.r2, fill: fillR2 },
         { tpl: PG.app1, fill: fillApp1Sale },
         { tpl: PG.app6, fill: fillApp6 },
+        // Недвижимость: лист «Расчёт к Приложению 1» (есть в бланках с raschet).
+        ...(sale.kind === "realty" && M.raschet ? [{ tpl: PG.raschet, fill: fillRaschet }] : []),
       ]
     : [
         { tpl: PG.title, fill: fillTitle },
@@ -230,7 +241,7 @@ export async function buildOfficialPdfLegacy(model) {
   // --- Приложение 1 (продажа): источник дохода — покупатель --------------------
   function fillApp1Sale(pen) {
     const A = M.app1, b = sale.buyer;
-    pen.left(sale.incomeCode, A.codeX, A.codeY[0], 2); // 010 код вида дохода — 03
+    pen.left(sale.incomeCode, A.codeX, A.codeY[0], 2); // 010 код вида дохода — 18 (продажа имущества)
     pen.right(String(model.ratePercent), A.rateX, A.codeY[0], 2);
     if (b.inn.length === 12) pen.left(b.inn, A.innX, A.idY[0], 12); // ИНН физлица
     pen.left(person.oktmo, A.oktmoX, A.idY[0], 11); // ОКТМО по месту жительства
@@ -240,11 +251,33 @@ export async function buildOfficialPdfLegacy(model) {
   }
 
   // --- Приложение 6: имущественный вычет по доходам от продажи -----------------
+  // Жильё/земля (пункт 1): строка 010 (вычет 1 млн ₽) / 020 (расходы); авто и
+  // иное движимое (пункт 3): 070 (вычет 250 тыс) / 080 (расходы). 160 — итог.
   function fillApp6(pen) {
     const A = M.app6;
-    if (sale.deductionKind === "expenses") pen.money(sale.deduction, A.x, A.y080, 8); // 080 расходы
-    else pen.money(sale.deduction, A.x, A.y070, 8); // 070 вычет
+    const expenses = sale.deductionKind === "expenses";
+    if (sale.kind === "realty") {
+      if (expenses) pen.money(sale.deduction, A.x, A.y020, 8); // 020 расходы
+      else pen.money(sale.deduction, A.x, A.y010, 8); // 010 вычет 1 млн
+    } else {
+      if (expenses) pen.money(sale.deduction, A.x, A.y080, 8); // 080 расходы
+      else pen.money(sale.deduction, A.x, A.y070, 8); // 070 вычет 250 тыс
+    }
     pen.money(sale.deduction, A.x, A.y160, 8); // 160 общая сумма вычетов
+  }
+
+  // --- Расчёт к Приложению 1 (недвижимость) -----------------------------------
+  // Плоская структура форм до 2025 (без строки-признака): 010 кадастровый
+  // номер; ряд yTop: 020 кадастровая стоимость (левый) + 030 доход по договору
+  // (правый); ряд yBot: 040 кадастр × коэф. (левый) + 050 доход к
+  // налогообложению (правый). Кадастровую стоимость требуем на шаге «Продажа».
+  function fillRaschet(pen) {
+    const R = M.raschet;
+    pen.left(sale.cadastralNumber, R.cadNum[0], R.cadNum[1], 40); // 010
+    pen.money(sale.cadastral, R.cadX, R.yTop, R.rub); // 020 кадастровая стоимость
+    pen.money(sale.price, R.docX, R.yTop, R.rub); // 030 доход по цене договора
+    pen.money(sale.cadastralTaxable, R.cadX, R.yBot, R.rub); // 040 кадастр × 0,7
+    pen.money(sale.taxable, R.docX, R.yBot, R.rub); // 050 доход к налогообложению
   }
 
   // --- Приложение 5, лист 1 -------------------------------------------------------
