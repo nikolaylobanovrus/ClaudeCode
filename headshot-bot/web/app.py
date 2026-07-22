@@ -5,6 +5,7 @@
 """
 import asyncio
 import base64
+import re
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -19,7 +20,7 @@ from sqlalchemy import func, select
 from config import load_settings
 from core.db import init_db, make_engine, make_session_factory
 from core.email import send_email
-from core.models import FreePreview, Job, Photo, TeamLead, User, utcnow
+from core.models import FreePreview, Job, Photo, RemixTask, TeamLead, User, utcnow
 from core.teams import team_quote
 from core.packages import PACKAGES, RECOMMENDED_CODE, get_package
 from core.payments import YooKassaClient, customer_from_contact
@@ -614,12 +615,19 @@ async def order_status(request: Request, token: str):
             Photo.job_id == job.id, Photo.kind == Photo.RESULT
         )
         results = (await session.execute(results_stmt)).scalars().all()
+        pending_remixes = (await session.execute(
+            select(func.count()).select_from(RemixTask).where(
+                RemixTask.job_id == job.id, RemixTask.state == RemixTask.PENDING))
+        ).scalar() or 0
     return {
         "state": job.state,
         "photos": photos,
         "min": MIN_PHOTOS,
         "max": MAX_PHOTOS,
         "package": job.package_code,
+        "gender": job.gender,
+        "remixes_left": job.remixes_left or 0,
+        "pending_remixes": pending_remixes,
         "results": [
             {"id": p.id, "style": p.style, "url": f"/api/orders/{token}/result/{p.id}"}
             for p in results
@@ -627,6 +635,63 @@ async def order_status(request: Request, token: str):
         if JobState(job.state) is JobState.DONE
         else [],
     }
+
+
+_LOOK_RE = re.compile(r"^(?:look|remix)\d+_(.+)__(.+)$")
+
+
+def _split_look(style: str) -> tuple[str, str] | None:
+    """Из ключа кадра (look{i}_{cl}__{bg} / remix{i}_{cl}__{bg}) вернуть (cl, bg)."""
+    m = _LOOK_RE.match(style or "")
+    return (m.group(1), m.group(2)) if m else None
+
+
+@app.post("/api/orders/{token}/remix")
+async def order_remix(
+    request: Request,
+    token: str,
+    source: str = Form(...),          # style-ключ кадра-источника
+    mode: str = Form(...),            # clothing | background | regen
+    clothing: str = Form(""),        # новый ключ одежды (mode=clothing)
+    background: str = Form(""),      # новый ключ фона (mode=background)
+):
+    """Remix готового заказа: 1 credit → 1 новый кадр на обученной модели.
+    Сменить одежду / сменить фон / перегенерировать."""
+    if mode not in ("clothing", "background", "regen"):
+        return JSONResponse({"error": "bad_mode"}, status_code=422)
+    job = await _job_by_token(request, token)
+    if job is None or JobState(job.state) is not JobState.DONE or not job.model_ref:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    pair = _split_look(source)
+    if pair is None:
+        return JSONResponse({"error": "bad_source"}, status_code=422)
+    cur_cl, cur_bg = pair
+    new_cl = clothing if mode == "clothing" else cur_cl
+    new_bg = background if mode == "background" else cur_bg
+    wl: WardrobeLibrary = request.app.state.wardrobe
+    try:
+        wl.resolve("clothing", [new_cl], job.gender)
+        wl.resolve("background", [new_bg])
+    except ValueError:
+        return JSONResponse({"error": "bad_wardrobe"}, status_code=422)
+
+    # Резервируем credit атомарно: списываем только если остаток > 0.
+    async with request.app.state.session_factory() as session:
+        db_job = await session.get(Job, job.id)
+        # Источник должен принадлежать этому заказу.
+        owns = (await session.execute(select(func.count()).select_from(Photo).where(
+            Photo.job_id == job.id, Photo.kind == Photo.RESULT, Photo.style == source))
+        ).scalar() or 0
+        if not owns:
+            return JSONResponse({"error": "bad_source"}, status_code=422)
+        if (db_job.remixes_left or 0) <= 0:
+            return JSONResponse({"error": "no_remixes"}, status_code=409)
+        db_job.remixes_left -= 1
+        session.add(RemixTask(job_id=job.id, mode=mode,
+                              clothing_key=new_cl, background_key=new_bg))
+        await session.commit()
+        left = db_job.remixes_left
+    return {"ok": True, "remixes_left": left}
 
 
 @app.get("/api/orders/{token}/result/{photo_id}")

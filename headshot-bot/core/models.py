@@ -152,6 +152,29 @@ class TeamLead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RemixTask(Base):
+    """Запрос на remix готового заказа: 1 credit = 1 новый кадр на обученной
+    модели. Обрабатывается воркером (как и генерация)."""
+
+    __tablename__ = "remix_tasks"
+
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+    CLOTHING = "clothing"    # новая одежда, тот же фон
+    BACKGROUND = "background"  # новый фон, та же одежда
+    REGEN = "regen"          # тот же образ, новый рендер
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), index=True)
+    mode: Mapped[str] = mapped_column(String(16))
+    clothing_key: Mapped[str] = mapped_column(String(64))
+    background_key: Mapped[str] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(16), default=PENDING, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Photo(Base):
     __tablename__ = "photos"
 

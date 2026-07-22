@@ -85,6 +85,7 @@ export default function Order() {
   const [selClo, setSelClo] = useState([])
   const [selBg, setSelBg] = useState([])
   const [order, setOrder] = useState(null)
+  const [remixTick, setRemixTick] = useState(0)  // перезапуск поллинга после remix
   const [msg, setMsg] = useState({ text: '', error: false })
   const drop = useRef(null)
   const thumbsRef = useRef([])
@@ -143,12 +144,14 @@ export default function Order() {
       if (!alive) return
       setOrder(d)
       if (step === 3 && d.state === 'collecting') { setCount(d.photos); setStep(4) }
-      if (['done', 'failed', 'cancelled'].includes(d.state)) clearInterval(id)
+      // На готовом заказе продолжаем поллинг, пока есть remix в работе.
+      const terminal = ['done', 'failed', 'cancelled'].includes(d.state)
+      if (terminal && !(d.pending_remixes > 0)) clearInterval(id)
     }).catch(() => {})
     tick()
     id = setInterval(tick, 5000)
     return () => { alive = false; clearInterval(id) }
-  }, [step, token])
+  }, [step, token, remixTick])
 
   // Ревок object URL превью-миниатюр при размонтировании.
   useEffect(() => () => thumbsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
@@ -431,15 +434,42 @@ export default function Order() {
         </div>
       )}
 
-      {step === 5 && order && <Result order={order} />}
+      {step === 5 && order && (
+        <Result order={order} token={token} onRemixed={() => setRemixTick((t) => t + 1)} />
+      )}
     </div>
   )
 }
 
-function Result({ order }) {
+function Result({ order, token, onRemixed }) {
   const idx = ['training', 'generating', 'done'].indexOf(order.state)
   const done = order.state === 'done'
   const failed = ['failed', 'cancelled'].includes(order.state)
+  const left = order.remixes_left || 0
+  const [remixMode, setRemixMode] = useState(false)
+  const [source, setSource] = useState(null)   // style-ключ выбранного кадра
+  const [picker, setPicker] = useState(null)   // null | 'clothing' | 'background'
+  const [cat, setCat] = useState({ categories: [], items: [] })
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  async function openPicker(kind) {
+    setNote(''); setPicker(kind)
+    try {
+      setCat(await api.wardrobe(kind, kind === 'clothing' ? (order.gender || 'male') : 'male'))
+    } catch { setNote('Не удалось загрузить каталог') }
+  }
+  async function fire(payload) {
+    if (busy) return
+    setBusy(true); setNote('')
+    try {
+      const d = await api.remix(token, { source, ...payload })
+      setSource(null); setPicker(null)
+      setNote(`Готовим новый кадр — появится в галерее через минуту. Осталось remix: ${d.remixes_left}.`)
+      onRemixed?.()
+    } catch (e) { setNote(errText(e)) } finally { setBusy(false) }
+  }
+
   return (
     <div className="card">
       <h2 style={{ fontSize: 22 }}>{done ? 'Ваши портреты готовы 🎉' : 'Генерация запущена'}</h2>
@@ -459,13 +489,61 @@ function Result({ order }) {
       )}
       {done && (
         <>
+          {left > 0 && (
+            <button className="btn btn-ghost" style={{ marginBottom: 4 }}
+              onClick={() => { setRemixMode((v) => !v); setSource(null); setPicker(null); setNote('') }}>
+              {remixMode ? 'Выйти из режима remix' : `✨ Доработать кадр (remix) — осталось ${left}`}
+            </button>
+          )}
           <div className="gallery">
             {order.results.map((r) => (
-              <a key={r.id} href={`${r.url}?full=1`} target="_blank" rel="noreferrer">
-                <img loading="lazy" src={r.url} alt="" />
-              </a>
+              remixMode ? (
+                <div key={r.id} className={`wcard ${source === r.style ? 'sel' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => { setSource(source === r.style ? null : r.style); setPicker(null) }}>
+                  <span className="chk">✓</span>
+                  <img className="wthumb" loading="lazy" src={r.url} alt="" />
+                </div>
+              ) : (
+                <a key={r.id} href={`${r.url}?full=1`} target="_blank" rel="noreferrer">
+                  <img loading="lazy" src={r.url} alt="" />
+                </a>
+              )
             ))}
           </div>
+
+          {remixMode && left > 0 && (
+            <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--bg)',
+              border: '1px solid var(--line)', borderRadius: 12 }}>
+              <b style={{ fontSize: 15 }}>Remix — доработка кадров</b>
+              <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '4px 0 10px' }}>
+                Осталось <b style={{ color: 'var(--accent-deep)' }}>{left}</b>. Выберите понравившийся
+                кадр выше и что изменить: одежду, фон или просто перегенерировать.
+              </p>
+              {!source && <p style={{ fontSize: 13, color: 'var(--muted)' }}>↑ Отметьте кадр в галерее.</p>}
+              {source && !picker && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-ghost" disabled={busy} onClick={() => openPicker('clothing')}>Сменить одежду</button>
+                  <button className="btn btn-ghost" disabled={busy} onClick={() => openPicker('background')}>Сменить фон</button>
+                  <button className="btn btn-dark" disabled={busy} onClick={() => fire({ mode: 'regen' })}>Перегенерировать</button>
+                </div>
+              )}
+              {source && picker && (
+                <>
+                  <p style={{ fontSize: 13.5, margin: '2px 0 6px' }}>
+                    Выберите {picker === 'clothing' ? 'новую одежду' : 'новый фон'}:
+                  </p>
+                  <WardrobeGallery catalog={cat} selected={[]}
+                    onToggle={(key) => fire(picker === 'clothing'
+                      ? { mode: 'clothing', clothing: key }
+                      : { mode: 'background', background: key })} />
+                  <button className="btn btn-ghost" onClick={() => setPicker(null)}>← Назад</button>
+                </>
+              )}
+              {note && <p className="status">{note}</p>}
+            </div>
+          )}
+
           <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 12 }}>
             Клик по кадру открывает полный размер для сохранения. Условия гарантии
             возврата — в <a href="/offer" target="_blank" rel="noreferrer">оферте</a>.

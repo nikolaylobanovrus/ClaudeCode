@@ -44,6 +44,15 @@ export const api = {
   },
   repay: (token) => req(`/api/orders/${token}/pay`, { method: 'POST' }),
   status: (token) => req(`/api/orders/${token}`),
+  // Remix готового кадра: mode = clothing|background|regen (+ новый ключ).
+  remix(token, { source, mode, clothing, background }) {
+    const f = new FormData()
+    f.append('source', source)
+    f.append('mode', mode)
+    if (clothing) f.append('clothing', clothing)
+    if (background) f.append('background', background)
+    return req(`/api/orders/${token}/remix`, { method: 'POST', body: f })
+  },
 }
 
 export const SWATCHES = {

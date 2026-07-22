@@ -12,10 +12,10 @@ from typing import Awaitable, Callable
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from core.models import Job, Photo
+from core.models import Job, Photo, RemixTask
 from core.packages import get_package
 from core.states import WORKER_STATES, JobState, validate_transition
-from prompts.compose import compose_looks
+from prompts.compose import build_prompt, compose_looks
 from prompts.library import StyleLibrary
 from prompts.wardrobe import WardrobeLibrary
 from providers.base import ImageGenProvider
@@ -67,17 +67,43 @@ class Worker:
                 await asyncio.sleep(self.poll_interval)
 
     async def process_one(self) -> bool:
-        """Выполняет один шаг: True, если был заказ в работе."""
+        """Выполняет один шаг: True, если была работа (заказ или remix)."""
         async with self.session_factory() as session:
             job = await self._pick_job(session)
-            if job is None:
+            if job is not None:
+                try:
+                    await self._step(session, job)
+                except Exception as exc:
+                    log.exception("Заказ %s: ошибка на шаге %s", job.id, job.state)
+                    await self._fail(session, job, exc)
+                return True
+        # Заказов нет — берём отложенный remix.
+        async with self.session_factory() as session:
+            task = (await session.execute(
+                select(RemixTask).where(RemixTask.state == RemixTask.PENDING)
+                .order_by(RemixTask.created_at).limit(1))).scalar_one_or_none()
+            if task is None:
                 return False
             try:
-                await self._step(session, job)
+                await self._do_remix(session, task)
             except Exception as exc:
-                log.exception("Заказ %s: ошибка на шаге %s", job.id, job.state)
-                await self._fail(session, job, exc)
+                log.exception("Remix %s: ошибка", task.id)
+                task.state = RemixTask.FAILED
+                await session.commit()
             return True
+
+    async def _do_remix(self, session: AsyncSession, task: RemixTask) -> None:
+        job = await session.get(Job, task.job_id)
+        cl = self.wardrobe.get_clothing(task.clothing_key)
+        bg = self.wardrobe.get_background(task.background_key)
+        prompt = build_prompt(job.gender or "person", cl, bg)
+        style = f"remix{task.id}_{cl.key}__{bg.key}"
+        images = await self.provider.generate(job.model_ref, prompt, style, 1)
+        data = await self.enhancer.enhance(images[0].data)
+        key = self.storage.put(f"jobs/{job.id}/{Photo.RESULT}/{style}.jpg", data)
+        session.add(Photo(job_id=job.id, kind=Photo.RESULT, storage_key=key, style=style))
+        task.state = RemixTask.DONE
+        await session.commit()
 
     async def _pick_job(self, session: AsyncSession) -> Job | None:
         stmt = (
