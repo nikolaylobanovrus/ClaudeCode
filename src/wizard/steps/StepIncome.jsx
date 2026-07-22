@@ -3,6 +3,7 @@
 import { useWizard } from "../WizardContext.jsx";
 import { HINTS } from "../../data/wizard.js";
 import { Field, TextInput, MoneyInput, fmtRub } from "../fields.jsx";
+import { ymGoal } from "../../lib/metrika.js";
 
 export default function StepIncome({ errors }) {
   const { draft, dispatch } = useWizard();
@@ -15,7 +16,12 @@ export default function StepIncome({ errors }) {
       <p className="wiz__note">
         Данные — из справки о доходах за {draft.year} год. Нет справки под
         рукой? Это обычное дело: скачайте её за минуту в{" "}
-        <a href="https://lkfl2.nalog.ru/lkfl/" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://lkfl2.nalog.ru/lkfl/"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => ymGoal("lk_fns", { where: "income" })}
+        >
           Личном кабинете ФНС
         </a>{" "}
         (Доходы → Справки о доходах, вход через Госуслуги) или запросите в

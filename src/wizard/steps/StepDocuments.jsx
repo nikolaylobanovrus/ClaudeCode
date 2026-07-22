@@ -8,6 +8,7 @@ import { isSaleDraft } from "../../data/wizard.js";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
+import { ymGoal } from "../../lib/metrika.js";
 
 const PDF_MIME = "application/pdf";
 
@@ -239,7 +240,18 @@ export default function StepDocuments({ onUnpaid }) {
 
       <h3 className="wiz__subhead">Что дальше</h3>
       <ol className="wiz__next">
-        <li>Войдите в Личный кабинет ФНС (lkfl2.nalog.ru) через Госуслуги.</li>
+        <li>
+          Войдите в{" "}
+          <a
+            href="https://lkfl2.nalog.ru/lkfl/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => ymGoal("lk_fns", { where: "submit" })}
+          >
+            Личный кабинет ФНС
+          </a>{" "}
+          (lkfl2.nalog.ru) через Госуслуги.
+        </li>
         <li>
           «Декларации» → «Подать декларацию» → «Загрузить готовую декларацию» —
           приложите XML-файл. Если файл не примется — заполните по цифрам из PDF,
