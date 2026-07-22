@@ -88,10 +88,9 @@ export const SALE_YEARS = [2023, 2024, 2025];
 export const saleSupported = (year) => SALE_YEARS.includes(Number(year));
 
 // Продажа НЕДВИЖИМОСТИ требует ещё листа «Расчёт к Приложению 1» в бланке. Он
-// врезан в бланки 2024/2025; для 2023 нужен лист с собственным штрихкодом
-// (0332 00xx) — до его подготовки недвижимость за 2023 не предлагаем (авто за
-// 2023 доступно). saleKind — тип продажи для года: у авто список шире.
-export const SALE_REALTY_YEARS = [2024, 2025];
+// врезан в бланки 2023/2024/2025 (лист 2023 — из официальной машиночитаемой
+// формы ФНС v5.18, штрихкод 0332 0150).
+export const SALE_REALTY_YEARS = [2023, 2024, 2025];
 export const saleYearsFor = (kind) =>
   kind === "realty" ? SALE_REALTY_YEARS : SALE_YEARS;
 export const saleSupportedFor = (kind, year) =>
