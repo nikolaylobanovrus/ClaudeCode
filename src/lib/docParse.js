@@ -164,6 +164,13 @@ export function mergePatch(draft, patch) {
     dateAct: "дата акта приёма-передачи",
     interestPaid: "проценты по ипотеке",
   });
+  mergeSection("sale", {
+    price: "цена продажи",
+    saleDate: "дата продажи",
+    buyerName: "покупатель",
+    buyerInn: "ИНН покупателя",
+    expenses: "расходы на покупку",
+  });
   mergeSection("medical", { ordinary: "лечение", expensive: "дорогостоящее лечение" });
   mergeSection("iis", { contribution: "взносы на ИИС" });
   mergeSection("insurance", { amount: "страхование жизни" });

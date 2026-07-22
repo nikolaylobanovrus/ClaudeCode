@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "./WizardContext.jsx";
+import { isSaleDraft } from "../data/wizard.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { parseDocuments, mergePatch, DocParseError, MAX_FILES } from "../lib/docParse.js";
 import { ymGoal } from "../lib/metrika.js";
@@ -16,6 +17,7 @@ const ACCEPT = "image/*,.pdf,.heic,.heif";
 
 export default function DocAutofill() {
   const { draft, dispatch } = useWizard();
+  const sale = isSaleDraft(draft);
   const enabled = useFeatureFlag("doc_autofill");
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState([]);
@@ -96,7 +98,7 @@ export default function DocAutofill() {
         aria-expanded={open}
       >
         <span className="autofill__title">
-          📷 Загрузите документы — заполним анкету за вас
+          📷 {sale ? "Загрузите договор — заполним данные о продаже" : "Загрузите документы — заполним анкету за вас"}
         </span>
         <span className="autofill__chev">{open ? "▴" : "▾"}</span>
       </button>
@@ -104,10 +106,21 @@ export default function DocAutofill() {
       {open && (
         <div className="autofill__body">
           <p className="autofill__hint">
-            Подойдут фото или PDF: справка о доходах (2-НДФЛ), паспорт, договор
-            на жильё, справка банка о процентах, справки об оплате лечения или
-            обучения. Распознанные значения подставятся только в пустые поля —
-            введённое вами не изменится.
+            {sale ? (
+              <>
+                Подойдёт фото или PDF договора купли-продажи автомобиля (и
+                договора покупки, если заявляете расходы). Распознаем цену, дату
+                и покупателя и подставим только в пустые поля — введённое вами не
+                изменится.
+              </>
+            ) : (
+              <>
+                Подойдут фото или PDF: справка о доходах (2-НДФЛ), паспорт,
+                договор на жильё, справка банка о процентах, справки об оплате
+                лечения или обучения. Распознанные значения подставятся только в
+                пустые поля — введённое вами не изменится.
+              </>
+            )}
           </p>
 
           <div className="autofill__pickers">

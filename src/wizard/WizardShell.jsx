@@ -138,7 +138,7 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
               («Доходы»): справка 2-НДФЛ логично грузится именно здесь, а
               распознанное заполняет и последующие шаги (паспорт, расходы).
               Показывается только при включённом серверном флаге. */}
-          {step.key === "income" && <DocAutofill />}
+          {(step.key === "income" || step.key === "sale") && <DocAutofill />}
           <Step
             errors={errors}
             calc={calc}
