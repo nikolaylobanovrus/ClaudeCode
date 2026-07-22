@@ -125,15 +125,22 @@ class FreePreview(Base):
 
 
 class TeamLead(Base):
-    """Заявка на командные портреты (форма B2B в блоке «Для команд»)."""
+    """Заявка на командные портреты (B2B): запрос счёта или «оплатить картой»."""
 
     __tablename__ = "team_leads"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Аккаунт-инициатор (заявка видна ему в кабинете). None — старая форма-лид.
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"), index=True, default=None
+    )
     company: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
     contact: Mapped[str] = mapped_column(Text)
     headcount: Mapped[int] = mapped_column(Integer, default=0)
+    # Способ оплаты: "invoice" (счёт) или "card" (карта/СБП).
+    mode: Mapped[str | None] = mapped_column(String(16), default=None)
+    total_rub: Mapped[int | None] = mapped_column(Integer, default=None)
     message: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

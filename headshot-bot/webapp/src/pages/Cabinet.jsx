@@ -17,6 +17,7 @@ export default function Cabinet() {
   const { account, ready } = useOutletContext()
   const navigate = useNavigate()
   const [orders, setOrders] = useState(null)
+  const [teamReq, setTeamReq] = useState([])
   const team = new URLSearchParams(location.search).get('team')
   const [quote, setQuote] = useState(null)
 
@@ -26,7 +27,9 @@ export default function Cabinet() {
   }, [ready, account, navigate])
 
   useEffect(() => {
-    if (account) auth.orders().then((d) => setOrders(d.orders)).catch(() => setOrders([]))
+    if (account) auth.orders()
+      .then((d) => { setOrders(d.orders); setTeamReq(d.team_requests || []) })
+      .catch(() => setOrders([]))
   }, [account])
 
   // Расчёт по числу сотрудников из ползунка на главной (B2B).
@@ -49,8 +52,15 @@ export default function Cabinet() {
 
       {quote && <TeamOffer quote={quote} navigate={navigate} />}
 
+      {teamReq.length > 0 && (
+        <>
+          <h3 style={{ fontSize: 15, color: 'var(--muted)', margin: '4px 0 8px' }}>Заявки для команды</h3>
+          {teamReq.map((t) => <TeamRequestCard key={t.id} t={t} />)}
+        </>
+      )}
+
       {orders === null && <p style={{ color: 'var(--muted)' }}>Загружаем заказы…</p>}
-      {orders && orders.length === 0 && (
+      {orders && orders.length === 0 && teamReq.length === 0 && (
         <div className="card" style={{ textAlign: 'center' }}>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, margin: '4px 0 16px' }}>
             У вас пока нет заказов. Создайте первый — это займёт пару минут.
@@ -59,6 +69,9 @@ export default function Cabinet() {
         </div>
       )}
 
+      {orders && orders.length > 0 && (
+        <h3 style={{ fontSize: 15, color: 'var(--muted)', margin: '18px 0 8px' }}>Заказы</h3>
+      )}
       {orders && orders.map((o) => <OrderCard key={o.token} o={o} />)}
 
       <ChangePassword />
@@ -116,6 +129,24 @@ function TeamOffer({ quote, navigate }) {
         </button>
       </div>
       {err && <p className="status error" style={{ color: '#ffb4ab' }}>{err}</p>}
+    </div>
+  )
+}
+
+function TeamRequestCard({ t }) {
+  const date = t.created_at ? new Date(t.created_at).toLocaleDateString('ru-RU') : ''
+  const status = t.mode === 'card'
+    ? 'Оплата картой/СБП — вышлем ссылку и QR на email'
+    : 'Счёт формируется — направим на email'
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 650, fontSize: 15.5 }}>
+        Команда · {t.headcount} сотрудников
+        <span style={{ color: 'var(--muted)', fontWeight: 400 }}>
+          {t.total_rub ? ` · ${t.total_rub.toLocaleString('ru-RU')} ₽` : ''} · {date}
+        </span>
+      </div>
+      <div style={{ fontSize: 13.5, color: 'var(--accent-deep)', marginTop: 3 }}>{status}</div>
     </div>
   )
 }

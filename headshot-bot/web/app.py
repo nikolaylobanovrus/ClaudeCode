@@ -277,10 +277,13 @@ async def team_checkout(
 
     async with request.app.state.session_factory() as session:
         session.add(TeamLead(
+            account_id=account.id,
             company=(company.strip() or account.email),
             name=(name.strip() or account.email),
             contact=account.email,
             headcount=q["headcount"],
+            mode=mode,
+            total_rub=q["total"],
             message=f"[{mode}] {details}; итого {q['total']}₽",
         ))
         await session.commit()

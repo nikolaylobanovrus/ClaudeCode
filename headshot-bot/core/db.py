@@ -32,3 +32,11 @@ async def init_db(engine) -> None:
             ):
                 if name not in cols:
                     await conn.execute(text(ddl))
+            tl_cols = [r[1] for r in await conn.execute(text("PRAGMA table_info(team_leads)"))]
+            for name, ddl in (
+                ("account_id", "ALTER TABLE team_leads ADD COLUMN account_id INTEGER"),
+                ("mode", "ALTER TABLE team_leads ADD COLUMN mode VARCHAR(16)"),
+                ("total_rub", "ALTER TABLE team_leads ADD COLUMN total_rub INTEGER"),
+            ):
+                if name not in tl_cols:
+                    await conn.execute(text(ddl))

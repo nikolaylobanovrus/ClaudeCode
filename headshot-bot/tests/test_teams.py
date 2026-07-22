@@ -69,6 +69,12 @@ def test_checkout_invoice_and_card(client, monkeypatch):
     assert r.status_code == 200 and r.json()["mode"] == "card"
     assert any("Оплатить картой" in m["subject"] for m in sent)
 
+    # Обе заявки видны в кабинете.
+    tr = client.get("/api/account/orders").json()["team_requests"]
+    assert len(tr) == 2
+    assert {x["mode"] for x in tr} == {"invoice", "card"}
+    assert any(x["total_rub"] == team_quote(50)["total"] for x in tr)
+
     # Неизвестный режим — 422.
     assert client.post(
         "/api/team/checkout", data={"mode": "wat", "headcount": 10}

@@ -254,12 +254,22 @@ def _package_title(code: str | None) -> str | None:
 async def account_orders(request: Request):
     from sqlalchemy import func
 
-    from core.models import Photo
+    from core.models import Photo, TeamLead
 
     account = await current_account(request)
     if account is None:
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     async with request.app.state.session_factory() as session:
+        team = (await session.execute(
+            select(TeamLead).where(TeamLead.account_id == account.id).order_by(TeamLead.id.desc())
+        )).scalars().all()
+        team_requests = [{
+            "id": t.id,
+            "headcount": t.headcount,
+            "total_rub": t.total_rub,
+            "mode": t.mode,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        } for t in team]
         jobs = (await session.execute(
             select(Job).where(Job.account_id == account.id).order_by(Job.id.desc())
         )).scalars().all()
@@ -286,4 +296,4 @@ async def account_orders(request: Request):
                 ],
                 "results_count": len(results),
             })
-    return {"orders": out}
+    return {"orders": out, "team_requests": team_requests}
