@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.models import Job, Photo
 from core.packages import get_package
 from core.states import WORKER_STATES, JobState, validate_transition
+from prompts.compose import compose_looks
 from prompts.library import StyleLibrary
+from prompts.wardrobe import WardrobeLibrary
 from providers.base import ImageGenProvider
 from providers.quality import ApproveAllQC, FaceEnhancer, NoopEnhancer, QualityGate
 from storage.files import FileStorage
@@ -42,6 +44,7 @@ class Worker:
         poll_interval: float = 3.0,
         enhancer: FaceEnhancer | None = None,
         qc: QualityGate | None = None,
+        wardrobe: WardrobeLibrary | None = None,
     ):
         self.session_factory = session_factory
         self.provider = provider
@@ -51,6 +54,7 @@ class Worker:
         self.poll_interval = poll_interval
         self.enhancer = enhancer or NoopEnhancer()
         self.qc = qc or ApproveAllQC()
+        self.wardrobe = wardrobe or WardrobeLibrary.load()
 
     async def run_forever(self) -> None:
         while True:
@@ -119,7 +123,14 @@ class Worker:
     async def _do_generating(self, session: AsyncSession, job: Job) -> None:
         package = get_package(job.package_code)
         per_style = package.portraits_per_style()
-        if job.styles_csv:
+        if job.clothing_csv and job.background_csv:
+            # Веб-конструктор: собираем N образов из пулов одежды/фона.
+            clothing = self.wardrobe.resolve(
+                "clothing", job.clothing_csv.split(","), job.gender)
+            backgrounds = self.wardrobe.resolve(
+                "background", job.background_csv.split(","))
+            chosen = compose_looks(job.gender or "person", clothing, backgrounds, package.styles)
+        elif job.styles_csv:
             chosen = self.styles.resolve(job.styles_csv.split(","))
         else:
             chosen = self.styles.for_package(package.styles)

@@ -29,6 +29,10 @@ async def init_db(engine) -> None:
                 ("downloaded_at", "ALTER TABLE jobs ADD COLUMN downloaded_at DATETIME"),
                 ("account_id", "ALTER TABLE jobs ADD COLUMN account_id INTEGER"),
                 ("purged_at", "ALTER TABLE jobs ADD COLUMN purged_at DATETIME"),
+                ("gender", "ALTER TABLE jobs ADD COLUMN gender VARCHAR(8)"),
+                ("clothing_csv", "ALTER TABLE jobs ADD COLUMN clothing_csv TEXT"),
+                ("background_csv", "ALTER TABLE jobs ADD COLUMN background_csv TEXT"),
+                ("remixes_left", "ALTER TABLE jobs ADD COLUMN remixes_left INTEGER DEFAULT 0"),
             ):
                 if name not in cols:
                     await conn.execute(text(ddl))

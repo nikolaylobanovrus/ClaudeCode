@@ -26,6 +26,7 @@ from core.payments import YooKassaClient, customer_from_contact
 from core.states import JobState, validate_transition
 from core.validation import validate_photo
 from prompts.library import StyleLibrary
+from prompts.wardrobe import WardrobeLibrary
 from providers.factory import make_provider
 from storage.files import FileStorage
 
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
     app.state.session_factory = make_session_factory(engine)
     app.state.provider = make_provider(settings)
     app.state.styles = StyleLibrary.load()
+    app.state.wardrobe = WardrobeLibrary.load()
     app.state.storage = FileStorage(settings.data_dir / "files")
     app.state.payments = (
         YooKassaClient(settings.yookassa_shop_id, settings.yookassa_secret)
@@ -98,6 +100,31 @@ async def api_styles(request: Request) -> list[dict]:
     return [{"key": s.key, "title": s.title} for s in request.app.state.styles.styles]
 
 
+@app.get("/api/wardrobe")
+async def api_wardrobe(request: Request, kind: str, gender: str = "male") -> JSONResponse:
+    """Каталог для конструктора образов. kind=clothing|background.
+    Одежда фильтруется по полу; фоны общие. Поиск/фильтр — на клиенте."""
+    if kind not in ("clothing", "background"):
+        return JSONResponse({"error": "bad_kind"}, status_code=422)
+    wl: WardrobeLibrary = request.app.state.wardrobe
+    if kind == "clothing":
+        if gender not in ("male", "female"):
+            return JSONResponse({"error": "bad_gender"}, status_code=422)
+        items = wl.clothing(gender)
+        base = "/static/img/wardrobe/clothing/"
+    else:
+        items = wl.backgrounds()
+        base = "/static/img/wardrobe/background/"
+    return JSONResponse({
+        "categories": wl.categories(kind, gender),
+        "items": [
+            {"key": it.key, "label": it.label, "category": it.category,
+             "thumb": f"{base}{it.key}.jpg"}
+            for it in items
+        ],
+    })
+
+
 @app.get("/api/packages")
 async def api_packages() -> list[dict]:
     return [
@@ -107,6 +134,7 @@ async def api_packages() -> list[dict]:
             "price_rub": p.price_rub,
             "portraits": p.portraits,
             "styles": p.styles,
+            "remixes": p.remixes,
             "recommended": p.code == RECOMMENDED_CODE,
         }
         for p in PACKAGES.values()
@@ -322,14 +350,20 @@ async def create_order(
     package: str = Form(...),
     contact: str = Form(...),
     consent: str = Form(""),
-    styles: str = Form(...),
+    styles: str = Form(""),
+    gender: str = Form(""),
+    clothing: str = Form(""),
+    backgrounds: str = Form(""),
 ):
-    """Флоу: тариф → образы → оплата → селфи → результат.
+    """Флоу: тариф → образы (пол → одежда → фон) → оплата → селфи → результат.
 
     Образы выбираются ДО оплаты, поэтому сохраняем их на заказе сразу (после
     редиректа в ЮKassa состояние фронта теряется). Заказ создаётся в
     awaiting_payment; после оплаты переходит в collecting (загрузка селфи),
-    затем /generate запускает обучение на уже выбранных образах.
+    затем /generate запускает генерацию по выбранным пулам одежды/фона.
+
+    Основной путь — конструктор (gender+clothing+backgrounds пулы). Поддержан и
+    легаси-путь по готовым стилям (styles) для совместимости.
     """
     if consent != "yes":
         return JSONResponse({"error": "consent_required"}, status_code=400)
@@ -339,14 +373,42 @@ async def create_order(
         pkg = get_package(package)
     except ValueError:
         return JSONResponse({"error": "bad_package"}, status_code=422)
-    lib = request.app.state.styles
-    chosen = [s for s in styles.split(",") if s]
-    try:
-        lib.resolve(chosen)
-    except ValueError:
-        return JSONResponse({"error": "bad_styles"}, status_code=422)
-    if len(chosen) != pkg.styles:
-        return JSONResponse({"error": "styles_count"}, status_code=422)
+
+    cl_keys = [s for s in clothing.split(",") if s]
+    bg_keys = [s for s in backgrounds.split(",") if s]
+    use_wardrobe = bool(cl_keys or bg_keys or gender)
+    styles_csv = None
+    gender_val = None
+    clothing_csv = None
+    background_csv = None
+
+    if use_wardrobe:
+        if gender not in ("male", "female"):
+            return JSONResponse({"error": "bad_gender"}, status_code=422)
+        wl = request.app.state.wardrobe
+        try:
+            wl.resolve("clothing", cl_keys, gender)
+            wl.resolve("background", bg_keys)
+        except ValueError:
+            return JSONResponse({"error": "bad_wardrobe"}, status_code=422)
+        if not cl_keys or not bg_keys:
+            return JSONResponse({"error": "empty_pool"}, status_code=422)
+        # Из пулов нужно собрать N уникальных образов (наряд+фон).
+        if len(cl_keys) * len(bg_keys) < pkg.styles:
+            return JSONResponse({"error": "pool_too_small"}, status_code=422)
+        gender_val = gender
+        clothing_csv = ",".join(cl_keys)
+        background_csv = ",".join(bg_keys)
+    else:
+        lib = request.app.state.styles
+        chosen = [s for s in styles.split(",") if s]
+        try:
+            lib.resolve(chosen)
+        except ValueError:
+            return JSONResponse({"error": "bad_styles"}, status_code=422)
+        if len(chosen) != pkg.styles:
+            return JSONResponse({"error": "styles_count"}, status_code=422)
+        styles_csv = ",".join(chosen)
 
     # Если клиент вошёл в кабинет — привяжем заказ к аккаунту.
     account = await current_account(request)
@@ -359,7 +421,9 @@ async def create_order(
         await session.flush()
         job = Job(
             user_id=user.id, state=JobState.AWAITING_PAYMENT, channel="web",
-            package_code=pkg.code, styles_csv=",".join(chosen),
+            package_code=pkg.code, styles_csv=styles_csv,
+            gender=gender_val, clothing_csv=clothing_csv, background_csv=background_csv,
+            remixes_left=pkg.remixes,
             contact=contact.strip(), access_token=token,
             account_id=account.id if account else None,
         )
@@ -463,15 +527,17 @@ async def start_generation(request: Request, token: str, styles: str = Form(""))
         pkg = get_package(job.package_code or "")
     except ValueError:
         return JSONResponse({"error": "bad_package"}, status_code=422)
-    lib = request.app.state.styles
-    # По умолчанию — образы, выбранные при оформлении заказа.
-    chosen = [s for s in (styles or job.styles_csv or "").split(",") if s]
-    try:
-        lib.resolve(chosen)
-    except ValueError:
-        return JSONResponse({"error": "bad_styles"}, status_code=422)
-    if len(chosen) != pkg.styles:
-        return JSONResponse({"error": "styles_count"}, status_code=422)
+    # Заказ-конструктор (одежда/фон уже сохранены при оформлении) — стили не нужны.
+    if not (job.clothing_csv and job.background_csv):
+        lib = request.app.state.styles
+        # По умолчанию — образы, выбранные при оформлении заказа.
+        chosen = [s for s in (styles or job.styles_csv or "").split(",") if s]
+        try:
+            lib.resolve(chosen)
+        except ValueError:
+            return JSONResponse({"error": "bad_styles"}, status_code=422)
+        if len(chosen) != pkg.styles:
+            return JSONResponse({"error": "styles_count"}, status_code=422)
 
     async with request.app.state.session_factory() as session:
         stmt = select(func.count()).select_from(Photo).where(
@@ -484,7 +550,8 @@ async def start_generation(request: Request, token: str, styles: str = Form(""))
         # не должны обе делать collecting→training (второй → InvalidTransition).
         if JobState(db_job.state) is not JobState.COLLECTING:
             return JSONResponse({"error": "order_not_found"}, status_code=409)
-        db_job.styles_csv = ",".join(chosen)
+        if not (db_job.clothing_csv and db_job.background_csv):
+            db_job.styles_csv = ",".join(chosen)
         db_job.state = validate_transition(JobState(db_job.state), JobState.TRAINING)
         await session.commit()
 

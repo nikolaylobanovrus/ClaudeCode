@@ -87,8 +87,15 @@ class Job(Base):
     package_code: Mapped[str | None] = mapped_column(String(32), default=None)
     # Ссылка на обученную identity-модель у провайдера (URL LoRA-весов и т.п.).
     model_ref: Mapped[str | None] = mapped_column(Text, default=None)
-    # Выбранные пользователем образы (ключи стилей через запятую).
+    # Выбранные пользователем образы (ключи стилей через запятую) — путь бота.
     styles_csv: Mapped[str | None] = mapped_column(Text, default=None)
+    # Веб-конструктор: пол и ПУЛЫ выбранных ключей одежды/фона (не спаренные).
+    # Воркер сам формирует N образов из пулов (compose.build_looks).
+    gender: Mapped[str | None] = mapped_column(String(8), default=None)
+    clothing_csv: Mapped[str | None] = mapped_column(Text, default=None)
+    background_csv: Mapped[str | None] = mapped_column(Text, default=None)
+    # Остаток включённых перегенераций (remix); инициализируется Package.remixes.
+    remixes_left: Mapped[int] = mapped_column(Integer, default=0)
     # Канал заказа: "tg" (бот) или "web" (сайт).
     channel: Mapped[str] = mapped_column(String(8), default="tg")
     # Контакт для веб-заказов (email/телефон, как указал клиент).
