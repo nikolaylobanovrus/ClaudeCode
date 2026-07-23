@@ -58,9 +58,12 @@ def test_wardrobe_endpoint(client):
     assert set(it) == {"key", "label", "category", "thumb"}
     assert it["thumb"].startswith("/static/img/wardrobe/clothing/")
 
-    r = client.get("/api/wardrobe", params={"kind": "background"})
-    assert r.status_code == 200
-    assert r.json()["items"][0]["thumb"].startswith("/static/img/wardrobe/background/")
+    # Фон: превью с моделью по полу — путь содержит /background/{gender}/.
+    rm = client.get("/api/wardrobe", params={"kind": "background", "gender": "male"})
+    assert rm.status_code == 200
+    assert rm.json()["items"][0]["thumb"].startswith("/static/img/wardrobe/background/male/")
+    rf = client.get("/api/wardrobe", params={"kind": "background", "gender": "female"})
+    assert rf.json()["items"][0]["thumb"].startswith("/static/img/wardrobe/background/female/")
 
     assert client.get("/api/wardrobe", params={"kind": "nope"}).status_code == 422
     assert client.get("/api/wardrobe",

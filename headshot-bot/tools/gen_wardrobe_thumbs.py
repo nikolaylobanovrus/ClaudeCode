@@ -59,14 +59,29 @@ def _clothing_prompt(gender: str, fragment: str) -> str:
     )
 
 
-def _background_prompt(fragment: str, lighting: str) -> str:
-    scene = fragment
-    for pre in ("against ", "in "):
-        if scene.startswith(pre):
-            scene = scene[len(pre):]
-            break
-    return (f"empty professional portrait photography backdrop, {scene}, {lighting}, "
-            f"no people, no person, empty scene, photorealistic, high detail, no text")
+# Единая «модель» на всех фонах (как у HeadshotPro): фиксированное описание +
+# фиксированный seed на пол → узнаваемо один и тот же человек на разных фонах.
+_BG_MODEL = {
+    "male": "a businessman with short dark brown hair, clean-shaven, "
+            "wearing a plain charcoal suit and a white shirt",
+    "female": "a businesswoman with shoulder-length brown hair, "
+              "wearing a plain black blazer over a white top",
+}
+_BG_SEED = {"male": 314159, "female": 271828}
+
+
+def _background_prompt(gender: str, fragment: str, lighting: str) -> str:
+    # fragment вида «against a … backdrop» / «in a … office» — вставляем как есть,
+    # человек стоит НА этом фоне (waist-up, лицо крупное).
+    return (
+        f"professional corporate headshot portrait of {_BG_MODEL[gender]}, "
+        f"waist-up composition cropped at the waist, only head shoulders and upper torso in frame, "
+        f"{fragment}, {lighting}, the background clearly visible behind the person, "
+        f"face large and prominent, beautiful natural realistic face, healthy skin with natural texture, "
+        f"warm confident friendly expression, looking directly at the camera, "
+        f"shot on 85mm portrait lens, shallow depth of field, sharp focus on the face, "
+        f"photorealistic, ultra detailed, no text, no watermark"
+    )
 
 
 _REFERRER = "d-portret.ru"
@@ -105,24 +120,29 @@ def _save(data: bytes, path: Path) -> None:
 
 
 def _tasks(lib: WardrobeLibrary, only: str | None):
+    """Список задач: (relpath, seed, prompt). relpath — путь под OUT без .jpg."""
     out = []
     if only in (None, "clothing"):
         for gender in ("male", "female"):
             for c in lib.clothing(gender):
-                out.append(("clothing", c.key, _clothing_prompt(gender, c.fragment)))
+                out.append((f"clothing/{c.key}", _stable_seed(c.key),
+                            _clothing_prompt(gender, c.fragment)))
     if only in (None, "background"):
-        for b in lib.backgrounds():
-            out.append(("background", b.key, _background_prompt(b.fragment, b.lighting)))
+        # Свой набор фонов на каждый пол (один и тот же человек на всех фонах).
+        for gender in ("male", "female"):
+            for b in lib.backgrounds():
+                out.append((f"background/{gender}/{b.key}", _BG_SEED[gender],
+                            _background_prompt(gender, b.fragment, b.lighting)))
     return out
 
 
-def _one(kind: str, key: str, prompt: str, overwrite: bool) -> str:
-    path = OUT / kind / f"{key}.jpg"
+def _one(relpath: str, seed: int, prompt: str, overwrite: bool) -> str:
+    path = OUT / f"{relpath}.jpg"
     if path.exists() and not overwrite:
-        return f"skip {kind}/{key}"
-    data = _fetch(_pollinations_url(prompt, _stable_seed(key)))
+        return f"skip {relpath}"
+    data = _fetch(_pollinations_url(prompt, seed))
     _save(data, path)
-    return f"ok   {kind}/{key} ({path.stat().st_size // 1024} КБ)"
+    return f"ok   {relpath} ({path.stat().st_size // 1024} КБ)"
 
 
 def main() -> None:
@@ -141,15 +161,15 @@ def main() -> None:
 
     done = fail = 0
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
-        futs = {ex.submit(_one, k, key, pr, a.overwrite): (k, key)
-                for k, key, pr in tasks}
+        futs = {ex.submit(_one, rel, seed, pr, a.overwrite): rel
+                for rel, seed, pr in tasks}
         for i, fut in enumerate(as_completed(futs), 1):
-            k, key = futs[fut]
+            rel = futs[fut]
             try:
                 msg = fut.result()
                 done += 1
             except Exception as e:  # noqa: BLE001
-                msg = f"FAIL {k}/{key}: {e}"
+                msg = f"FAIL {rel}: {e}"
                 fail += 1
             print(f"[{i}/{len(tasks)}] {msg}", flush=True)
 

@@ -16,7 +16,7 @@ def test_catalog_sizes_and_unique_keys(lib):
     bg = lib.backgrounds()
     assert len(men) >= 90
     assert len(women) >= 90
-    assert len(bg) >= 90
+    assert len(bg) >= 60  # после чистки от «цветных простыней» — деловой набор
     keys = [c.key for c in men + women] + [b.key for b in bg]
     assert len(keys) == len(set(keys)), "ключи каталога должны быть уникальны"
     # Пол проставлен корректно.

@@ -114,8 +114,10 @@ async def api_wardrobe(request: Request, kind: str, gender: str = "male") -> JSO
         items = wl.clothing(gender)
         base = "/static/img/wardrobe/clothing/"
     else:
+        # Фоны общие, но превью — с моделью соответствующего пола (как HeadshotPro).
+        g = gender if gender in ("male", "female") else "male"
         items = wl.backgrounds()
-        base = "/static/img/wardrobe/background/"
+        base = f"/static/img/wardrobe/background/{g}/"
     return JSONResponse({
         "categories": wl.categories(kind, gender),
         "items": [

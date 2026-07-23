@@ -164,9 +164,10 @@ export default function Order() {
     setGender(g); setSelClo([]); say('')
     setSub('clothing')
     try {
+      // Фоны грузим под выбранный пол — превью с моделью того же пола.
       const [clo, bg] = await Promise.all([
         api.wardrobe('clothing', g),
-        bgCat.items.length ? Promise.resolve(bgCat) : api.wardrobe('background'),
+        api.wardrobe('background', g),
       ])
       setCloCat(clo); setBgCat(bg)
     } catch (e) { say(errText(e), true) }
@@ -456,7 +457,7 @@ function Result({ order, token, onRemixed }) {
   async function openPicker(kind) {
     setNote(''); setPicker(kind)
     try {
-      setCat(await api.wardrobe(kind, kind === 'clothing' ? (order.gender || 'male') : 'male'))
+      setCat(await api.wardrobe(kind, order.gender || 'male'))
     } catch { setNote('Не удалось загрузить каталог') }
   }
   async function fire(payload) {

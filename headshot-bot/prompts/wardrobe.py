@@ -286,6 +286,22 @@ def _build_women() -> list[Clothing]:
     return out
 
 
+# Фоны не для делового стиля («цветные простыни», отпускные) — исключаем.
+# Фильтруем по ключам, чтобы не сдвигать индексы остальных позиций.
+_DROP_BG = {
+    # Насыщенные плоские студийные цвета
+    "bg_studio_8", "bg_studio_11", "bg_studio_12", "bg_studio_13", "bg_studio_17",
+    # Кислотное боке
+    "bg_bokeh_3", "bg_bokeh_4", "bg_bokeh_7", "bg_bokeh2_3",
+    # Слишком «отпускные»
+    "bg_nature_2", "bg_nature_5",
+    # Все однотонные заливки
+    "bg_solid_0", "bg_solid_1", "bg_solid_2", "bg_solid_3", "bg_solid_4", "bg_solid_5",
+    "bg_solid_6", "bg_solid_7",
+    "bg_solid2_0", "bg_solid2_1", "bg_solid2_2", "bg_solid2_3", "bg_solid2_4", "bg_solid2_5",
+}
+
+
 def _build_backgrounds() -> list[Background]:
     out: list[Background] = []
     studio = "soft even studio lighting"
@@ -398,7 +414,7 @@ def _build_backgrounds() -> list[Background]:
         out.append(Background(_slug("bg", "bokeh2", str(i)), f"Боке, {rc}",
             f"against a soft {ec} bokeh abstract background", "Абстракция",
             "soft cinematic light"))
-    return out
+    return [b for b in out if b.key not in _DROP_BG]
 
 
 class WardrobeLibrary:
