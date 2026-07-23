@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, errText } from '../api.js'
 import { auth, authErr } from '../auth.js'
-import { ymGoal, ymPurchase } from '../analytics.js'
+import { goal, ymPurchase } from '../analytics.js'
 
 // Флоу: тариф → образы (пол → одежда → фон) → оплата → селфи → результат.
 const STEPS = ['Тариф', 'Образы', 'Оплата', 'Селфи', 'Результат']
@@ -170,7 +170,7 @@ export default function Order() {
   function enterWardrobe(p) {
     setPkg(p); setStep(2); setSub('gender')
     setGender(''); setSelClo([]); setSelBg([]); say('')
-    ymGoal('order_start', { pkg: p.code })
+    goal('order_start', { pkg: p.code })
   }
   async function pickGender(g) {
     setGender(g); setSelClo([]); say('')
@@ -348,7 +348,7 @@ export default function Order() {
               : <span style={{ color: 'var(--bad)' }}>— нужно ≥ {needN} (добавьте одежду или фон)</span>}
           </div>
           <button className="btn btn-dark" style={{ marginTop: 10 }}
-            disabled={!poolOk} onClick={() => { setStep(3); say(''); ymGoal('reach_payment', { pkg: pkg.code }) }}>
+            disabled={!poolOk} onClick={() => { setStep(3); say(''); goal('reach_payment', { pkg: pkg.code }) }}>
             Продолжить к оплате
           </button>
           <button className="btn btn-ghost" style={{ marginTop: 6 }}
