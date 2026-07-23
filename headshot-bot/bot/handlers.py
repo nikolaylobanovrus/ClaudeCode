@@ -264,7 +264,7 @@ async def _request_payment(
         for admin_id in settings.admin_tg_ids:
             await query.bot.send_message(
                 admin_id,
-                f"Новый заказ #{job_id}: пакет {package.code}, "
+                f"Новый заказ #{job_id}: пакет «{package.title}», "
                 f"пользователь {query.from_user.id}. Подтвердить: /approve_{job_id}",
             )
     else:
@@ -275,7 +275,7 @@ async def _request_payment(
         for admin_id in settings.admin_tg_ids:
             await query.bot.send_message(
                 admin_id,
-                f"Заказ #{job_id} ждёт оплаты (пакет {package.code}, "
+                f"Заказ #{job_id} ждёт оплаты (пакет «{package.title}», "
                 f"пользователь {query.from_user.id}). Подтвердить: /approve_{job_id}",
             )
 
