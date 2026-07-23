@@ -27,7 +27,8 @@ from prompts.wardrobe import WardrobeLibrary  # noqa: E402
 
 OUT = ROOT / "web" / "static" / "img" / "wardrobe"
 CA_BUNDLE = "/root/.ccr/ca-bundle.crt"
-W, H = 384, 512
+W, H = 384, 512          # размер хранимого превью
+GEN_W, GEN_H = 768, 1024  # генерируем крупнее и уменьшаем → чётче и красивее лицо
 
 _opener = build_opener(ProxyHandler(getproxies()))
 
@@ -41,11 +42,21 @@ def _stable_seed(key: str) -> int:
 
 
 def _clothing_prompt(gender: str, fragment: str) -> str:
-    who = "a professional businesswoman" if gender == "female" else "a professional businessman"
+    who = "a businesswoman" if gender == "female" else "a businessman"
     outfit = fragment.replace("wearing ", "", 1)
-    return (f"corporate fashion catalog photo of {who} {outfit}, "
-            f"upper body, standing against a plain light grey studio background, "
-            f"soft even studio lighting, clean, photorealistic, high detail, no text")
+    # Кадрирование как у HeadshotPro: waist-up, срез по талии; лицо крупное,
+    # в фокусе, смотрит в камеру; фон ровный светло-серый.
+    return (
+        f"professional corporate headshot portrait of {who} {outfit}, "
+        f"waist-up composition cropped at the waist, only head shoulders and upper torso in frame, "
+        f"no legs, face large and prominent in the upper part of the frame, "
+        f"beautiful natural realistic face, healthy skin with natural texture, "
+        f"warm confident friendly expression, looking directly at the camera, well groomed, "
+        f"plain light grey seamless studio background, "
+        f"soft even studio lighting with subtle catchlights in the eyes, "
+        f"shot on 85mm portrait lens, shallow depth of field, sharp focus on the face, "
+        f"photorealistic, ultra detailed, clean, no text, no watermark"
+    )
 
 
 def _background_prompt(fragment: str, lighting: str) -> str:
@@ -66,7 +77,7 @@ _HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 def _pollinations_url(prompt: str, seed: int) -> str:
     enc = urllib.parse.quote(prompt, safe="")
     return (f"https://image.pollinations.ai/prompt/{enc}"
-            f"?width={W}&height={H}&seed={seed}&nologo=true&model=flux"
+            f"?width={GEN_W}&height={GEN_H}&seed={seed}&nologo=true&model=flux"
             f"&referrer={_REFERRER}")
 
 
