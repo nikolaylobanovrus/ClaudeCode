@@ -27,8 +27,10 @@ from prompts.wardrobe import WardrobeLibrary  # noqa: E402
 
 OUT = ROOT / "web" / "static" / "img" / "wardrobe"
 CA_BUNDLE = "/root/.ccr/ca-bundle.crt"
-W, H = 384, 512          # размер хранимого превью
-GEN_W, GEN_H = 768, 1024  # генерируем крупнее и уменьшаем → чётче и красивее лицо
+W, H = 384, 512            # размер хранимого превью (3:4)
+# Генерируем КВАДРАТ: на вытянутом 3:4 Flux сжимает фигуру по горизонтали
+# («приплюснутость»). Квадрат даёт верные пропорции, затем center-crop до 3:4.
+GEN_W, GEN_H = 1024, 1024
 
 _opener = build_opener(ProxyHandler(getproxies()))
 
@@ -48,8 +50,9 @@ def _clothing_prompt(gender: str, fragment: str) -> str:
     # в фокусе, смотрит в камеру; фон ровный светло-серый.
     return (
         f"professional corporate headshot portrait of {who} {outfit}, "
-        f"waist-up composition cropped at the waist, only head shoulders and upper torso in frame, "
-        f"no legs, face large and prominent in the upper part of the frame, "
+        f"head shoulders and chest visible, face large and prominent, "
+        f"natural correct human body proportions, realistic anatomy, not stretched, not distorted, "
+        f"person centered with a little headroom, "
         f"beautiful natural realistic face, healthy skin with natural texture, "
         f"warm confident friendly expression, looking directly at the camera, well groomed, "
         f"plain light grey seamless studio background, "
@@ -114,9 +117,16 @@ def _fetch(url: str, tries: int = 4) -> bytes:
 
 def _save(data: bytes, path: Path) -> None:
     img = Image.open(io.BytesIO(data)).convert("RGB")
-    img = img.resize((W, H), Image.LANCZOS)
+    # «cover»: сохраняем пропорции (масштаб по большей стороне) и центр-кроп до
+    # W×H. Без искажения, даже если источник вернул не 3:4 (иначе «сплющит»).
+    sw, sh = img.size
+    scale = max(W / sw, H / sh)
+    nw, nh = round(sw * scale), round(sh * scale)
+    img = img.resize((nw, nh), Image.LANCZOS)
+    left, top = (nw - W) // 2, (nh - H) // 2
+    img = img.crop((left, top, left + W, top + H))
     path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path, format="JPEG", quality=80, optimize=True)
+    img.save(path, format="JPEG", quality=82, optimize=True)
 
 
 def _tasks(lib: WardrobeLibrary, only: str | None):
