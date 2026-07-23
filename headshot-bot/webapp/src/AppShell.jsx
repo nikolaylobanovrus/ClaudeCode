@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet, Link, useNavigate } from 'react-router-dom'
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { auth } from './auth.js'
+import { ymHit } from './analytics.js'
 
 export default function AppShell() {
   const [account, setAccount] = useState(null)
   const [ready, setReady] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // SPA-переходы: сообщаем Метрике просмотр страницы при смене маршрута.
+  useEffect(() => { ymHit(location.pathname + location.search) }, [location.pathname, location.search])
 
   const refresh = useCallback(async () => {
     try {

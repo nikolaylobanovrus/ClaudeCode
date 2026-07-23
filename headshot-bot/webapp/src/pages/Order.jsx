@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, errText } from '../api.js'
 import { auth, authErr } from '../auth.js'
+import { ymGoal, ymPurchase } from '../analytics.js'
 
 // Флоу: тариф → образы (пол → одежда → фон) → оплата → селфи → результат.
 const STEPS = ['Тариф', 'Образы', 'Оплата', 'Селфи', 'Результат']
@@ -121,6 +122,8 @@ export default function Order() {
     if (!token) return
     api.status(token).then((d) => {
       setOrder(d)
+      // Уже оплаченный заказ (возврат по ссылке) — фиксируем покупку один раз.
+      if (['collecting', 'training', 'generating', 'done'].includes(d.state)) markPurchase(token, d.package)
       if (d.state === 'awaiting_payment') setStep(3)
       else if (d.state === 'collecting') { setCount(d.photos); setStep(4) }
       else setStep(5)
@@ -143,7 +146,8 @@ export default function Order() {
     const tick = () => api.status(token).then((d) => {
       if (!alive) return
       setOrder(d)
-      if (step === 3 && d.state === 'collecting') { setCount(d.photos); setStep(4) }
+      // Возврат из ЮKassa: заказ стал оплаченным → фиксируем покупку (один раз).
+      if (step === 3 && d.state === 'collecting') { markPurchase(token, d.package); setCount(d.photos); setStep(4) }
       // На готовом заказе продолжаем поллинг, пока есть remix в работе.
       const terminal = ['done', 'failed', 'cancelled'].includes(d.state)
       if (terminal && !(d.pending_remixes > 0)) clearInterval(id)
@@ -156,9 +160,17 @@ export default function Order() {
   // Ревок object URL превью-миниатюр при размонтировании.
   useEffect(() => () => thumbsRef.current.forEach((u) => URL.revokeObjectURL(u)), [])
 
+  // Покупка засчитывается один раз на заказ (защита от повтора при возвратах).
+  function markPurchase(tok, code) {
+    if (!tok) return
+    try { if (localStorage.getItem('ymp_' + tok)) return; localStorage.setItem('ymp_' + tok, '1') } catch { /* ignore */ }
+    ymPurchase(tok, code, packages.find((p) => p.code === code)?.price_rub)
+  }
+
   function enterWardrobe(p) {
     setPkg(p); setStep(2); setSub('gender')
     setGender(''); setSelClo([]); setSelBg([]); say('')
+    ymGoal('order_start', { pkg: p.code })
   }
   async function pickGender(g) {
     setGender(g); setSelClo([]); say('')
@@ -207,7 +219,7 @@ export default function Order() {
       setToken(d.token)
       history.replaceState(null, '', `/app/order?t=${d.token}`)
       if (d.payment_url) { window.location.href = d.payment_url; return } // ЮKassa
-      if (d.paid) { setStep(4); say(''); return }  // заглушка оплаты → к селфи
+      if (d.paid) { markPurchase(d.token, pkg.code); setStep(4); say(''); return }  // заглушка оплаты → к селфи
       // Ручной режим: заказ ждёт подтверждения — экран ожидания (token уже задан).
       say('')
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
@@ -219,7 +231,7 @@ export default function Order() {
     try {
       const d = await api.repay(token)
       if (d.payment_url) { window.location.href = d.payment_url; return }
-      if (d.paid) { setStep(4); say('') }
+      if (d.paid) { markPurchase(token, pkg?.code); setStep(4); say('') }
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
   }
 
@@ -336,7 +348,7 @@ export default function Order() {
               : <span style={{ color: 'var(--bad)' }}>— нужно ≥ {needN} (добавьте одежду или фон)</span>}
           </div>
           <button className="btn btn-dark" style={{ marginTop: 10 }}
-            disabled={!poolOk} onClick={() => { setStep(3); say('') }}>
+            disabled={!poolOk} onClick={() => { setStep(3); say(''); ymGoal('reach_payment', { pkg: pkg.code }) }}>
             Продолжить к оплате
           </button>
           <button className="btn btn-ghost" style={{ marginTop: 6 }}
