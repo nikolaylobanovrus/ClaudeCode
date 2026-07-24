@@ -23,17 +23,11 @@ LOOK_VARIATIONS = [
 ]
 
 # Общий хвост качества — держим единым для всех образов.
-# Кожу описываем как гладкую/молодую (без «realistic skin texture», которое Flux
-# трактует как поры и морщины и старит клиента): мягко сглаживаем морщинки и
-# слегка молодим, но с оговоркой «authentic and true to life», чтобы не ушло в
-# пластик и сохранило сходство (идентичность держит обученная LoRA TOK person).
 QUALITY_TAIL = (
     "head-and-shoulders composition, shot on 85mm f/1.8 portrait lens, "
-    "shallow depth of field, soft flattering beauty lighting with subtle catchlights in the eyes, "
-    "smooth clear youthful skin, even healthy radiant complexion, gently softened fine lines, "
-    "bright well-rested eyes without dark circles or puffiness, "
-    "looking naturally refreshed and a few years younger, subtly beautified yet authentic and true to life, "
-    "sharp focus on the face, clean professional color grading, photorealistic, ultra-detailed, high resolution"
+    "shallow depth of field, soft flattering lighting with subtle catchlights in the eyes, "
+    "natural realistic skin texture, sharp focus on the face, "
+    "clean professional color grading, photorealistic, ultra-detailed, high resolution"
 )
 
 _GENDER = {"male": "man", "female": "woman"}
