@@ -93,8 +93,15 @@ _tmr.push({id: "3782039", type: "pageView", start: (new Date()).getTime()});
 
   @media (max-width:900px){
     .grid-hero,.grid-3,.grid-ba,.grid-teams{grid-template-columns:1fr; gap:32px}
+    .grid-hero{padding:28px 24px 48px}  /* меньше верхнего отступа под шапкой */
     .nav-links{display:none}
     .teams-pad{padding:36px !important}
+  }
+  /* Таблица сравнения на узких экранах: ужимаем отступы и крупный serif, чтобы
+     3 колонки помещались (иначе правый столбец обрезался). */
+  @media (max-width:600px){
+    .cmp div{padding:12px 9px !important}
+    .cmp .serif{font-size:15px !important}
   }
   @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important} }
 </style>
@@ -126,7 +133,7 @@ _tmr.push({id: "3782039", type: "pageView", start: (new Date()).getTime()});
       <h1 style="font-size:clamp(40px,4.6vw,58px); line-height:1.06; margin:14px 0 18px">Деловые портреты студийного уровня — из ваших селфи</h1>
       <p style="color:var(--muted); font-size:18px; max-width:46ch; margin:0 0 26px">Загрузите 10–15 обычных фото. Нейросеть обучится именно на вашем лице и через час пришлёт 40+ портретов — для LinkedIn, hh.ru и сайта компании.</p>
       <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:30px">
-        <a href="/app/order" class="btn btn-dark" style="padding:15px 28px; font-size:16px; box-shadow:0 10px 30px rgba(27,29,34,.18)">Создать портреты — от 990 ₽</a>
+        <a href="/app/order" class="btn btn-dark" style="padding:15px 28px; font-size:16px; box-shadow:0 10px 30px rgba(27,29,34,.18)">Создать портреты&nbsp;— от&nbsp;990&nbsp;₽</a>
         <a href="#styles" class="btn btn-ghost" style="padding:15px 28px; font-size:16px">Посмотреть образы</a>
       </div>
       <div style="display:flex; align-items:center; gap:14px">
@@ -222,13 +229,13 @@ _tmr.push({id: "3782039", type: "pageView", start: (new Date()).getTime()});
       <h2 class="h2" style="margin:10px 0 8px">Фотостудия против нейросети</h2>
       <p style="color:var(--muted); margin:0">Любим фотографов. Но когда портрет нужен ко вторнику — математика простая.</p>
     </div>
-    <div data-reveal style="max-width:860px; margin:0 auto; display:grid; grid-template-columns:1.1fr 1fr 1fr; border:1px solid var(--line); border-radius:16px; overflow:hidden; font-size:15px">
+    <div data-reveal class="cmp" style="max-width:860px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr); border:1px solid var(--line); border-radius:16px; overflow:hidden; font-size:15px">
       <div style="padding:18px 22px; background:var(--bg); border-bottom:1px solid var(--line)"></div>
       <div style="padding:18px 22px; background:var(--bg); border-bottom:1px solid var(--line); font-weight:650; color:var(--muted)">Фотостудия</div>
       <div style="padding:18px 22px; border-bottom:1px solid #EBD9B3; background:#FBF3E1; color:var(--accent); font-weight:650; box-shadow:inset 0 3px 0 var(--spot)">Деловые портреты AI</div>
       <div id="compare-rows" style="display:contents"></div>
     </div>
-    <p data-reveal style="text-align:center; margin:26px 0 0"><a href="/app/order" class="btn btn-dark" style="padding:14px 26px; font-size:15px">Сэкономить 11 000 ₽</a></p>
+    <p data-reveal style="text-align:center; margin:26px 0 0"><a href="/app/order" class="btn btn-dark" style="padding:14px 26px; font-size:15px">Сэкономить 11&nbsp;000&nbsp;₽</a></p>
   </div>
 </section>
 
