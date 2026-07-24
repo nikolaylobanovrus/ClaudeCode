@@ -396,6 +396,9 @@ async def create_order(
             return JSONResponse({"error": "bad_wardrobe"}, status_code=422)
         if not cl_keys or not bg_keys:
             return JSONResponse({"error": "empty_pool"}, status_code=422)
+        # Каждый пул: не более числа образов тарифа (не менее 1 — уже проверено).
+        if len(cl_keys) > pkg.styles or len(bg_keys) > pkg.styles:
+            return JSONResponse({"error": "pool_too_big"}, status_code=422)
         # Из пулов нужно собрать N уникальных образов (наряд+фон).
         if len(cl_keys) * len(bg_keys) < pkg.styles:
             return JSONResponse({"error": "pool_too_small"}, status_code=422)

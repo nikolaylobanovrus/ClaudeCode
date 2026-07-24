@@ -66,6 +66,74 @@ function WardrobeGallery({ catalog, selected, onToggle }) {
   )
 }
 
+// Встроенная камера: гарантированно фронтальная (facingMode:'user') и позволяет
+// снять несколько кадров подряд — file input с capture на части телефонов
+// открывает заднюю камеру и отдаёт лишь один кадр за раз.
+function Camera({ onCapture, onClose }) {
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const [err, setErr] = useState('')
+  const [shots, setShots] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const md = navigator.mediaDevices
+    if (!md || !md.getUserMedia) { setErr('no-cam'); return }
+    md.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
+        streamRef.current = stream
+        if (videoRef.current) { videoRef.current.srcObject = stream }
+      })
+      .catch(() => setErr('no-cam'))
+    return () => { cancelled = true; streamRef.current?.getTracks().forEach((t) => t.stop()) }
+  }, [])
+
+  function snap() {
+    const v = videoRef.current
+    if (!v || !v.videoWidth) return
+    const c = document.createElement('canvas')
+    c.width = v.videoWidth; c.height = v.videoHeight
+    c.getContext('2d').drawImage(v, 0, 0)
+    c.toBlob((blob) => {
+      if (!blob) return
+      const name = `selfie_${shots + 1}_${Math.round(v.currentTime * 1000)}.jpg`
+      onCapture(new File([blob], name, { type: 'image/jpeg' }))
+      setShots((n) => n + 1)
+    }, 'image/jpeg', 0.92)
+  }
+
+  return (
+    <div className="cam">
+      {err
+        ? (
+          <div className="cam-fallback">
+            <p>Не удалось открыть камеру в приложении. Разрешите доступ к камере
+              или снимите фото системной камерой:</p>
+            <label className="btn btn-dark" style={{ marginTop: 12 }}>
+              <input type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+                onChange={(e) => { onCapture(e.target.files); onClose() }} />
+              📷 Открыть камеру
+            </label>
+            <button className="btn btn-ghost" style={{ marginTop: 8 }} onClick={onClose}>Закрыть</button>
+          </div>
+        )
+        : (
+          <>
+            <video ref={videoRef} autoPlay playsInline muted className="cam-video" />
+            <div className="cam-bar">
+              <span className="cam-count">{shots ? `Снято: ${shots}` : 'Наведите камеру на лицо'}</span>
+              <button className="cam-shutter" onClick={snap} aria-label="Сделать снимок" />
+              <button className="btn btn-ghost cam-done" onClick={onClose}>
+                {shots ? 'Готово' : 'Закрыть'}
+              </button>
+            </div>
+          </>
+        )}
+    </div>
+  )
+}
+
 export default function Order() {
   const params = new URLSearchParams(location.search)
   const [step, setStep] = useState(1)
@@ -78,6 +146,7 @@ export default function Order() {
   const [paying, setPaying] = useState(false)
   const [thumbs, setThumbs] = useState([])
   const [count, setCount] = useState(0)
+  const [showCam, setShowCam] = useState(false)   // оверлей встроенной камеры
   // Конструктор образов: подшаг, пол и пулы одежды/фона.
   const [sub, setSub] = useState('gender')        // gender | clothing | background
   const [gender, setGender] = useState('')
@@ -184,10 +253,14 @@ export default function Order() {
       setCloCat(clo); setBgCat(bg)
     } catch (e) { say(errText(e), true) }
   }
+  // Пул одежды/фона: не менее 1 и не более числа образов тарифа (needN).
+  // Снять выбор можно всегда; добавить — только пока не достигнут предел.
   const toggleClo = (key) =>
-    setSelClo((c) => c.includes(key) ? c.filter((k) => k !== key) : [...c, key])
+    setSelClo((c) => c.includes(key) ? c.filter((k) => k !== key)
+      : (c.length >= needN ? (say(`Не больше ${needN} — по числу образов тарифа.`, true), c) : (say(''), [...c, key])))
   const toggleBg = (key) =>
-    setSelBg((c) => c.includes(key) ? c.filter((k) => k !== key) : [...c, key])
+    setSelBg((c) => c.includes(key) ? c.filter((k) => k !== key)
+      : (c.length >= needN ? (say(`Не больше ${needN} — по числу образов тарифа.`, true), c) : (say(''), [...c, key])))
 
   async function pay() {
     if (!pkg) return
@@ -304,10 +377,12 @@ export default function Order() {
           </p>
           <div className="gender-pick">
             <div className={`gender-opt ${gender === 'male' ? 'sel' : ''}`} onClick={() => pickGender('male')}>
-              <span className="em">👔</span>Мужские
+              <img src="/static/img/gen/gender_male.jpg?v=1" alt="" loading="lazy" />
+              <span className="glabel">Мужские</span>
             </div>
             <div className={`gender-opt ${gender === 'female' ? 'sel' : ''}`} onClick={() => pickGender('female')}>
-              <span className="em">👗</span>Женские
+              <img src="/static/img/gen/gender_female.jpg?v=1" alt="" loading="lazy" />
+              <span className="glabel">Женские</span>
             </div>
           </div>
           <button className="btn btn-ghost" onClick={() => setStep(1)}>← Назад к тарифам</button>
@@ -319,11 +394,11 @@ export default function Order() {
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 4 }}>Выберите одежду</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-            Отметьте понравившиеся варианты — из них и фонов соберём {needN} образов.
+            Отметьте от 1 до {needN} вариантов — из них и фонов соберём {needN} образов.
             Чем больше выбор, тем разнообразнее портреты.
           </p>
           <WardrobeGallery catalog={cloCat} selected={selClo} onToggle={toggleClo} />
-          <div className="wcount">Выбрано одежды: <b>{selClo.length}</b></div>
+          <div className="wcount">Выбрано одежды: <b>{selClo.length}</b> из {needN}</div>
           <button className="btn btn-dark" style={{ marginTop: 10 }}
             disabled={selClo.length < 1} onClick={() => { setSub('background'); say('') }}>
             Далее — выбрать фон
@@ -338,7 +413,7 @@ export default function Order() {
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 4 }}>Выберите фон</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-            Отметьте фоны — мы разнообразно скомбинируем их с выбранной одеждой.
+            Отметьте от 1 до {needN} фонов — разнообразно скомбинируем их с выбранной одеждой.
           </p>
           <WardrobeGallery catalog={bgCat} selected={selBg} onToggle={toggleBg} />
           <div className="wcount">
@@ -440,12 +515,12 @@ export default function Order() {
               onChange={(e) => upload(e.target.files)} />
             <b>Выберите фото</b> или перетащите сюда (можно все сразу)
           </label>
-          {/* Камера телефона: снять селфи сразу (на десктопе откроется выбор файла). */}
-          <label className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}>
-            <input type="file" accept="image/*" capture="user" style={{ display: 'none' }}
-              onChange={(e) => upload(e.target.files)} />
+          {/* Встроенная камера: фронтальная + можно снять несколько кадров подряд. */}
+          <button className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}
+            onClick={() => setShowCam(true)}>
             📷 Сделать фото
-          </label>
+          </button>
+          {showCam && <Camera onCapture={(f) => upload(f.length ? f : [f])} onClose={() => setShowCam(false)} />}
           <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
           <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
           <button className="btn btn-dark" disabled={count < 10} onClick={generate}>Запустить генерацию</button>
