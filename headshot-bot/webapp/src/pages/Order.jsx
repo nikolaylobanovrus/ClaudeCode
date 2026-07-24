@@ -142,7 +142,6 @@ export default function Order() {
   const [pkg, setPkg] = useState(null)
   const [contact, setContact] = useState('')
   const [password, setPassword] = useState('')
-  const [consent, setConsent] = useState(false)
   const [paying, setPaying] = useState(false)
   const [thumbs, setThumbs] = useState([])
   const [count, setCount] = useState(0)
@@ -443,33 +442,31 @@ export default function Order() {
           <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 14 }}>
             Разные ракурсы и фоны, хороший свет, лицо крупно. Хотя бы часть — без очков и головных уборов.
           </p>
-          <label className="consent">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов,
-              включая их передачу техническому провайдеру нейросетевой генерации
-              (<a href="/privacy" target="_blank" rel="noreferrer">политика конфиденциальности</a>).
-              Фото и модель хранятся не дольше 30 дней и удаляются по запросу.</span>
-          </label>
-          <label className="drop" ref={drop} {...dragHandlers}
-            style={consent ? undefined : { opacity: .5, pointerEvents: 'none' }}>
+          <label className="drop" ref={drop} {...dragHandlers}>
             <input type="file" accept="image/jpeg,image/png" multiple style={{ display: 'none' }}
-              disabled={!consent} onChange={(e) => upload(e.target.files)} />
+              onChange={(e) => upload(e.target.files)} />
             <b>Выберите фото</b> или перетащите сюда (можно все сразу)
           </label>
           {/* Встроенная камера: фронтальная + можно снять несколько кадров подряд. */}
           <button className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}
-            disabled={!consent} onClick={() => setShowCam(true)}>
+            onClick={() => setShowCam(true)}>
             📷 Сделать фото
           </button>
           {showCam && <Camera onCapture={(f) => upload(f.length ? f : [f])} onClose={() => setShowCam(false)} />}
-          {!consent && <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
-            Отметьте согласие выше, чтобы загрузить фото.</p>}
           <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
           <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
           <button className="btn btn-dark" disabled={count < 10}
             onClick={() => { setStep(4); say(''); goal('reach_payment', { pkg: pkg.code }) }}>
             Далее — к оплате
           </button>
+          {/* Согласие даётся действием загрузки (конклюдентно), без отдельной галочки. */}
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>
+            Загружая фото, вы даёте согласие на их обработку для создания портретов
+            (для генерации, не для идентификации), включая передачу техническому провайдеру
+            нейросетевой генерации. Фото и модель хранятся не дольше 30 дней и удаляются
+            по запросу — см. <a href="/privacy" target="_blank" rel="noreferrer">политику
+            конфиденциальности</a>.
+          </p>
           <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(2)}>← Назад к образам</button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
