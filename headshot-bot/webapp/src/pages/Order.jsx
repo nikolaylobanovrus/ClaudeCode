@@ -440,6 +440,12 @@ export default function Order() {
               onChange={(e) => upload(e.target.files)} />
             <b>Выберите фото</b> или перетащите сюда (можно все сразу)
           </label>
+          {/* Камера телефона: снять селфи сразу (на десктопе откроется выбор файла). */}
+          <label className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}>
+            <input type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+              onChange={(e) => upload(e.target.files)} />
+            📷 Сделать фото
+          </label>
           <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
           <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
           <button className="btn btn-dark" disabled={count < 10} onClick={generate}>Запустить генерацию</button>
