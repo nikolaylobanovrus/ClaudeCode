@@ -47,7 +47,7 @@ async def test_remix_flow(tmp_path):
         for i in range(10):
             client.post(f"/api/orders/{token}/photos",
                         files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
-        client.post(f"/api/orders/{token}/generate")
+        client.post(f"/api/orders/{token}/checkout", data={"contact": "a@b.ru"})
 
         engine = create_async_engine(db)
         sf = async_sessionmaker(engine, expire_on_commit=False)

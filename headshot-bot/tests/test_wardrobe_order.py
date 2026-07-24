@@ -93,11 +93,11 @@ def test_create_order_validates_wardrobe(client):
     assert client.post("/api/orders", data={**base, "gender": "male",
                        "clothing": fem, "backgrounds": bg}).status_code == 422
 
-    # Корректный заказ.
+    # Корректный заказ — создаётся черновик (селфи-первый флоу, оплата позже).
     r = client.post("/api/orders", data={**base, "gender": "male",
                     "clothing": cl, "backgrounds": bg})
     assert r.status_code == 200, r.text
-    assert r.json()["paid"] is True
+    assert r.json()["state"] == "collecting"
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,9 @@ async def test_worker_wardrobe_produces_all_portraits(tmp_path):
         for i in range(10):
             client.post(f"/api/orders/{token}/photos",
                         files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
-        client.post(f"/api/orders/{token}/generate")
+        # Селфи-первый флоу: оплата (заглушка) после загрузки → генерация.
+        assert client.post(f"/api/orders/{token}/checkout",
+                           data={"contact": "a@b.ru"}).status_code == 200
 
         engine = create_async_engine(db)
         sf = async_sessionmaker(engine, expire_on_commit=False)

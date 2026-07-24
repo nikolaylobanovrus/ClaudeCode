@@ -48,30 +48,43 @@ STD_STYLES = "studio_grey,hh_white,office_modern,suit_navy"
 
 
 def _create_order(client, package="standard", contact="buyer@mail.ru") -> str:
-    return client.post(
+    """Селфи-первый флоу: черновик → 10 селфи → checkout (создаёт платёж)."""
+    token = client.post(
         "/api/orders",
-        data={"package": package, "contact": contact, "consent": "yes", "styles": STD_STYLES},
+        data={"package": package, "consent": "yes", "styles": STD_STYLES},
     ).json()["token"]
+    photo = make_photo()
+    for i in range(10):
+        client.post(f"/api/orders/{token}/photos",
+                    files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
+    client.post(f"/api/orders/{token}/checkout", data={"contact": contact})
+    return token
 
 
-def test_order_creates_payment_and_webhook_starts_collecting(client):
-    resp = client.post(
+def test_checkout_creates_payment_and_webhook_starts_training(client):
+    token = client.post(
         "/api/orders",
-        data={"package": "standard", "contact": "buyer@mail.ru", "consent": "yes",
-              "styles": STD_STYLES},
-    )
+        data={"package": "standard", "consent": "yes", "styles": STD_STYLES},
+    ).json()["token"]
+    # Черновик — платёж ещё не создан.
+    assert client.get(f"/api/orders/{token}").json()["state"] == "collecting"
+    photo = make_photo()
+    for i in range(10):
+        client.post(f"/api/orders/{token}/photos",
+                    files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
+
+    resp = client.post(f"/api/orders/{token}/checkout", data={"contact": "buyer@mail.ru"})
     assert resp.status_code == 200
     data = resp.json()
-    token = data["token"]
     assert data["payment_url"] == "https://yookassa.test/pay/123"
     assert client.stub.created[0]["amount"] == 990
     assert client.stub.created[0]["customer"] == {"email": "buyer@mail.ru"}
     assert client.get(f"/api/orders/{token}").json()["state"] == "awaiting_payment"
 
-    # Вебхук: платёж успешен → заказ уходит к сбору фото.
+    # Вебхук: платёж успешен → селфи уже есть → генерация стартует (training).
     resp = client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
     assert resp.status_code == 200
-    assert client.get(f"/api/orders/{token}").json()["state"] == "collecting"
+    assert client.get(f"/api/orders/{token}").json()["state"] == "training"
 
     # Повторный вебхук идемпотентен (заказ уже не в awaiting_payment).
     resp = client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
@@ -83,7 +96,7 @@ def test_pay_recreates_payment_for_abandoned_order(client):
     r = client.post(f"/api/orders/{token}/pay")
     assert r.status_code == 200
     assert r.json()["payment_url"] == "https://yookassa.test/pay/123"
-    # После оплаты заказ уходит в collecting → повторная оплата уже неуместна.
+    # После оплаты заказ уходит в training → повторная оплата уже неуместна.
     client.post("/api/payments/yookassa", json={"object": {"id": "pay-123"}})
     assert client.post(f"/api/orders/{token}/pay").status_code == 404
 

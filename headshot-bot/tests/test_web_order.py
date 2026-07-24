@@ -1,7 +1,7 @@
-"""E2E веб-заказа (флоу как у HeadshotPro): тариф → оплата → фото → образы → галерея.
+"""E2E веб-заказа (селфи-первый флоу): тариф → образы → селфи → оплата → галерея.
 
-В тестах включена заглушка оплаты (PAYMENT_STUB): заказ создаётся сразу
-оплаченным (state=collecting), минуя ЮKassa.
+Черновик заказа создаётся сразу в collecting (клиент грузит селфи ДО оплаты);
+на шаге checkout заглушка оплаты (PAYMENT_STUB) сразу запускает генерацию.
 """
 from io import BytesIO
 
@@ -42,38 +42,47 @@ STD_STYLES = "studio_grey,hh_white,office_modern,suit_navy"
 
 
 def create_paid_order(client, contact="a@b.ru", package="standard", styles=STD_STYLES) -> str:
-    """Создаёт заказ (тариф + образы); заглушка оплаты сразу → collecting."""
-    resp = client.post(
+    """Черновик → 10 селфи → оплата (заглушка) → training."""
+    token = client.post(
         "/api/orders",
-        data={"package": package, "contact": contact, "consent": "yes", "styles": styles},
-    )
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["paid"] is True
-    return body["token"]
+        data={"package": package, "consent": "yes", "styles": styles},
+    ).json()["token"]
+    photo = make_photo()
+    for i in range(10):
+        r = client.post(f"/api/orders/{token}/photos",
+                        files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
+        assert r.status_code == 200, r.text
+    r = client.post(f"/api/orders/{token}/checkout", data={"contact": contact})
+    assert r.status_code == 200, r.text
+    assert r.json()["paid"] is True
+    return token
 
 
 def test_full_web_order(client):
     # Без согласия — 400.
     assert client.post("/api/orders", data={
-        "package": "standard", "contact": "a@b.ru", "styles": STD_STYLES,
+        "package": "standard", "styles": STD_STYLES,
     }).status_code == 400
     # Неверный тариф — 422.
     assert client.post("/api/orders", data={
-        "package": "nope", "contact": "a@b.ru", "consent": "yes", "styles": STD_STYLES,
+        "package": "nope", "consent": "yes", "styles": STD_STYLES,
     }).status_code == 422
     # Неверное число образов (образы выбираются при оформлении) — 422.
     assert client.post("/api/orders", data={
-        "package": "standard", "contact": "a@b.ru", "consent": "yes",
+        "package": "standard", "consent": "yes",
         "styles": "studio_grey,hh_white",
     }).status_code == 422
 
-    token = create_paid_order(client)
-    # Оплачен → сбор фото.
+    # Черновик заказа (селфи-первый флоу) — сразу collecting, оплаты ещё нет.
+    resp = client.post("/api/orders", data={
+        "package": "standard", "consent": "yes", "styles": STD_STYLES})
+    assert resp.status_code == 200, resp.text
+    token = resp.json()["token"]
     assert client.get(f"/api/orders/{token}").json()["state"] == "collecting"
 
-    # Запуск генерации нельзя без 10 фото.
-    assert client.post(f"/api/orders/{token}/generate").status_code == 409
+    # Оплата нельзя без 10 селфи.
+    assert client.post(f"/api/orders/{token}/checkout",
+                       data={"contact": "a@b.ru"}).status_code == 409
 
     # Загрузка 10 фото.
     photo = make_photo()
@@ -85,12 +94,15 @@ def test_full_web_order(client):
         assert resp.status_code == 200, resp.text
     assert client.get(f"/api/orders/{token}").json()["photos"] == 10
 
-    # Запуск — образы уже сохранены при оформлении, styles передавать не нужно.
-    assert client.post(f"/api/orders/{token}/generate").status_code == 200
+    # Оплата (заглушка) → селфи уже есть → генерация стартует.
+    r = client.post(f"/api/orders/{token}/checkout", data={"contact": "a@b.ru"})
+    assert r.status_code == 200, r.text
+    assert r.json()["paid"] is True
     assert client.get(f"/api/orders/{token}").json()["state"] == "training"
 
-    # Повторный запуск на уже не-collecting заказе не ломает (не 500).
-    assert client.post(f"/api/orders/{token}/generate").status_code in (404, 409)
+    # Повторная оплата на уже не-collecting заказе не ломает (не 500).
+    assert client.post(f"/api/orders/{token}/checkout",
+                       data={"contact": "a@b.ru"}).status_code in (404, 409)
 
 
 @pytest.mark.asyncio
@@ -109,13 +121,6 @@ async def test_worker_completes_web_order(tmp_path):
 
     with TestClient(app) as client:
         token = create_paid_order(client, contact="+79990000000")
-        photo = make_photo()
-        for i in range(10):
-            client.post(
-                f"/api/orders/{token}/photos",
-                files={"photo": (f"p{i}.jpg", photo, "image/jpeg")},
-            )
-        client.post(f"/api/orders/{token}/generate")
         assert client.get(f"/api/orders/{token}").json()["state"] == "training"
 
         engine = create_async_engine(db)
@@ -158,11 +163,6 @@ async def test_full_res_access_sets_downloaded_at(tmp_path):
 
     with TestClient(app) as client:
         token = create_paid_order(client)
-        photo = make_photo()
-        for i in range(10):
-            client.post(f"/api/orders/{token}/photos",
-                        files={"photo": (f"p{i}.jpg", photo, "image/jpeg")})
-        client.post(f"/api/orders/{token}/generate")
 
         db = f"sqlite+aiosqlite:///{tmp_path}/dl.db"
         engine = create_async_engine(db)

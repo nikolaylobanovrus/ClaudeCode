@@ -351,7 +351,7 @@ async def _start_payment(request: Request, job_id: int, pkg, token: str, contact
 async def create_order(
     request: Request,
     package: str = Form(...),
-    contact: str = Form(...),
+    contact: str = Form(""),
     consent: str = Form(""),
     styles: str = Form(""),
     gender: str = Form(""),
@@ -370,7 +370,10 @@ async def create_order(
     """
     if consent != "yes":
         return JSONResponse({"error": "consent_required"}, status_code=400)
-    if not (3 <= len(contact.strip()) <= 200):
+    # Email в селфи-первом флоу собираем на шаге оплаты (checkout), поэтому
+    # при создании черновика он опционален; проверяем только если передан.
+    c = contact.strip()
+    if c and not (3 <= len(c) <= 200):
         return JSONResponse({"error": "bad_contact"}, status_code=422)
     try:
         pkg = get_package(package)
@@ -416,6 +419,8 @@ async def create_order(
             return JSONResponse({"error": "styles_count"}, status_code=422)
         styles_csv = ",".join(chosen)
 
+    # Селфи-первый флоу: создаём заказ-черновик сразу в COLLECTING, чтобы клиент
+    # мог загрузить селфи ДО оплаты. Email и оплата — на шаге /checkout.
     # Если клиент вошёл в кабинет — привяжем заказ к аккаунту.
     account = await current_account(request)
     token = secrets.token_urlsafe(24)
@@ -426,46 +431,104 @@ async def create_order(
         session.add(user)
         await session.flush()
         job = Job(
-            user_id=user.id, state=JobState.AWAITING_PAYMENT, channel="web",
+            user_id=user.id, state=JobState.COLLECTING, channel="web",
             package_code=pkg.code, styles_csv=styles_csv,
             gender=gender_val, clothing_csv=clothing_csv, background_csv=background_csv,
             remixes_left=pkg.remixes,
-            contact=contact.strip(), access_token=token,
+            contact=(c or None), access_token=token,
             account_id=account.id if account else None,
         )
         session.add(job)
         await session.commit()
         job_id = job.id
 
-    settings = request.app.state.settings
+    await _notify_admins(
+        request.app.state.settings,
+        f"📝 Новый веб-заказ #{job_id} (черновик): «{pkg.title}». "
+        f"Клиент загружает селфи; оплата после.",
+    )
+    return {"token": token, "state": "collecting", "price_rub": pkg.price_rub}
 
-    # Заглушка оплаты: помечаем оплаченным и сразу пускаем к загрузке фото.
+
+async def _source_photo_count(request: Request, job_id: int) -> int:
+    async with request.app.state.session_factory() as session:
+        return (await session.execute(
+            select(func.count()).select_from(Photo).where(
+                Photo.job_id == job_id, Photo.kind == Photo.SOURCE))
+        ).scalar() or 0
+
+
+async def _confirm_paid(request: Request, job_id: int) -> str | None:
+    """Оплата подтверждена: заказ с загруженными селфи → training (генерация
+    стартует сразу), иначе → collecting (легаси «оплата вперёд»). Идемпотентно:
+    срабатывает только из awaiting_payment. Возвращает целевое состояние или None."""
+    photos = await _source_photo_count(request, job_id)
+    target = JobState.TRAINING if photos >= MIN_PHOTOS else JobState.COLLECTING
+    async with request.app.state.session_factory() as session:
+        job = await session.get(Job, job_id)
+        if job is None or JobState(job.state) is not JobState.AWAITING_PAYMENT:
+            return None
+        job.state = validate_transition(JobState(job.state), target)
+        await session.commit()
+    return target.value
+
+
+@app.post("/api/orders/{token}/checkout")
+async def checkout_order(request: Request, token: str, contact: str = Form("")):
+    """Селфи-первый флоу: заказ уже в COLLECTING с загруженными селфи — здесь
+    клиент указывает email и оплачивает. Требует ≥ MIN_PHOTOS фото. При заглушке
+    оплаты сразу запускает генерацию; иначе создаёт платёж ЮKassa."""
+    job = await _job_by_token(request, token)
+    if job is None or JobState(job.state) is not JobState.COLLECTING:
+        return JSONResponse({"error": "order_not_found"}, status_code=404)
+    try:
+        pkg = get_package(job.package_code or "")
+    except ValueError:
+        return JSONResponse({"error": "bad_package"}, status_code=422)
+    c = contact.strip()
+    if c and not (3 <= len(c) <= 200):
+        return JSONResponse({"error": "bad_contact"}, status_code=422)
+    if (await _source_photo_count(request, job.id)) < MIN_PHOTOS:
+        return JSONResponse({"error": "not_enough_photos"}, status_code=409)
+
+    account = await current_account(request)
+    settings = request.app.state.settings
+    async with request.app.state.session_factory() as session:
+        db_job = await session.get(Job, job.id)
+        # Перечитываем состояние под сессией — защита от гонки двойного checkout.
+        if JobState(db_job.state) is not JobState.COLLECTING:
+            return JSONResponse({"error": "order_not_found"}, status_code=409)
+        if c:
+            db_job.contact = c
+        if account:
+            db_job.account_id = account.id
+        db_job.state = validate_transition(JobState(db_job.state), JobState.AWAITING_PAYMENT)
+        await session.commit()
+
+    # Заглушка оплаты: подтверждаем и сразу запускаем генерацию (фото уже есть).
     if settings.payment_stub:
-        async with request.app.state.session_factory() as session:
-            db_job = await session.get(Job, job_id)
-            db_job.state = validate_transition(JobState(db_job.state), JobState.COLLECTING)
-            await session.commit()
+        await _confirm_paid(request, job.id)
         await _notify_admins(
             settings,
-            f"🧪 ТЕСТОВЫЙ веб-заказ #{job_id} (заглушка оплаты): «{pkg.title}», "
-            f"контакт: {contact.strip()}. Оплата пропущена.",
+            f"🧪 ТЕСТОВЫЙ веб-заказ #{job.id} (заглушка оплаты): «{pkg.title}», "
+            f"контакт: {c}. Генерация запущена.",
         )
         return {"token": token, "paid": True, "stub": True, "price_rub": pkg.price_rub}
 
-    url = await _start_payment(request, job_id, pkg, token, contact.strip())
+    url = await _start_payment(request, job.id, pkg, token, c)
     if url:
         await _notify_admins(
             settings,
-            f"💳 ВЕБ-заказ #{job_id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
-            f"контакт: {contact.strip()}",
+            f"💳 ВЕБ-заказ #{job.id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
+            f"контакт: {c}",
         )
         return {"token": token, "payment_url": url, "price_rub": pkg.price_rub}
 
-    # Ручной режим (нет ключей ЮKassa или сервис недоступен): подтверждает админ.
+    # Ручной режим (нет ключей ЮKassa): подтверждает админ.
     await _notify_admins(
         settings,
-        f"Новый ВЕБ-заказ #{job_id}: пакет «{pkg.title}», контакт: {contact.strip()}. "
-        f"После оплаты подтвердить: /approve_{job_id}",
+        f"Новый ВЕБ-заказ #{job.id}: пакет «{pkg.title}», контакт: {c}. "
+        f"После оплаты подтвердить: /approve_{job.id}",
     )
     return {"token": token, "manual": True, "price_rub": pkg.price_rub}
 
@@ -484,10 +547,7 @@ async def pay_order(request: Request, token: str):
 
     settings = request.app.state.settings
     if settings.payment_stub:
-        async with request.app.state.session_factory() as session:
-            db_job = await session.get(Job, job.id)
-            db_job.state = validate_transition(JobState(db_job.state), JobState.COLLECTING)
-            await session.commit()
+        await _confirm_paid(request, job.id)
         return {"paid": True, "stub": True, "price_rub": pkg.price_rub}
 
     url = await _start_payment(request, job.id, pkg, token, job.contact or "")
@@ -594,15 +654,19 @@ async def yookassa_webhook(request: Request):
         job = (await session.execute(stmt)).scalar_one_or_none()
         if job is None:
             return JSONResponse({"error": "order_not_found"}, status_code=404)
-        if JobState(job.state) is JobState.AWAITING_PAYMENT:
-            job.state = validate_transition(JobState(job.state), JobState.COLLECTING)
-            await session.commit()
-            pkg = get_package(job.package_code)
-            await _notify_admins(
-                request.app.state.settings,
-                f"✅ ОПЛАЧЕН заказ #{job.id}: «{pkg.title}» {pkg.price_rub} ₽, "
-                f"контакт: {job.contact}. Клиент загружает фото.",
-            )
+        job_id, pkg_code, contact = job.id, job.package_code, job.contact
+        awaiting = JobState(job.state) is JobState.AWAITING_PAYMENT
+    if awaiting:
+        # Селфи-первый флоу: фото уже загружены → генерация стартует сразу.
+        target = await _confirm_paid(request, job_id)
+        pkg = get_package(pkg_code)
+        tail = ("Генерация запущена." if target == JobState.TRAINING.value
+                else "Клиент загружает фото.")
+        await _notify_admins(
+            request.app.state.settings,
+            f"✅ ОПЛАЧЕН заказ #{job_id}: «{pkg.title}» {pkg.price_rub} ₽, "
+            f"контакт: {contact}. {tail}",
+        )
     return {"ok": True}
 
 

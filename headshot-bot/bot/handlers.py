@@ -17,7 +17,7 @@ from aiogram.types import (
     InputMediaPhoto,
     Message,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bot import texts
@@ -392,18 +392,25 @@ async def on_approve(
         if job is None or JobState(job.state) is not JobState.AWAITING_PAYMENT:
             await message.answer(f"Заказ {job_id} не найден или не ждёт оплаты.")
             return
-        # Бот собирает фото ДО оплаты → сразу в тренировку. Веб — «оплата
-        # вперёд»: после подтверждения клиент ещё загружает фото (collecting).
+        # Бот собирает фото ДО оплаты → сразу в тренировку. Веб (селфи-первый
+        # флоу) обычно уже с загруженными селфи → тоже в тренировку; если фото
+        # ещё нет (легаси «оплата вперёд») — в collecting.
         is_web = job.channel == "web"
-        target = JobState.COLLECTING if is_web else JobState.TRAINING
+        if is_web:
+            cnt = (await session.execute(select(func.count()).select_from(Photo).where(
+                Photo.job_id == job.id, Photo.kind == Photo.SOURCE))).scalar() or 0
+            target = JobState.TRAINING if cnt >= 10 else JobState.COLLECTING
+        else:
+            target = JobState.TRAINING
         job.state = validate_transition(JobState(job.state), target)
         tg_id = (await job.awaitable_attrs.user).tg_id
         await session.commit()
     if not is_web and tg_id > 0:  # веб-заказам сообщение в Telegram не шлём
         await bot.send_message(tg_id, texts.PAYMENT_CONFIRMED)
+    started = target is JobState.TRAINING
     await message.answer(
         f"Заказ {job_id} — оплата подтверждена. "
-        + ("Клиент загружает фото на сайте." if is_web else "Запущен в работу.")
+        + ("Запущен в работу." if started else "Клиент загружает фото на сайте.")
     )
 
 

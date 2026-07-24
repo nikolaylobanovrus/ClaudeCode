@@ -4,8 +4,8 @@ import { api, errText } from '../api.js'
 import { auth, authErr } from '../auth.js'
 import { goal, ymPurchase } from '../analytics.js'
 
-// Флоу: тариф → образы (пол → одежда → фон) → оплата → селфи → результат.
-const STEPS = ['Тариф', 'Образы', 'Оплата', 'Селфи', 'Результат']
+// Флоу: тариф → образы (пол → одежда → фон) → селфи → оплата → результат.
+const STEPS = ['Тариф', 'Образы', 'Селфи', 'Оплата', 'Результат']
 const PROGRESS = [
   ['training', 'Обучение нейросети на ваших фото (~30 минут)'],
   ['generating', 'Генерация портретов'],
@@ -191,10 +191,12 @@ export default function Order() {
     if (!token) return
     api.status(token).then((d) => {
       setOrder(d)
-      // Уже оплаченный заказ (возврат по ссылке) — фиксируем покупку один раз.
-      if (['collecting', 'training', 'generating', 'done'].includes(d.state)) markPurchase(token, d.package)
-      if (d.state === 'awaiting_payment') setStep(3)
-      else if (d.state === 'collecting') { setCount(d.photos); setStep(4) }
+      // Оплаченный заказ (возврат по ссылке) — фиксируем покупку один раз.
+      if (['training', 'generating', 'done'].includes(d.state)) markPurchase(token, d.package)
+      // collecting = черновик с селфи (ещё не оплачен) → шаг «Селфи»;
+      // awaiting_payment = ждёт оплаты → шаг «Оплата»; дальше — результат.
+      if (d.state === 'awaiting_payment') setStep(4)
+      else if (d.state === 'collecting') { setCount(d.photos); setStep(3) }
       else setStep(5)
     }).catch(() => {})
   }, []) // eslint-disable-line
@@ -207,16 +209,18 @@ export default function Order() {
     }
   }, [packages, order, pkg])
 
-  // Поллинг: ждём подтверждения оплаты (шаг 3 с токеном) и на шаге результата.
+  // Поллинг: ждём подтверждения оплаты (шаг «Оплата» с токеном) и на результате.
   useEffect(() => {
-    if (!token || (step !== 3 && step !== 5)) return
+    if (!token || (step !== 4 && step !== 5)) return
     let alive = true
     let id
     const tick = () => api.status(token).then((d) => {
       if (!alive) return
       setOrder(d)
-      // Возврат из ЮKassa: заказ стал оплаченным → фиксируем покупку (один раз).
-      if (step === 3 && d.state === 'collecting') { markPurchase(token, d.package); setCount(d.photos); setStep(4) }
+      // Возврат из ЮKassa: оплата прошла → генерация пошла → на результат.
+      if (step === 4 && ['training', 'generating', 'delivering', 'done'].includes(d.state)) {
+        markPurchase(token, d.package); setStep(5)
+      }
       // На готовом заказе продолжаем поллинг, пока есть remix в работе.
       const terminal = ['done', 'failed', 'cancelled'].includes(d.state)
       if (terminal && !(d.pending_remixes > 0)) clearInterval(id)
@@ -262,12 +266,43 @@ export default function Order() {
     setSelBg((c) => c.includes(key) ? c.filter((k) => k !== key)
       : (c.length >= needN ? (say(`Не больше ${needN} — по числу образов тарифа.`, true), c) : (say(''), [...c, key])))
 
-  async function pay() {
-    if (!pkg) return
+  // Черновик заказа создаём при первой загрузке селфи (до оплаты). Пулы
+  // одежды/фона уже выбраны и сохраняются в заказе; воркер соберёт N образов.
+  async function ensureDraft() {
+    if (token) return token
+    const d = await api.createDraft(pkg.code, { gender, clothing: selClo, backgrounds: selBg })
+    setToken(d.token)
+    history.replaceState(null, '', `/app/order?t=${d.token}`)
+    return d.token
+  }
+
+  async function upload(files) {
+    let tok = token
+    if (!tok) {
+      try { tok = await ensureDraft() } catch (e) { say(errText(e), true); return }
+    }
+    let n = count
+    for (const f of files) {
+      if (n >= 15) break
+      say(`Загружаем «${f.name}»…`)
+      try {
+        const d = await api.uploadPhoto(tok, f)
+        n = d.count
+        setCount(d.count)
+        const url = URL.createObjectURL(f)
+        thumbsRef.current.push(url)
+        setThumbs((t) => [...t, url])
+        say(d.count >= 10 ? 'Фото достаточно — можно добавить ещё или перейти к оплате.' : '')
+      } catch (e) { say(errText(e), true) }
+    }
+  }
+
+  // Оплата после селфи: создаём/входим в аккаунт (гость), затем checkout —
+  // он привязывает email, берёт оплату и сразу запускает генерацию.
+  async function checkout() {
+    if (!pkg || !token) return
     setPaying(true); say('')
     try {
-      // Оплата привязана к аккаунту: у гостя создаём его здесь (или входим,
-      // если email уже зарегистрирован) — тогда после оплаты он попадёт в ЛК.
       if (!account) {
         const email = contact.trim()
         try {
@@ -286,15 +321,10 @@ export default function Order() {
         await refresh?.()
       }
       const email = account ? account.email : contact.trim()
-      // Пулы одежды/фона сохраняются в заказе; воркер соберёт N образов.
-      const d = await api.createOrder(pkg.code, email,
-        { gender, clothing: selClo, backgrounds: selBg })
-      setToken(d.token)
-      history.replaceState(null, '', `/app/order?t=${d.token}`)
+      const d = await api.checkout(token, email)
       if (d.payment_url) { window.location.href = d.payment_url; return } // ЮKassa
-      if (d.paid) { markPurchase(d.token, pkg.code); setStep(4); say(''); return }  // заглушка оплаты → к селфи
-      // Ручной режим: заказ ждёт подтверждения — экран ожидания (token уже задан).
-      say('')
+      if (d.paid) { markPurchase(token, pkg.code); setOrder({ state: 'training', results: [] }); setStep(5); say(''); return }
+      say('')  // ручной режим: ждёт подтверждения админом
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
   }
 
@@ -304,33 +334,8 @@ export default function Order() {
     try {
       const d = await api.repay(token)
       if (d.payment_url) { window.location.href = d.payment_url; return }
-      if (d.paid) { markPurchase(token, pkg?.code); setStep(4); say('') }
+      if (d.paid) { markPurchase(token, pkg?.code); setOrder({ state: 'training', results: [] }); setStep(5); say('') }
     } catch (e) { say(errText(e), true) } finally { setPaying(false) }
-  }
-
-  async function upload(files) {
-    let n = count
-    for (const f of files) {
-      if (n >= 15) break
-      say(`Загружаем «${f.name}»…`)
-      try {
-        const d = await api.uploadPhoto(token, f)
-        n = d.count
-        setCount(d.count)
-        const url = URL.createObjectURL(f)
-        thumbsRef.current.push(url)
-        setThumbs((t) => [...t, url])
-        say(d.count >= 10 ? 'Фото достаточно — можно добавить ещё или запускать.' : '')
-      } catch (e) { say(errText(e), true) }
-    }
-  }
-
-  async function generate() {
-    try {
-      await api.generate(token)  // образы уже выбраны при оформлении
-      setOrder({ state: 'training', results: [] })
-      setStep(5); say('')
-    } catch (e) { say(errText(e), true) }
   }
 
   const dragHandlers = {
@@ -351,7 +356,7 @@ export default function Order() {
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Выберите тариф</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
-            Оплата — один раз, портреты остаются вашими навсегда. Дальше выберете образы, оплатите и загрузите селфи.
+            Оплата — один раз, портреты остаются вашими навсегда. Дальше выберете образы, загрузите селфи и оплатите.
           </p>
           <div className="plans">
             {packages.map((p) => (
@@ -423,8 +428,8 @@ export default function Order() {
               : <span style={{ color: 'var(--bad)' }}>— нужно ≥ {needN} (добавьте одежду или фон)</span>}
           </div>
           <button className="btn btn-dark" style={{ marginTop: 10 }}
-            disabled={!poolOk} onClick={() => { setStep(3); say(''); goal('reach_payment', { pkg: pkg.code }) }}>
-            Продолжить к оплате
+            disabled={!poolOk} onClick={() => { setStep(3); say('') }}>
+            Далее — загрузить селфи
           </button>
           <button className="btn btn-ghost" style={{ marginTop: 6 }}
             onClick={() => setSub('clothing')}>← Назад к одежде</button>
@@ -432,12 +437,50 @@ export default function Order() {
         </div>
       )}
 
-      {step === 3 && !token && (
+      {step === 3 && (
+        <div className="card">
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>Загрузите 10–15 селфи</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 14 }}>
+            Разные ракурсы и фоны, хороший свет, лицо крупно. Хотя бы часть — без очков и головных уборов.
+          </p>
+          <label className="consent">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов,
+              включая их передачу техническому провайдеру нейросетевой генерации
+              (<a href="/privacy" target="_blank" rel="noreferrer">политика конфиденциальности</a>).
+              Фото и модель хранятся не дольше 30 дней и удаляются по запросу.</span>
+          </label>
+          <label className="drop" ref={drop} {...dragHandlers}
+            style={consent ? undefined : { opacity: .5, pointerEvents: 'none' }}>
+            <input type="file" accept="image/jpeg,image/png" multiple style={{ display: 'none' }}
+              disabled={!consent} onChange={(e) => upload(e.target.files)} />
+            <b>Выберите фото</b> или перетащите сюда (можно все сразу)
+          </label>
+          {/* Встроенная камера: фронтальная + можно снять несколько кадров подряд. */}
+          <button className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}
+            disabled={!consent} onClick={() => setShowCam(true)}>
+            📷 Сделать фото
+          </button>
+          {showCam && <Camera onCapture={(f) => upload(f.length ? f : [f])} onClose={() => setShowCam(false)} />}
+          {!consent && <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
+            Отметьте согласие выше, чтобы загрузить фото.</p>}
+          <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
+          <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
+          <button className="btn btn-dark" disabled={count < 10}
+            onClick={() => { setStep(4); say(''); goal('reach_payment', { pkg: pkg.code }) }}>
+            Далее — к оплате
+          </button>
+          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(2)}>← Назад к образам</button>
+          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
+        </div>
+      )}
+
+      {step === 4 && order?.state !== 'awaiting_payment' && (
         <div className="card">
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Оплата · {pkg?.title} — {pkg?.price_rub} ₽</h2>
           {account ? (
             <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
-              Вы вошли как <b>{account.email}</b>. После оплаты загрузите селфи — и запустим генерацию.
+              Вы вошли как <b>{account.email}</b>. Селфи загружены — после оплаты запустим генерацию.
             </p>
           ) : (
             <>
@@ -458,16 +501,9 @@ export default function Order() {
               </p>
             </>
           )}
-          <label className="consent">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>Соглашаюсь на обработку загружаемых фотографий для создания портретов,
-              включая их передачу техническому провайдеру нейросетевой генерации
-              (<a href="/privacy" target="_blank" rel="noreferrer">политика конфиденциальности</a>).
-              Фото и модель хранятся не дольше 30 дней и удаляются по запросу.</span>
-          </label>
           <button className="btn btn-dark"
-            disabled={paying || !consent || (!account && (!contact.includes('@') || password.length < 8))}
-            onClick={pay}>
+            disabled={paying || (!account && (!contact.includes('@') || password.length < 8))}
+            onClick={checkout}>
             {paying ? 'Переходим к оплате…' : `Оплатить ${pkg?.price_rub} ₽`}
           </button>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14,
@@ -485,45 +521,21 @@ export default function Order() {
             Нажимая «Оплатить», вы принимаете <a href="/offer" target="_blank" rel="noreferrer">публичную
             оферту</a> и <a href="/privacy" target="_blank" rel="noreferrer">политику конфиденциальности</a>.
           </p>
-          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(2)}>← Назад к образам</button>
+          <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(3)}>← Назад к селфи</button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}
 
-      {step === 3 && token && (
+      {step === 4 && order?.state === 'awaiting_payment' && (
         <div className="card">
           <h2 style={{ fontSize: 22 }}>Завершите оплату</h2>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, margin: '8px 0 16px' }}>
-            Заказ создан и ждёт оплаты. Нажмите кнопку — после оплаты откроется загрузка фото.
+            Селфи загружены, заказ ждёт оплаты. Нажмите кнопку — после оплаты запустим генерацию.
             Сохраните ссылку на эту страницу: по ней вы вернётесь к заказу.
           </p>
           <button className="btn btn-dark" disabled={paying} onClick={repay}>
             {paying ? 'Открываем оплату…' : (pkg ? `Оплатить ${pkg.price_rub} ₽` : 'Оплатить')}
           </button>
-          {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
-        </div>
-      )}
-
-      {step === 4 && (
-        <div className="card">
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>Загрузите 10–15 селфи</h2>
-          <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 18 }}>
-            Разные ракурсы и фоны, хороший свет, лицо крупно. Хотя бы часть — без очков и головных уборов.
-          </p>
-          <label className="drop" ref={drop} {...dragHandlers}>
-            <input type="file" accept="image/jpeg,image/png" multiple style={{ display: 'none' }}
-              onChange={(e) => upload(e.target.files)} />
-            <b>Выберите фото</b> или перетащите сюда (можно все сразу)
-          </label>
-          {/* Встроенная камера: фронтальная + можно снять несколько кадров подряд. */}
-          <button className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}
-            onClick={() => setShowCam(true)}>
-            📷 Сделать фото
-          </button>
-          {showCam && <Camera onCapture={(f) => upload(f.length ? f : [f])} onClose={() => setShowCam(false)} />}
-          <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
-          <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
-          <button className="btn btn-dark" disabled={count < 10} onClick={generate}>Запустить генерацию</button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}
         </div>
       )}

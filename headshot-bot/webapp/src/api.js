@@ -21,17 +21,23 @@ export const api = {
   wardrobe: (kind, gender = 'male') =>
     req(`/api/wardrobe?kind=${kind}&gender=${gender}`),
 
-  // Флоу: тариф → образы (пол + пул одежды + пул фонов) → оплата → селфи.
-  // Образы (пулы) сохраняются при оформлении; воркер собирает N образов.
-  createOrder(pkg, contact, { gender, clothing, backgrounds }) {
+  // Флоу: тариф → образы (пол + пул одежды + пул фонов) → СЕЛФИ → оплата.
+  // Черновик заказа создаётся ДО оплаты (state=collecting), чтобы клиент мог
+  // загрузить селфи; email и оплата — на шаге checkout.
+  createDraft(pkg, { gender, clothing, backgrounds }) {
     const f = new FormData()
     f.append('package', pkg)
-    f.append('contact', contact)
     f.append('consent', 'yes')
     f.append('gender', gender)
     f.append('clothing', clothing.join(','))
     f.append('backgrounds', backgrounds.join(','))
     return req('/api/orders', { method: 'POST', body: f })
+  },
+  // Оплата после загрузки селфи: привязывает email/аккаунт и создаёт платёж.
+  checkout(token, contact) {
+    const f = new FormData()
+    if (contact) f.append('contact', contact)
+    return req(`/api/orders/${token}/checkout`, { method: 'POST', body: f })
   },
   uploadPhoto(token, file) {
     const f = new FormData()
