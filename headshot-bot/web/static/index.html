@@ -504,8 +504,9 @@ _tmr.push({id: "3782039", type: "pageView", start: (new Date()).getTime()});
     }
   });
 
-  // Параллакс плашек hero
+  // Параллакс плашек hero (только на десктопе: на мобильном бейдж наезжал на лицо)
   window.addEventListener('scroll',function(){
+    if(window.innerWidth<760) return;
     var y=window.scrollY; if(y>1400) return;
     document.querySelectorAll('[data-par]').forEach(function(elm){
       elm.style.translate='0 '+(-y*parseFloat(elm.getAttribute('data-par'))).toFixed(1)+'px';
