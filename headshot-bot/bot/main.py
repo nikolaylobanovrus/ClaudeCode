@@ -68,7 +68,7 @@ async def main() -> None:
         provider=provider,
         storage=storage,
         styles=styles,
-        deliver=functools.partial(deliver_results, bot, storage),
+        deliver=functools.partial(deliver_results, bot, storage, settings, session_factory),
         enhancer=enhancer,
         qc=qc,
     )

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bot import texts
 from config import Settings
+from core.email import send_email
 from core.models import Job, Photo, User
 from core.packages import PACKAGES, get_package
 from core.states import JobState, validate_transition
@@ -440,14 +441,23 @@ async def cmd_delete_my_data(
 
 
 async def deliver_results(
-    bot: Bot, storage: FileStorage, job_id: int, tg_id: int, result_keys: list[str]
+    bot: Bot,
+    storage: FileStorage,
+    settings: Settings,
+    session_factory: async_sessionmaker,
+    job_id: int,
+    tg_id: int,
+    result_keys: list[str],
 ) -> None:
-    """Колбэк доставки для воркера: шлём альбомами по 10 фото.
+    """Колбэк доставки для воркера.
 
-    Веб-заказы (синтетический отрицательный tg_id) в Telegram не доставляются —
-    клиент смотрит галерею по своей ссылке /order на сайте.
+    Telegram-заказы: шлём готовые кадры альбомами по 10 фото.
+    Веб-заказы (синтетический tg_id <= 0): фото не шлём в Telegram — клиент
+    смотрит галерею на сайте; вместо этого отправляем письмо «портреты готовы»
+    со ссылкой на его заказ (иначе после сбоя/закрытия вкладки он не узнает).
     """
     if tg_id <= 0:  # синтетические веб-пользователи имеют tg_id <= 0
+        await _email_web_ready(settings, session_factory, job_id, len(result_keys))
         return
     for start in range(0, len(result_keys), 10):
         chunk = result_keys[start : start + 10]
@@ -461,3 +471,49 @@ async def deliver_results(
         else:
             await bot.send_media_group(tg_id, [InputMediaPhoto(media=f) for f in files])
     await bot.send_message(tg_id, texts.DELIVERY_DONE)
+
+
+async def _email_web_ready(
+    settings: Settings, session_factory: async_sessionmaker, job_id: int, n_photos: int
+) -> None:
+    """Письмо клиенту о готовности web-заказа со ссылкой на его галерею.
+
+    Отправляем только на настоящий email (в contact может быть синтетический
+    адрес автотестов вида *@d-portret.ru). Ошибку письма глушим — доставка
+    заказа не должна падать из-за недоступной почты (есть outbox-фолбэк)."""
+    async with session_factory() as session:
+        job = await session.get(Job, job_id)
+        if job is None:
+            return
+        to = (job.contact or "").strip()
+        token = job.access_token
+    if "@" not in to or to.lower().endswith("@d-portret.ru"):
+        return  # телефон/синтетика — письмо не шлём
+    base = settings.public_base_url
+    link = f"{base}/app/order?t={token}" if token else f"{base}/app/login"
+    subject = "Ваши деловые портреты готовы ✨"
+    text = (
+        "Здравствуйте!\n\n"
+        f"Ваши портреты готовы — всего {n_photos} кадров. "
+        "Откройте галерею и скачайте снимки в полном размере:\n"
+        f"{link}\n\n"
+        "Ссылка личная — не пересылайте её. Вы также можете войти в личный "
+        f"кабинет на {base} под своим email.\n\n"
+        "Спасибо, что выбрали «Деловой Портрет»!"
+    )
+    html = (
+        '<div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;color:#1B1D22">'
+        '<h2 style="font-weight:600">Ваши портреты готовы ✨</h2>'
+        f'<p style="font:15px/1.6 system-ui,sans-serif">Готово <b>{n_photos}</b> кадров. '
+        'Откройте галерею и скачайте снимки в полном размере:</p>'
+        f'<p><a href="{link}" style="display:inline-block;background:#1B1D22;color:#fff;'
+        'text-decoration:none;padding:13px 26px;border-radius:999px;'
+        'font:650 15px system-ui,sans-serif">Открыть мои портреты</a></p>'
+        '<p style="font:13px/1.6 system-ui,sans-serif;color:#6A6D74">Ссылка личная — '
+        f'не пересылайте её. Также можно войти в кабинет на {base} под своим email.<br>'
+        'Спасибо, что выбрали «Деловой Портрет»!</p></div>'
+    )
+    try:
+        await send_email(settings, to, subject, text, html)
+    except Exception:
+        log.exception("Не удалось отправить письмо о готовности заказа %s", job_id)
