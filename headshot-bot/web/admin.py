@@ -162,3 +162,75 @@ async def deploy_log(
     lines = max(1, min(lines, 2000))
     _, out = await _run(["tail", "-n", str(lines), "/root/deploy.log"], timeout=10)
     return {"log": out}
+
+
+@router.get("/jobs")
+async def jobs(
+    request: Request,
+    state: str | None = None,
+    limit: int = 20,
+    x_admin_token: str | None = Header(default=None),
+):
+    """Список последних заказов для диагностики (в т.ч. упавших на генерации).
+
+    Показывает состояние, число попыток, ошибку и сколько кадров уже готово —
+    видно, докуда дошла генерация и стоит ли перезапускать.
+    """
+    denied = _guard(request, x_admin_token)
+    if denied:
+        return denied
+    from sqlalchemy import desc, func, select
+
+    from core.models import Job, Photo
+
+    limit = max(1, min(limit, 100))
+    async with request.app.state.session_factory() as session:
+        stmt = select(Job).order_by(desc(Job.updated_at)).limit(limit)
+        if state:
+            stmt = stmt.where(Job.state == state)
+        rows = (await session.execute(stmt)).scalars().all()
+        out = []
+        for j in rows:
+            done = (await session.execute(
+                select(func.count()).select_from(Photo).where(
+                    Photo.job_id == j.id, Photo.kind == Photo.RESULT)
+            )).scalar() or 0
+            out.append({
+                "id": j.id, "state": j.state, "package": j.package_code,
+                "attempts": j.attempts, "retry_to": j.retry_to,
+                "error": (j.error or "")[:300], "channel": j.channel,
+                "contact": j.contact, "results": done,
+                "has_model": bool(j.model_ref),
+                "updated_at": j.updated_at.isoformat() if j.updated_at else None,
+            })
+        return {"jobs": out}
+
+
+@router.post("/jobs/{job_id}/retry")
+async def retry_job(
+    request: Request, job_id: int, x_admin_token: str | None = Header(default=None)
+):
+    """Возвращает упавший заказ в конвейер: сбрасывает попытки и выставляет
+    состояние, с которого воркер продолжит. Генерация идемпотентна по стилям —
+    уже готовые кадры не пересоздаются, доплата fal только за недостающие."""
+    denied = _guard(request, x_admin_token)
+    if denied:
+        return denied
+    from core.models import Job
+    from core.states import JobState
+
+    async with request.app.state.session_factory() as session:
+        job = await session.get(Job, job_id)
+        if job is None:
+            return JSONResponse({"error": "not_found"}, status_code=404)
+        if JobState(job.state) is not JobState.FAILED:
+            return JSONResponse(
+                {"error": "not_failed", "state": job.state}, status_code=409)
+        # Куда вернуть: на зафиксированный retry_to; иначе — по наличию модели.
+        target = job.retry_to or (
+            JobState.GENERATING.value if job.model_ref else JobState.TRAINING.value)
+        job.state = target
+        job.attempts = 0
+        job.error = None
+        await session.commit()
+        return {"ok": True, "id": job_id, "state": job.state, "results": None}
