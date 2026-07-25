@@ -388,7 +388,8 @@ export default function Order() {
           </p>
           <div className="plans">
             {packages.map((p) => (
-              <div key={p.code} className={`plan ${pkg?.code === p.code ? 'sel' : ''}`} onClick={() => setPkg(p)}>
+              // Клик по тарифу сразу ведёт к выбору образов — без кнопки внизу.
+              <div key={p.code} className={`plan ${pkg?.code === p.code ? 'sel' : ''}`} onClick={() => enterWardrobe(p)}>
                 {p.recommended && <span className="plan-badge">Рекомендуем</span>}
                 <h3>{p.title}</h3>
                 <div className="pr">{p.price_rub} ₽</div>
@@ -398,7 +399,9 @@ export default function Order() {
               </div>
             ))}
           </div>
-          <button className="btn btn-dark" disabled={!pkg} onClick={() => enterWardrobe(pkg)}>Дальше — выбрать образы</button>
+          <p style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', marginTop: 14 }}>
+            Нажмите на тариф, чтобы продолжить
+          </p>
         </div>
       )}
 
