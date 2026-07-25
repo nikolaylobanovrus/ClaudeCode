@@ -444,17 +444,36 @@ export default function Order() {
           <p style={{ color: 'var(--muted)', fontSize: 14.5, marginBottom: 14 }}>
             Разные ракурсы и фоны, хороший свет, лицо крупно. Хотя бы часть — без очков и головных уборов.
           </p>
-          <label className="drop" ref={drop} {...dragHandlers}>
-            <input type="file" accept="image/jpeg,image/png" multiple style={{ display: 'none' }}
-              onChange={(e) => upload(e.target.files)} />
-            <b>Выберите фото</b> или перетащите сюда (можно все сразу)
-          </label>
-          {/* Встроенная камера: фронтальная + можно снять несколько кадров подряд. */}
-          <button className="btn btn-ghost" style={{ marginTop: 10, width: '100%' }}
-            onClick={() => setShowCam(true)}>
-            📷 Сделать фото
-          </button>
+          <div className="upload-actions">
+            {/* Галерея — она же зона перетаскивания на десктопе. */}
+            <label className="uploader" ref={drop} {...dragHandlers}>
+              <input type="file" accept="image/jpeg,image/png" multiple style={{ display: 'none' }}
+                onChange={(e) => upload(e.target.files)} />
+              <span className="ic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" />
+                </svg>
+              </span>
+              <b>Выбрать фото</b>
+              <small>из галереи · можно все сразу</small>
+            </label>
+            {/* Встроенная камера: фронтальная + можно снять несколько кадров подряд. */}
+            <button type="button" className="uploader" onClick={() => setShowCam(true)}>
+              <span className="ic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </span>
+              <b>Сделать фото</b>
+              <small>камерой телефона</small>
+            </button>
+          </div>
           {showCam && <Camera onCapture={(f) => upload(f.length ? f : [f])} onClose={() => setShowCam(false)} />}
+          <p className="drop-hint">На компьютере можно перетащить файлы сюда</p>
           <div className="thumbs">{thumbs.map((src, i) => <img key={i} src={src} alt="" />)}</div>
           <p style={{ fontSize: 14, marginTop: 10 }}>Загружено: <b style={{ color: 'var(--accent-deep)' }}>{count}</b> из 15</p>
           <button className="btn btn-dark" disabled={count < 10}

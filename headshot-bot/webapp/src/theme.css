@@ -30,8 +30,23 @@ h1,h2,h3{font-family:Georgia,serif; font-weight:600; margin:0; overflow-wrap:bre
 .consent input{margin-top:3px}
 .status{margin-top:12px; font-size:14px; color:var(--muted); min-height:20px}
 .status.error{color:var(--bad)}
-.drop{border:2px dashed var(--line); border-radius:12px; padding:30px 16px; text-align:center; color:var(--muted); cursor:pointer; transition:border-color .2s,background .2s}
-.drop.drag{border-color:var(--accent); background:#FBFAF8}
+/* Загрузка селфи: две понятные плитки — «Выбрать фото» и «Сделать фото». */
+.upload-actions{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px}
+.uploader{display:flex; flex-direction:column; align-items:center; gap:9px; text-align:center;
+  border:1.5px solid var(--line); border-radius:16px; padding:22px 14px; cursor:pointer;
+  background:#fff; color:var(--ink); font:inherit;
+  transition:border-color .15s,background .15s,transform .12s,box-shadow .15s}
+.uploader:hover{border-color:var(--accent); background:#FBF7EF; transform:translateY(-2px);
+  box-shadow:0 8px 22px rgba(27,29,34,.10)}
+.uploader:active{transform:translateY(0)}
+.uploader.drag{border-color:var(--accent); border-style:dashed; background:#FBF3E1}
+.uploader .ic{width:50px; height:50px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; background:#F3E7CE; color:var(--accent-deep)}
+.uploader .ic svg{width:25px; height:25px}
+.uploader b{font:650 15.5px system-ui,sans-serif}
+.uploader small{color:var(--muted); font-size:12.5px; line-height:1.3}
+.drop-hint{font-size:12.5px; color:var(--muted); text-align:center; margin-top:9px}
+@media (max-width:360px){ .upload-actions{grid-template-columns:1fr} }
 .thumbs{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:14px}
 .thumbs img{width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px}
 .plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:14px 0}
