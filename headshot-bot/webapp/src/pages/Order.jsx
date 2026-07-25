@@ -79,7 +79,12 @@ function Camera({ onCapture, onClose }) {
     let cancelled = false
     const md = navigator.mediaDevices
     if (!md || !md.getUserMedia) { setErr('no-cam'); return }
-    md.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    // Просим фронталку с запасом по разрешению — иначе многие телефоны отдают
+    // 480p, и кадр не проходит серверную проверку минимума 512px.
+    md.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } },
+      audio: false,
+    })
       .then((stream) => {
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
         streamRef.current = stream
@@ -92,13 +97,18 @@ function Camera({ onCapture, onClose }) {
   function snap() {
     const v = videoRef.current
     if (!v || !v.videoWidth) return
+    // Гарантируем короткую сторону ≥ 640px (серверный минимум — 512), иначе
+    // 480p-фронталка даёт кадр, который отклоняется как too_small.
+    const short = Math.min(v.videoWidth, v.videoHeight)
+    const k = short < 640 ? 640 / short : 1
+    const w = Math.round(v.videoWidth * k)
+    const h = Math.round(v.videoHeight * k)
     const c = document.createElement('canvas')
-    c.width = v.videoWidth; c.height = v.videoHeight
-    c.getContext('2d').drawImage(v, 0, 0)
+    c.width = w; c.height = h
+    c.getContext('2d').drawImage(v, 0, 0, w, h)
     c.toBlob((blob) => {
       if (!blob) return
-      const name = `selfie_${shots + 1}_${Math.round(v.currentTime * 1000)}.jpg`
-      onCapture(new File([blob], name, { type: 'image/jpeg' }))
+      onCapture(new File([blob], `selfie_${shots + 1}.jpg`, { type: 'image/jpeg' }))
       setShots((n) => n + 1)
     }, 'image/jpeg', 0.92)
   }
@@ -158,6 +168,8 @@ export default function Order() {
   const [msg, setMsg] = useState({ text: '', error: false })
   const drop = useRef(null)
   const thumbsRef = useRef([])
+  const draftRef = useRef(null)                 // single-flight создание черновика
+  const uploadChain = useRef(Promise.resolve())  // последовательная загрузка селфи
   const wantPkg = params.get('pkg')
   const outlet = useOutletContext()
   const account = outlet?.account
@@ -267,34 +279,49 @@ export default function Order() {
     setSelBg((c) => c.includes(key) ? c.filter((k) => k !== key)
       : (c.length >= needN ? (say(`Не больше ${needN} — по числу образов тарифа.`, true), c) : (say(''), [...c, key])))
 
-  // Черновик заказа создаём при первой загрузке селфи (до оплаты). Пулы
-  // одежды/фона уже выбраны и сохраняются в заказе; воркер соберёт N образов.
-  async function ensureDraft() {
-    if (token) return token
-    const d = await api.createDraft(pkg.code, { gender, clothing: selClo, backgrounds: selBg })
-    setToken(d.token)
-    history.replaceState(null, '', `/app/order?t=${d.token}`)
-    return d.token
+  // Черновик заказа создаём при первой загрузке селфи (до оплаты). Single-flight:
+  // при быстрых снимках камеры создаётся ровно один заказ (иначе фото разъедутся
+  // по разным черновикам). Пулы одежды/фона сохраняются в заказе.
+  function ensureDraft() {
+    if (token) return Promise.resolve(token)
+    if (!draftRef.current) {
+      draftRef.current = api.createDraft(pkg.code, { gender, clothing: selClo, backgrounds: selBg })
+        .then((d) => {
+          setToken(d.token)
+          history.replaceState(null, '', `/app/order?t=${d.token}`)
+          return d.token
+        })
+        .catch((e) => { draftRef.current = null; throw e })
+    }
+    return draftRef.current
   }
 
-  async function upload(files) {
-    let tok = token
-    if (!tok) {
-      try { tok = await ensureDraft() } catch (e) { say(errText(e), true); return }
-    }
-    let n = count
-    for (const f of files) {
-      if (n >= 15) break
+  // Загрузка сериализована: снимки камеры прилетают почти одновременно, а сервер
+  // нумерует файлы по текущему счётчику — параллельная загрузка их бы затёрла.
+  function upload(files) {
+    const list = Array.from(files || [])
+    if (!list.length) return uploadChain.current
+    uploadChain.current = uploadChain.current.then(() => _uploadSeq(list))
+    return uploadChain.current
+  }
+
+  async function _uploadSeq(list) {
+    let tok
+    try { tok = await ensureDraft() } catch (e) { say(errText(e), true); return }
+    for (const f of list) {
       say(`Загружаем «${f.name}»…`)
       try {
         const d = await api.uploadPhoto(tok, f)
-        n = d.count
         setCount(d.count)
         const url = URL.createObjectURL(f)
         thumbsRef.current.push(url)
         setThumbs((t) => [...t, url])
+        if (d.count >= 15) { say('Достигнут максимум — 15 фото.'); break }
         say(d.count >= 10 ? 'Фото достаточно — можно добавить ещё или перейти к оплате.' : '')
-      } catch (e) { say(errText(e), true) }
+      } catch (e) {
+        say(errText(e), true)
+        if (e.code === 'limit') break
+      }
     }
   }
 
@@ -383,7 +410,7 @@ export default function Order() {
           </p>
           <div className="gender-pick">
             <div className={`gender-opt ${gender === 'male' ? 'sel' : ''}`} onClick={() => pickGender('male')}>
-              <img src="/static/img/gen/gender_male.jpg?v=1" alt="" loading="lazy" />
+              <img src="/static/img/gen/gender_male.jpg?v=2" alt="" loading="lazy" />
               <span className="glabel">Мужские</span>
             </div>
             <div className={`gender-opt ${gender === 'female' ? 'sel' : ''}`} onClick={() => pickGender('female')}>
