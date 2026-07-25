@@ -246,6 +246,8 @@ export default function Order() {
   }
   async function pickGender(g) {
     setGender(g); setSelClo([]); say('')
+    // Метрика: отдельная цель на пол — видно, кто кликает чаще (муж./жен.).
+    goal('gender_' + g, { gender: g })
     setSub('clothing')
     try {
       // Фоны грузим под выбранный пол — превью с моделью того же пола.
