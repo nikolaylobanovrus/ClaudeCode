@@ -513,9 +513,7 @@ export default function Order() {
           {/* Согласие даётся действием загрузки (конклюдентно), без отдельной галочки. */}
           <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 10 }}>
             Загружая фото, вы даёте согласие на их обработку для создания портретов
-            (для генерации, не для идентификации), включая передачу техническому провайдеру
-            нейросетевой генерации. Фото и модель хранятся не дольше 30 дней и удаляются
-            по запросу — см. <a href="/privacy" target="_blank" rel="noreferrer">политику
+            согласно <a href="/privacy" target="_blank" rel="noreferrer">политике
             конфиденциальности</a>.
           </p>
           <button className="btn btn-ghost" style={{ marginTop: 6 }} onClick={() => setStep(2)}>← Назад к образам</button>
