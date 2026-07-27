@@ -10,7 +10,9 @@ ADMIN_API_TOKEN; при пустом токене все эндпоинты от
 сервисов проверяются по белому списку; все действия логируются.
 """
 import asyncio
+import os
 import secrets
+from pathlib import Path
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
@@ -162,6 +164,55 @@ async def deploy_log(
     lines = max(1, min(lines, 2000))
     _, out = await _run(["tail", "-n", str(lines), "/root/deploy.log"], timeout=10)
     return {"log": out}
+
+
+# Файл секретов сервера (деплой копирует его в рабочий .env сервисов).
+ENV_FILE = os.environ.get("HEADSHOT_ENV_FILE", "/root/headshot.env")
+# Белый список ключей, изменяемых через хук: только настройки почты.
+ENV_ALLOWED = {"SMTP_HOST", "SMTP_PORT", "SMTP_SSL", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"}
+
+
+@router.post("/env")
+async def set_env(request: Request, x_admin_token: str | None = Header(default=None)):
+    """Обновить SMTP-настройки в файле секретов сервера.
+
+    Принимает JSON {КЛЮЧ: значение}; ключи — строго из белого списка ENV_ALLOWED.
+    Существующие строки с этими ключами заменяются, новые дописываются.
+    Значения в ответ и в логи не попадают. Применение — обычным деплоем
+    (deploy.sh копирует файл в .env и перезапускает сервисы).
+    """
+    denied = _guard(request, x_admin_token)
+    if denied:
+        return denied
+    try:
+        payload = await request.json()
+        assert isinstance(payload, dict)
+    except Exception:
+        return JSONResponse({"error": "bad_payload"}, status_code=400)
+    bad = [k for k in payload if k not in ENV_ALLOWED]
+    if bad:
+        return JSONResponse({"error": "key_not_allowed", "keys": bad}, status_code=422)
+    clean: dict[str, str] = {}
+    for k, v in payload.items():
+        v = str(v)
+        # Однострочные значения без управляющих символов — иначе сломаем env-файл.
+        if len(v) > 300 or any(ch in v for ch in "\r\n\0"):
+            return JSONResponse({"error": "bad_value", "key": k}, status_code=422)
+        clean[k] = v
+    path = Path(ENV_FILE)
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    keys_left = dict(clean)
+    out = []
+    for line in lines:
+        name = line.split("=", 1)[0].strip()
+        if name in keys_left:
+            out.append(f"{name}={keys_left.pop(name)}")
+        else:
+            out.append(line)
+    out.extend(f"{k}={v}" for k, v in keys_left.items())
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    os.chmod(path, 0o600)
+    return {"ok": True, "updated": sorted(clean)}
 
 
 @router.get("/jobs")

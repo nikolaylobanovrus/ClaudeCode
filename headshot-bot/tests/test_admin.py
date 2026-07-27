@@ -119,3 +119,30 @@ def test_endpoints_require_token(monkeypatch, tmp_path, path):
     monkeypatch.setattr(admin, "_run", _fake_run)
     with make_client(monkeypatch, tmp_path) as client:
         assert client.get(path).status_code == 401
+
+
+def test_env_endpoint_updates_smtp_keys(monkeypatch, tmp_path):
+    env_file = tmp_path / "headshot.env"
+    env_file.write_text("FAL_KEY=xxx\nSMTP_HOST=old.example\n", encoding="utf-8")
+    import web.admin as admin
+    monkeypatch.setattr(admin, "ENV_FILE", str(env_file))
+    with make_client(monkeypatch, tmp_path) as client:
+        h = {"X-Admin-Token": TOKEN}
+        # Не-белый ключ — отказ, файл не тронут.
+        r = client.post("/api/admin/env", json={"FAL_KEY": "hack"}, headers=h)
+        assert r.status_code == 422
+        # Значение с переводом строки — отказ (инъекция в env-файл).
+        assert client.post("/api/admin/env", json={"SMTP_HOST": "a\nB=1"},
+                           headers=h).status_code == 422
+        # Без токена — отказ.
+        assert client.post("/api/admin/env", json={"SMTP_HOST": "x"}).status_code == 401
+        # Обновление + дописывание.
+        r = client.post("/api/admin/env", json={
+            "SMTP_HOST": "smtp.beget.com", "SMTP_PASSWORD": "p@ss"}, headers=h)
+        assert r.status_code == 200
+        assert r.json()["updated"] == ["SMTP_HOST", "SMTP_PASSWORD"]
+    text = env_file.read_text(encoding="utf-8")
+    assert "FAL_KEY=xxx" in text                 # чужие ключи не тронуты
+    assert "SMTP_HOST=smtp.beget.com" in text    # заменён
+    assert "SMTP_HOST=old.example" not in text
+    assert "SMTP_PASSWORD=p@ss" in text          # дописан
