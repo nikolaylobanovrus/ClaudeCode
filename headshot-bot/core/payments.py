@@ -13,6 +13,9 @@ import aiohttp
 
 API = "https://api.yookassa.ru/v3"
 VAT_NONE = 1  # без НДС
+# Без явного таймаута aiohttp ждёт до 5 минут — клиент всё это время видит
+# «Открываем оплату…». Медленный ответ ЮKassa лучше быстро превратить в ошибку.
+_TIMEOUT = aiohttp.ClientTimeout(total=20)
 
 
 @dataclass(frozen=True)
@@ -70,7 +73,7 @@ class YooKassaClient:
                 }],
             }
         headers = {"Idempotence-Key": str(uuid.uuid4())}
-        async with aiohttp.ClientSession(auth=self._auth) as s:
+        async with aiohttp.ClientSession(auth=self._auth, timeout=_TIMEOUT) as s:
             async with s.post(f"{API}/payments", json=body, headers=headers) as r:
                 data = await r.json()
                 if r.status not in (200, 201):
@@ -78,7 +81,7 @@ class YooKassaClient:
         return _parse(data)
 
     async def get_payment(self, payment_id: str) -> Payment:
-        async with aiohttp.ClientSession(auth=self._auth) as s:
+        async with aiohttp.ClientSession(auth=self._auth, timeout=_TIMEOUT) as s:
             async with s.get(f"{API}/payments/{payment_id}") as r:
                 data = await r.json()
                 if r.status != 200:

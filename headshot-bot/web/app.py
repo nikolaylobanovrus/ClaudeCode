@@ -201,16 +201,31 @@ async def _job_by_token(request: Request, token: str) -> Job | None:
 
 
 async def _notify_admins(settings, text: str) -> None:
-    """Уведомление админам в Telegram напрямую через Bot API (веб-процесс)."""
+    """Уведомление админам в Telegram напрямую через Bot API (веб-процесс).
+
+    Вызывать в фоне (asyncio.create_task) из клиентских путей: api.telegram.org
+    бывает медленным, и клиент не должен ждать нашу нотификацию. Таймаут — чтобы
+    фоновые задачи не копились при недоступном Telegram."""
     if not settings.bot_token or not settings.admin_tg_ids:
         return
     url = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
     try:
-        async with aiohttp.ClientSession() as http:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as http:
             for admin_id in settings.admin_tg_ids:
                 await http.post(url, json={"chat_id": admin_id, "text": text})
     except Exception:
         pass  # уведомление не должно ломать заказ
+
+
+# Живые фоновые нотификации: держим ссылки, чтобы задачи не собрал GC до конца.
+_notify_tasks: set[asyncio.Task] = set()
+
+
+def _notify_admins_bg(settings, text: str) -> None:
+    """Отправить уведомление в фоне — ответ клиенту его не ждёт."""
+    task = asyncio.get_running_loop().create_task(_notify_admins(settings, text))
+    _notify_tasks.add(task)
+    task.add_done_callback(_notify_tasks.discard)
 
 
 @app.post("/api/team-lead")
@@ -235,7 +250,7 @@ async def team_lead(
             headcount=headcount, message=(message.strip() or None),
         ))
         await session.commit()
-    await _notify_admins(
+    _notify_admins_bg(
         request.app.state.settings,
         f"🏢 Заявка на команду: {company.strip()} — {headcount} чел.\n"
         f"Контакт: {name.strip()}, {contact.strip()}"
@@ -304,7 +319,7 @@ async def team_checkout(
         await send_email(settings, settings.sales_email, subject, body)
     except Exception:
         pass
-    await _notify_admins(settings, "🏢 " + subject + "\n" + "\n".join(lines))
+    _notify_admins_bg(settings, "🏢 " + subject + "\n" + "\n".join(lines))
 
     async with request.app.state.session_factory() as session:
         session.add(TeamLead(
@@ -442,7 +457,7 @@ async def create_order(
         await session.commit()
         job_id = job.id
 
-    await _notify_admins(
+    _notify_admins_bg(
         request.app.state.settings,
         f"📝 Новый веб-заказ #{job_id} (черновик): «{pkg.title}». "
         f"Клиент загружает селфи; оплата после.",
@@ -508,7 +523,7 @@ async def checkout_order(request: Request, token: str, contact: str = Form("")):
     # Заглушка оплаты: подтверждаем и сразу запускаем генерацию (фото уже есть).
     if settings.payment_stub:
         await _confirm_paid(request, job.id)
-        await _notify_admins(
+        _notify_admins_bg(
             settings,
             f"🧪 ТЕСТОВЫЙ веб-заказ #{job.id} (заглушка оплаты): «{pkg.title}», "
             f"контакт: {c}. Генерация запущена.",
@@ -517,7 +532,7 @@ async def checkout_order(request: Request, token: str, contact: str = Form("")):
 
     url = await _start_payment(request, job.id, pkg, token, c)
     if url:
-        await _notify_admins(
+        _notify_admins_bg(
             settings,
             f"💳 ВЕБ-заказ #{job.id} ждёт оплаты: «{pkg.title}» {pkg.price_rub} ₽, "
             f"контакт: {c}",
@@ -525,7 +540,7 @@ async def checkout_order(request: Request, token: str, contact: str = Form("")):
         return {"token": token, "payment_url": url, "price_rub": pkg.price_rub}
 
     # Ручной режим (нет ключей ЮKassa): подтверждает админ.
-    await _notify_admins(
+    _notify_admins_bg(
         settings,
         f"Новый ВЕБ-заказ #{job.id}: пакет «{pkg.title}», контакт: {c}. "
         f"После оплаты подтвердить: /approve_{job.id}",
@@ -621,7 +636,7 @@ async def start_generation(request: Request, token: str, styles: str = Form(""))
         db_job.state = validate_transition(JobState(db_job.state), JobState.TRAINING)
         await session.commit()
 
-    await _notify_admins(
+    _notify_admins_bg(
         request.app.state.settings,
         f"🚀 Заказ #{job.id} («{pkg.title}») — фото загружены, образы выбраны, "
         f"генерация запущена. Контакт: {job.contact}",
@@ -662,7 +677,7 @@ async def yookassa_webhook(request: Request):
         pkg = get_package(pkg_code)
         tail = ("Генерация запущена." if target == JobState.TRAINING.value
                 else "Клиент загружает фото.")
-        await _notify_admins(
+        _notify_admins_bg(
             request.app.state.settings,
             f"✅ ОПЛАЧЕН заказ #{job_id}: «{pkg.title}» {pkg.price_rub} ₽, "
             f"контакт: {contact}. {tail}",
