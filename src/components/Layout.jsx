@@ -6,6 +6,7 @@ import CookieBanner from "./CookieBanner.jsx";
 import ChatWidget from "./ChatWidget.jsx";
 import { company } from "../data/content.js";
 import { ymHit } from "../lib/metrika.js";
+import { vkHit } from "../lib/vkpixel.js";
 
 export default function Layout() {
   const { pathname } = useLocation();
@@ -20,6 +21,7 @@ export default function Layout() {
       return;
     }
     ymHit(window.location.href);
+    vkHit();
   }, [pathname]);
 
   return (

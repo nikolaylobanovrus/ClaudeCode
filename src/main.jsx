@@ -4,6 +4,7 @@ import { BrowserRouter, HashRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.jsx";
 import "./index.css";
+import { initVkPixel } from "./lib/vkpixel.js";
 
 // На GitHub Pages сайт живёт в подкаталоге без серверного SPA-fallback,
 // поэтому там используем HashRouter (сборка задаёт VITE_HASH_ROUTER=1).
@@ -25,6 +26,9 @@ if (useHash) {
     window.history.replaceState(null, "", fixed);
   }
 }
+
+// Пиксель VK Рекламы (no-op, пока в vkpixel.js не вписан ID).
+initVkPixel();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
