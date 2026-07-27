@@ -25,7 +25,9 @@ h1,h2,h3{font-family:Georgia,serif; font-weight:600; margin:0; overflow-wrap:bre
 .stepper div{flex:1; text-align:center; padding:8px 4px; border-top:3px solid var(--line)}
 .stepper .active{border-color:var(--accent); color:var(--ink); font-weight:650}
 .stepper .done{border-color:var(--accent-deep)}
+.field{margin:0 0 12px}
 .field input{width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:var(--bg)}
+.field input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(154,107,31,.12)}
 .consent{display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--muted); margin:14px 0}
 .consent input{margin-top:3px}
 .status{margin-top:12px; font-size:14px; color:var(--muted); min-height:20px}
