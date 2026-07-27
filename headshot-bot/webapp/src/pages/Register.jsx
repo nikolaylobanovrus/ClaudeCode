@@ -45,7 +45,7 @@ export default function Register() {
             onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="field">
-          <input type="password" placeholder="Пароль (минимум 8 символов)" value={password}
+          <input type="password" placeholder="Пароль" value={password}
             autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
         </div>
         <div className="field">
@@ -53,7 +53,7 @@ export default function Register() {
             autoComplete="new-password" onChange={(e) => setConfirm(e.target.value)} />
         </div>
         {mismatch && <p className="status error">Пароли не совпадают.</p>}
-        <button className="btn btn-dark" disabled={busy || password.length < 8 || mismatch || !email}>
+        <button className="btn btn-dark" disabled={busy || !password || mismatch || !email}>
           {busy ? 'Создаём…' : 'Создать аккаунт'}
         </button>
         {err && <p className="status error">{err}</p>}

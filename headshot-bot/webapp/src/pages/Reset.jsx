@@ -43,7 +43,7 @@ export default function Reset() {
       <form className="card" onSubmit={submit}>
         <h2 style={{ fontSize: 22, marginBottom: 16 }}>Новый пароль</h2>
         <div className="field">
-          <input type="password" placeholder="Новый пароль (минимум 8 символов)" value={password}
+          <input type="password" placeholder="Новый пароль" value={password}
             autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
         </div>
         <div className="field">
@@ -51,7 +51,7 @@ export default function Reset() {
             autoComplete="new-password" onChange={(e) => setConfirm(e.target.value)} />
         </div>
         {mismatch && <p className="status error">Пароли не совпадают.</p>}
-        <button className="btn btn-dark" disabled={busy || password.length < 8 || mismatch}>
+        <button className="btn btn-dark" disabled={busy || !password || mismatch}>
           {busy ? 'Сохраняем…' : 'Сохранить пароль'}
         </button>
         {err && <p className="status error">{err}</p>}

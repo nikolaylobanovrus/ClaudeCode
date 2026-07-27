@@ -54,8 +54,11 @@ def test_register_login_logout(client, sent):
 def test_register_validation(client, sent):
     assert client.post("/api/auth/register",
                        data={"email": "notanemail", "password": "longenough1"}).status_code == 422
+    # Длина пароля — любая; отклоняется только пустой (и >128 симв.).
     assert client.post("/api/auth/register",
-                       data={"email": "a@b.ru", "password": "short"}).status_code == 422
+                       data={"email": "a@b.ru", "password": ""}).status_code == 422
+    assert client.post("/api/auth/register",
+                       data={"email": "a@b.ru", "password": "x" * 129}).status_code == 422
     client.post("/api/auth/register", data={"email": "a@b.ru", "password": "longenough1"})
     # Повторная регистрация того же email.
     assert client.post("/api/auth/register",

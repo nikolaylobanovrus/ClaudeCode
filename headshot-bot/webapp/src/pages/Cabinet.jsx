@@ -213,10 +213,10 @@ function ChangePassword() {
               autoComplete="current-password" onChange={(e) => setOldp(e.target.value)} />
           </div>
           <div className="field">
-            <input type="password" placeholder="Новый пароль (минимум 8 символов)" value={newp}
+            <input type="password" placeholder="Новый пароль" value={newp}
               autoComplete="new-password" onChange={(e) => setNewp(e.target.value)} />
           </div>
-          <button className="btn btn-dark" disabled={busy || !oldp || newp.length < 8}>
+          <button className="btn btn-dark" disabled={busy || !oldp || !newp}>
             {busy ? 'Сохраняем…' : 'Сохранить'}
           </button>
           {msg.text && <p className={`status ${msg.error ? 'error' : ''}`}>{msg.text}</p>}

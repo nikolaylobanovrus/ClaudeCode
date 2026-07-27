@@ -539,7 +539,7 @@ export default function Order() {
                   onChange={(e) => setContact(e.target.value)} />
               </div>
               <div className="field">
-                <input type="password" placeholder="Пароль (минимум 8 символов)" value={password}
+                <input type="password" placeholder="Пароль" value={password}
                   autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
               </div>
               <p style={{ fontSize: 13, marginTop: -4, marginBottom: 4 }}>
@@ -548,7 +548,7 @@ export default function Order() {
             </>
           )}
           <button className="btn btn-dark"
-            disabled={paying || (!account && (!contact.includes('@') || password.length < 8))}
+            disabled={paying || (!account && (!contact.includes('@') || !password))}
             onClick={checkout}>
             {paying ? 'Переходим к оплате…' : `Оплатить ${pkg?.price_rub} ₽`}
           </button>

@@ -36,7 +36,7 @@ export const auth = {
 
 export const AUTH_ERRORS = {
   bad_email: 'Некорректный email.',
-  weak_password: 'Пароль — минимум 8 символов.',
+  weak_password: 'Введите пароль.',
   email_taken: 'Аккаунт с таким email уже есть — войдите.',
   bad_credentials: 'Неверный email или пароль.',
   bad_token: 'Ссылка недействительна или устарела.',

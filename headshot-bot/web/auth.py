@@ -41,7 +41,8 @@ def _aware(dt):
 
 
 def _valid_password(pw: str) -> bool:
-    return 8 <= len(pw) <= 128
+    # Любая длина по решению продукта; непустой и ≤128 (лимит bcrypt/анти-DoS).
+    return 1 <= len(pw) <= 128
 
 
 def _set_session_cookie(request: Request, resp: Response, token: str) -> None:
