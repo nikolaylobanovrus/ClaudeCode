@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bot import texts
 from config import Settings
-from core.email import send_email
+from core.email import send_email, send_payment_email
 from core.models import Job, Photo, User
 from core.packages import PACKAGES, get_package
 from core.states import JobState, validate_transition
@@ -404,10 +404,13 @@ async def on_approve(
             target = JobState.TRAINING
         job.state = validate_transition(JobState(job.state), target)
         tg_id = (await job.awaitable_attrs.user).tg_id
+        web_contact, web_token = job.contact, job.access_token
         await session.commit()
-    if not is_web and tg_id > 0:  # веб-заказам сообщение в Telegram не шлём
-        await bot.send_message(tg_id, texts.PAYMENT_CONFIRMED)
     started = target is JobState.TRAINING
+    if is_web:  # веб-клиенту — письмо «оплата получена» со ссылкой на заказ
+        await send_payment_email(settings, web_contact or "", web_token, started=started)
+    elif tg_id > 0:
+        await bot.send_message(tg_id, texts.PAYMENT_CONFIRMED)
     await message.answer(
         f"Заказ {job_id} — оплата подтверждена. "
         + ("Запущен в работу." if started else "Клиент загружает фото на сайте.")

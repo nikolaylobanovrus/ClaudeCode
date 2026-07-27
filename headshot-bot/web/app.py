@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 
 from config import load_settings
 from core.db import init_db, make_engine, make_session_factory
-from core.email import send_email
+from core.email import send_email, send_payment_email
 from core.models import FreePreview, Job, Photo, RemixTask, TeamLead, User, utcnow
 from core.teams import team_quote
 from core.packages import PACKAGES, RECOMMENDED_CODE, get_package
@@ -483,7 +483,9 @@ async def _source_photo_count(request: Request, job_id: int) -> int:
 async def _confirm_paid(request: Request, job_id: int) -> str | None:
     """Оплата подтверждена: заказ с загруженными селфи → training (генерация
     стартует сразу), иначе → collecting (легаси «оплата вперёд»). Идемпотентно:
-    срабатывает только из awaiting_payment. Возвращает целевое состояние или None."""
+    срабатывает только из awaiting_payment. Возвращает целевое состояние или None.
+
+    Клиенту в фоне уходит письмо «оплата получена» со ссылкой на заказ."""
     photos = await _source_photo_count(request, job_id)
     target = JobState.TRAINING if photos >= MIN_PHOTOS else JobState.COLLECTING
     async with request.app.state.session_factory() as session:
@@ -491,7 +493,13 @@ async def _confirm_paid(request: Request, job_id: int) -> str | None:
         if job is None or JobState(job.state) is not JobState.AWAITING_PAYMENT:
             return None
         job.state = validate_transition(JobState(job.state), target)
+        contact, access_token = job.contact, job.access_token
         await session.commit()
+    task = asyncio.get_running_loop().create_task(send_payment_email(
+        request.app.state.settings, contact or "", access_token,
+        started=target is JobState.TRAINING))
+    _notify_tasks.add(task)
+    task.add_done_callback(_notify_tasks.discard)
     return target.value
 
 

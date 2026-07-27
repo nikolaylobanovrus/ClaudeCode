@@ -116,3 +116,32 @@ def test_customer_from_contact():
     assert customer_from_contact("89265031368") == {"phone": "79265031368"}
     assert customer_from_contact("9265031368") == {"phone": "79265031368"}
     assert customer_from_contact("@telegram_nick") is None
+
+
+@pytest.mark.asyncio
+async def test_payment_email_goes_to_outbox_and_filters_synthetic(tmp_path):
+    """Письмо «оплата получена»: реальному email — уходит (в outbox без SMTP),
+    синтетике автотестов (*@d-portret.ru) — нет; ссылка на заказ в теле."""
+    import dataclasses
+    import email as email_mod
+
+    from config import Settings
+    from core.email import send_payment_email
+
+    st = dataclasses.replace(
+        Settings(), smtp_host="", data_dir=tmp_path,
+        public_base_url="https://d-portret.ru")
+    await send_payment_email(st, "client@x.ru", "TOK123", started=True)
+    await send_payment_email(st, "e2e-1@d-portret.ru", "TOK456", started=True)  # синтетика
+    await send_payment_email(st, "+79990000000", "TOK789", started=True)        # телефон
+
+    files = sorted((tmp_path / "outbox").glob("*.eml"))
+    assert len(files) == 1  # только настоящий клиентский email
+    msg = email_mod.message_from_bytes(files[0].read_bytes())
+    assert msg["To"] == "client@x.ru"
+    body = ""
+    for part in msg.walk():
+        if part.get_content_type() == "text/plain":
+            body = part.get_payload(decode=True).decode("utf-8")
+    assert "order?t=TOK123" in body
+    assert "около часа" in body
