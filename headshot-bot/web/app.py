@@ -5,8 +5,10 @@
 """
 import asyncio
 import base64
+import logging
 import re
 import secrets
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -33,6 +35,11 @@ from storage.files import FileStorage
 
 STATIC_DIR = Path(__file__).parent / "static"
 FREE_LIMIT_PER_DAY = 1
+
+# INFO-логи наших модулей (тайминги оплаты/авторизации) в журнал uvicorn.
+# basicConfig — no-op, если хендлеры уже настроены (например, в тестах).
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("web")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MIN_PHOTOS, MAX_PHOTOS = 10, 15
 
@@ -493,6 +500,7 @@ async def checkout_order(request: Request, token: str, contact: str = Form("")):
     """Селфи-первый флоу: заказ уже в COLLECTING с загруженными селфи — здесь
     клиент указывает email и оплачивает. Требует ≥ MIN_PHOTOS фото. При заглушке
     оплаты сразу запускает генерацию; иначе создаёт платёж ЮKassa."""
+    t0 = time.monotonic()
     job = await _job_by_token(request, token)
     if job is None or JobState(job.state) is not JobState.COLLECTING:
         return JSONResponse({"error": "order_not_found"}, status_code=404)
@@ -519,6 +527,7 @@ async def checkout_order(request: Request, token: str, contact: str = Form("")):
             db_job.account_id = account.id
         db_job.state = validate_transition(JobState(db_job.state), JobState.AWAITING_PAYMENT)
         await session.commit()
+    t_db = time.monotonic()
 
     # Заглушка оплаты: подтверждаем и сразу запускаем генерацию (фото уже есть).
     if settings.payment_stub:
@@ -531,6 +540,9 @@ async def checkout_order(request: Request, token: str, contact: str = Form("")):
         return {"token": token, "paid": True, "stub": True, "price_rub": pkg.price_rub}
 
     url = await _start_payment(request, job.id, pkg, token, c)
+    log.info("checkout #%s: подготовка %.0f мс, платёж ЮKassa %.0f мс, всего %.0f мс",
+             job.id, (t_db - t0) * 1000, (time.monotonic() - t_db) * 1000,
+             (time.monotonic() - t0) * 1000)
     if url:
         _notify_admins_bg(
             settings,
@@ -565,7 +577,9 @@ async def pay_order(request: Request, token: str):
         await _confirm_paid(request, job.id)
         return {"paid": True, "stub": True, "price_rub": pkg.price_rub}
 
+    t0 = time.monotonic()
     url = await _start_payment(request, job.id, pkg, token, job.contact or "")
+    log.info("repay #%s: платёж ЮKassa %.0f мс", job.id, (time.monotonic() - t0) * 1000)
     if url:
         return {"payment_url": url, "price_rub": pkg.price_rub}
     return {"manual": True, "price_rub": pkg.price_rub}

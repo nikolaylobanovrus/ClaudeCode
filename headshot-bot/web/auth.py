@@ -4,7 +4,10 @@
 пароля уходит письмом и хранится как хеш. Никакого перечисления
 пользователей: /forgot всегда отвечает 200. Подтверждения email нет.
 """
+import asyncio
+import logging
 import re
+import time
 from datetime import timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Form, Request, Response
@@ -21,6 +24,7 @@ from core.security import (
 )
 
 router = APIRouter()
+log = logging.getLogger("auth")
 
 SID = "sid"
 SESSION_DAYS = 30
@@ -87,18 +91,23 @@ async def register(request: Request, email: str = Form(...), password: str = For
         return JSONResponse({"error": "bad_email"}, status_code=422)
     if not _valid_password(password):
         return JSONResponse({"error": "weak_password"}, status_code=422)
+    t0 = time.monotonic()
     async with request.app.state.session_factory() as session:
         exists = (await session.execute(
             select(Account).where(Account.email == email)
         )).scalar_one_or_none()
         if exists is not None:
             return JSONResponse({"error": "email_taken"}, status_code=409)
-        account = Account(email=email, password_hash=hash_password(password))
+        # PBKDF2 (200k итераций) — в отдельном потоке, чтобы не блокировать
+        # event loop сервера на сотни миллисекунд.
+        pw_hash = await asyncio.to_thread(hash_password, password)
+        account = Account(email=email, password_hash=pw_hash)
         session.add(account)
         await session.flush()
         token = await _create_session(session, account.id)
         await session.commit()
         acc = {"email": account.email}
+    log.info("auth.register: %.0f мс", (time.monotonic() - t0) * 1000)
     resp = JSONResponse({"account": acc})
     _set_session_cookie(request, resp, token)
     return resp
@@ -107,18 +116,22 @@ async def register(request: Request, email: str = Form(...), password: str = For
 @router.post("/api/auth/login")
 async def login(request: Request, email: str = Form(...), password: str = Form(...)):
     email = _norm_email(email)
+    t0 = time.monotonic()
     async with request.app.state.session_factory() as session:
         account = (await session.execute(
             select(Account).where(Account.email == email)
         )).scalar_one_or_none()
         # Пароль сверяем всегда (в т.ч. с фиктивным хешем при отсутствии
         # аккаунта) — одинаковое время ответа против перечисления email.
-        ok = verify_password(password, account.password_hash if account else _DUMMY_HASH)
+        # PBKDF2 — в потоке, чтобы не блокировать event loop.
+        ok = await asyncio.to_thread(
+            verify_password, password, account.password_hash if account else _DUMMY_HASH)
         if account is None or not ok:
             return JSONResponse({"error": "bad_credentials"}, status_code=401)
         token = await _create_session(session, account.id)
         await session.commit()
         acc = {"email": account.email}
+    log.info("auth.login: %.0f мс", (time.monotonic() - t0) * 1000)
     resp = JSONResponse({"account": acc})
     _set_session_cookie(request, resp, token)
     return resp
@@ -204,7 +217,7 @@ async def reset(request: Request, token: str = Form(...), password: str = Form(.
         if at is None:
             return JSONResponse({"error": "bad_token"}, status_code=400)
         account = await session.get(Account, at.account_id)
-        account.password_hash = hash_password(password)
+        account.password_hash = await asyncio.to_thread(hash_password, password)
         at.used_at = utcnow()
         # Сброс пароля завершает все прежние сессии аккаунта.
         for ws in (await session.execute(
@@ -232,9 +245,9 @@ async def change_password(
     current_hash = token_hash(current) if current else None
     async with request.app.state.session_factory() as session:
         acc = await session.get(Account, account.id)
-        if not verify_password(old_password, acc.password_hash):
+        if not await asyncio.to_thread(verify_password, old_password, acc.password_hash):
             return JSONResponse({"error": "bad_credentials"}, status_code=401)
-        acc.password_hash = hash_password(new_password)
+        acc.password_hash = await asyncio.to_thread(hash_password, new_password)
         # Гасим прочие сессии (возможная компрометация), текущую оставляем.
         for ws in (await session.execute(
             select(WebSession).where(WebSession.account_id == acc.id)

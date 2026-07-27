@@ -5,11 +5,15 @@
 Чеки: включён режим «Чеки от ЮKassa», поэтому в каждый платёж передаём
 receipt с контактом покупателя (email или телефон) и позицией услуги.
 """
+import logging
 import re
+import time
 import uuid
 from dataclasses import dataclass
 
 import aiohttp
+
+log = logging.getLogger("payments")
 
 API = "https://api.yookassa.ru/v3"
 VAT_NONE = 1  # без НДС
@@ -73,17 +77,23 @@ class YooKassaClient:
                 }],
             }
         headers = {"Idempotence-Key": str(uuid.uuid4())}
+        t0 = time.monotonic()
         async with aiohttp.ClientSession(auth=self._auth, timeout=_TIMEOUT) as s:
             async with s.post(f"{API}/payments", json=body, headers=headers) as r:
                 data = await r.json()
+                log.info("ЮKassa create_payment: HTTP %s за %.0f мс",
+                         r.status, (time.monotonic() - t0) * 1000)
                 if r.status not in (200, 201):
                     raise RuntimeError(f"ЮKassa create: {r.status} {data}")
         return _parse(data)
 
     async def get_payment(self, payment_id: str) -> Payment:
+        t0 = time.monotonic()
         async with aiohttp.ClientSession(auth=self._auth, timeout=_TIMEOUT) as s:
             async with s.get(f"{API}/payments/{payment_id}") as r:
                 data = await r.json()
+                log.info("ЮKassa get_payment: HTTP %s за %.0f мс",
+                         r.status, (time.monotonic() - t0) * 1000)
                 if r.status != 200:
                     raise RuntimeError(f"ЮKassa get: {r.status} {data}")
         return _parse(data)
