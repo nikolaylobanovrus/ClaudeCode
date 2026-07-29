@@ -5,6 +5,7 @@ import AutofillTeaser from "../AutofillTeaser.jsx";
 import { wizardDeductions, HINTS, SALE_SLUGS, isSaleDraft, saleKindOf } from "../../data/wizard.js";
 import { YEARS, refundDeadlineYear, saleYearsFor, saleSupportedFor } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
+import { ymGoal } from "../../lib/metrika.js";
 
 // Подпись о сроке возврата под выбором года: возврат возможен за три
 // последних года, за более старые налоговая откажет. Для пенсионера с
@@ -43,7 +44,11 @@ export default function StepDeductions({ errors }) {
   // очищает другой. Продажу декларируем только за поддержанные годы (2025).
   const toggleRefund = (slug) => {
     const cur = draft.types.filter((t) => !SALE_SLUGS.includes(t));
-    const next = cur.includes(slug) ? cur.filter((t) => t !== slug) : [...cur, slug];
+    const on = cur.includes(slug);
+    const next = on ? cur.filter((t) => t !== slug) : [...cur, slug];
+    // Разрез воронки по ситуациям: без параметра невозможно понять, какие
+    // ситуации доходят до оплаты, а какие тонут (цель «situation»).
+    if (!on) ymGoal("situation", { situation: slug });
     dispatch({ type: "SET", key: "types", value: next });
   };
   // Продажа авто и недвижимости — разные декларации, взаимоисключающие и с
@@ -55,6 +60,7 @@ export default function StepDeductions({ errors }) {
       return;
     }
     const kind = slug === "prodazha_realty" ? "realty" : "auto";
+    ymGoal("situation", { situation: slug });
     dispatch({ type: "SET", key: "types", value: [slug] });
     dispatch({ type: "PATCH", section: "sale", patch: { kind } });
     if (!saleSupportedFor(kind, draft.year))

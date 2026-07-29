@@ -14,19 +14,36 @@ export default function StepIncome({ errors }) {
   return (
     <div>
       <p className="wiz__note">
-        Данные — из справки о доходах за {draft.year} год. Нет справки под
-        рукой? Это обычное дело: скачайте её за минуту в{" "}
-        <a
-          href="https://lkfl2.nalog.ru/lkfl/"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => ymGoal("lk_fns", { where: "income" })}
-        >
-          Личном кабинете ФНС
-        </a>{" "}
-        (Доходы → Справки о доходах, вход через Госуслуги) или запросите в
-        бухгалтерии. Черновик анкеты сохранится и дождётся вас.
+        Данные — из справки о доходах за {draft.year} год (бывшая 2-НДФЛ).
       </p>
+      {/* Три пути вместо «стены справки»: главный обрыв воронки был здесь —
+          84 % уходили, упёршись в реквизиты, которых нет под рукой. */}
+      <div className="doc-note doc-note--ok" style={{ marginBottom: 14 }}>
+        <strong>Нет справки под рукой?</strong> Это обычное дело — выбирайте
+        любой путь:
+        <ol style={{ margin: "8px 0 4px", paddingLeft: 20 }}>
+          <li>
+            📷 <strong>Сфотографируйте справку</strong> — блок «Загрузите
+            документы» выше заполнит поля за вас;
+          </li>
+          <li>
+            🔗 скачайте справку за минуту в{" "}
+            <a
+              href="https://lkfl2.nalog.ru/lkfl/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => ymGoal("lk_fns", { where: "income" })}
+            >
+              Личном кабинете ФНС
+            </a>{" "}
+            (Доходы → Справки о доходах, вход через Госуслуги);
+          </li>
+          <li>
+            ⏭️ или просто <strong>нажмите «Далее»</strong> — продолжите с
+            расходов, а реквизиты внесёте перед проверкой. Черновик сохранится.
+          </li>
+        </ol>
+      </div>
       {errors.incomes && <div className="form__error">{errors.incomes}</div>}
 
       {draft.incomes.map((inc, i) => {

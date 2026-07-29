@@ -6,6 +6,7 @@ import { useWizard } from "./WizardContext.jsx";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { ymGoal } from "../lib/metrika.js";
 import { stepsFor, stepIndexIn, isSaleDraft, potentialRefund } from "../data/wizard.js";
+import { shareDraftLink } from "../lib/draftLink.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
 import { fmtRub } from "../lib/format.js";
@@ -19,6 +20,37 @@ import StepReview from "./steps/StepReview.jsx";
 import StepPayment from "./steps/StepPayment.jsx";
 import StepDocuments from "./steps/StepDocuments.jsx";
 import DocAutofill from "./DocAutofill.jsx";
+
+// Кнопка «Продолжить на другом устройстве»: share-меню на мобильных,
+// копирование ссылки на десктопе. Подпись подтверждает результат.
+function ShareDraftButton({ draft }) {
+  const [done, setDone] = useState(null); // "share" | "copy" | null
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        style={{ width: "100%" }}
+        onClick={async () => {
+          ymGoal("draft_link", { step: draft.step });
+          setDone(await shareDraftLink(draft));
+        }}
+      >
+        Продолжить на другом устройстве
+      </button>
+      {done === "copy" && (
+        <p className="wiz__aside-note" style={{ marginTop: 6 }}>
+          Ссылка на черновик скопирована — откройте её на другом устройстве.
+        </p>
+      )}
+      {done === "share" && (
+        <p className="wiz__aside-note" style={{ marginTop: 6 }}>
+          Ссылка отправлена — черновик откроется по ней с текущими данными.
+        </p>
+      )}
+    </div>
+  );
+}
 
 const COMPONENTS = {
   types: StepDeductions,
@@ -73,6 +105,20 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const next = () => {
     const e = validateStep(step.key, draft);
     setErrors(e);
+    // Карта обрыва: человек ушёл с «Доходов» дальше, не заполнив справку —
+    // считаем, сколько полей заполнено (0 — «продолжу позже» целиком).
+    if (step.key === "income" && !Object.keys(e).length) {
+      const filled = (draft.incomes || []).reduce(
+        (s, inc) =>
+          s +
+          ["name", "inn", "oktmo", "income", "withheld"].filter(
+            (f) => String(inc[f] || "").trim() !== ""
+          ).length,
+        0
+      );
+      const total = (draft.incomes || []).length * 5;
+      if (filled < total) ymGoal("income_skip", { filled, total });
+    }
     if (Object.keys(e).length) {
       // На телефоне ошибки остаются за экраном выше кнопки «Далее» —
       // без скролла клик выглядит как «ничего не произошло».
@@ -190,21 +236,42 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
                 </div>
               </>
             ) : (
-              <>
-                <div className="calc__result-label">
-                  {calc.refund > 0 ? "Вы вернёте" : "Вернуть можно"}
-                </div>
-                <div className="calc__result-value">
-                  {calc.refund > 0
-                    ? fmtRub(calc.refund)
-                    : `до ${fmtRub(potentialRefund(draft.types))}`}
-                </div>
-                <div className="calc__result-hint">
-                  {calc.refund > 0
-                    ? "Расчёт обновляется по мере заполнения"
-                    : "Ваша сумма посчитается на шагах «Доходы» и «Расходы»"}
-                </div>
-              </>
+              (() => {
+                // Живой личный потолок: как только введён удержанный налог,
+                // абстрактное «до N ₽» превращается в цифру ИЗ ДАННЫХ
+                // пользователя (вернуть больше удержанного НДФЛ нельзя).
+                const withheldSum = (draft.incomes || []).reduce(
+                  (s, i) => s + (Number(i.withheld) || 0),
+                  0
+                );
+                const personalCap =
+                  calc.refund <= 0 && withheldSum > 0
+                    ? Math.min(withheldSum, potentialRefund(draft.types))
+                    : 0;
+                return (
+                  <>
+                    <div className="calc__result-label">
+                      {calc.refund > 0
+                        ? "Вы вернёте"
+                        : personalCap > 0
+                          ? "Ваш возврат"
+                          : "Вернуть можно"}
+                    </div>
+                    <div className="calc__result-value">
+                      {calc.refund > 0
+                        ? fmtRub(calc.refund)
+                        : `до ${fmtRub(personalCap || potentialRefund(draft.types))}`}
+                    </div>
+                    <div className="calc__result-hint">
+                      {calc.refund > 0
+                        ? "Расчёт обновляется по мере заполнения"
+                        : personalCap > 0
+                          ? "Посчитано по вашему удержанному налогу — уточнится после «Расходов»"
+                          : "Ваша сумма посчитается на шагах «Доходы» и «Расходы»"}
+                    </div>
+                  </>
+                );
+              })()
             )}
           </div>
           {/* При включённом автозаполнении «не отправляются на сервер» —
@@ -214,6 +281,11 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
               ? "Черновик сохраняется на этом устройстве автоматически. Документы формируются прямо в вашем браузере; файлы, загруженные для автозаполнения, распознаются на сервере и сразу удаляются — мы их не храним."
               : "Черновик сохраняется на этом устройстве автоматически. Паспортные данные не отправляются на сервер — документы формируются прямо в вашем браузере."}
           </p>
+          {/* Мобильный сценарий «начал с телефона — закончу с компьютера»:
+              черновик уезжает в ссылке, оплаты остаются на этом устройстве. */}
+          {step.key !== "documents" && (
+            <ShareDraftButton draft={draft} />
+          )}
         </aside>
       </div>
     </div>

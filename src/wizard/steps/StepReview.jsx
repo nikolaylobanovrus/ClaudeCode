@@ -4,11 +4,18 @@ import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
 import { yearRules, SALE_DEDUCTION, SALE_REALTY_OBJECTS } from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
+import { ymGoal } from "../../lib/metrika.js";
 
-export default function StepReview({ calc }) {
+export default function StepReview({ calc, errors = {} }) {
   const { draft, dispatch } = useWizard();
   const p = draft.personal;
   const goto = (key) => dispatch({ type: "GOTO", step: stepIndexIn(stepsFor(draft), key) });
+  // Реквизиты доходов, отложенные на шаге «Доходы», спрашиваются здесь:
+  // дальше — документы, ФНС требует все поля. Не тупик, а лестница: те же
+  // три пути (фото/ЛК ФНС/вручную) прямо из проверки.
+  const incomeGaps = Object.keys(errors).some(
+    (k) => k.startsWith("income.") || k === "incomes"
+  );
 
   // Продажа имущества: сводка и налог к уплате (Приложение 6), без возврата.
   if (calc.sale) {
@@ -114,6 +121,32 @@ export default function StepReview({ calc }) {
 
   return (
     <div>
+      {incomeGaps && (
+        <div className="doc-note doc-note--err" style={{ marginBottom: 14 }}>
+          <strong>Остались реквизиты из справки о доходах</strong> — без них
+          налоговая не примет декларацию. Ваш расчёт уже готов (ниже), осталось
+          перенести данные со справки: сфотографируйте её на шаге «Доходы»
+          (блок «Загрузите документы» — заполнит сам), скачайте справку в{" "}
+          <a
+            href="https://lkfl2.nalog.ru/lkfl/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => ymGoal("lk_fns", { where: "review" })}
+          >
+            Личном кабинете ФНС
+          </a>{" "}
+          или впишите вручную.
+          <div className="doc-actions" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => goto("income")}
+            >
+              Дозаполнить «Доходы»
+            </button>
+          </div>
+        </div>
+      )}
       <dl className="cabinet__list wiz__summary">
         {rows.map(([label, value, step]) => (
           <div key={label}>

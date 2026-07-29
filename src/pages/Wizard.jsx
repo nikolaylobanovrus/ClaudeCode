@@ -12,8 +12,17 @@ import {
   clearDraft,
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
-import { paymentStepFor } from "../data/wizard.js";
+import { paymentStepFor, SALE_SLUGS } from "../data/wizard.js";
+import { decodeDraftLink } from "../lib/draftLink.js";
 import { ymGoal } from "../lib/metrika.js";
+
+// Ситуации, которые объявление может передать в ссылке (?s=… до решётки):
+// клик по «вычет за лечение» открывает анкету с уже выбранной плиткой —
+// на телефоне это убирает скролл пятнадцати плиток до кнопки «Далее».
+const PRESELECT_SLUGS = [
+  "kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie",
+  ...SALE_SLUGS,
+];
 
 function WizardBody() {
   const { dispatch } = useWizard();
@@ -43,9 +52,31 @@ function WizardBody() {
   }, []);
 
   useEffect(() => {
+    // Черновик из ссылки «Продолжить на другом устройстве» (?d=… до решётки):
+    // важнее локального — человек осознанно перенёс данные с телефона.
+    const params = new URLSearchParams(window.location.search);
+    const linked = params.get("d") && decodeDraftLink(params.get("d"));
+    if (linked) {
+      dispatch({ type: "RESTORE", draft: linked });
+      // Убираем гигантский параметр из адресной строки (перезагрузка страницы
+      // не должна повторно затирать черновик, который человек начал править).
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+      return;
+    }
     const saved = loadDraft();
     if (!saved) {
-      if (preselect) dispatch({ type: "TOGGLE_TYPE", slug: preselect });
+      // Ситуация из объявления (?s=lechenie) или с плашки лендинга (state).
+      const s = params.get("s");
+      const slug = preselect || (PRESELECT_SLUGS.includes(s) ? s : null);
+      if (slug && SALE_SLUGS.includes(slug)) {
+        // Свежий черновик стартует с года YEARS[0] (2025) — он поддержан
+        // и для авто, и для недвижимости, менять год не нужно.
+        const kind = slug === "prodazha_realty" ? "realty" : "auto";
+        dispatch({ type: "SET", key: "types", value: [slug] });
+        dispatch({ type: "PATCH", section: "sale", patch: { kind } });
+      } else if (slug) {
+        dispatch({ type: "TOGGLE_TYPE", slug });
+      }
       return;
     }
     // Легаси-черновики: paid-заказ времён до появления покупок превращаем

@@ -151,6 +151,10 @@ export function validateMoney(value, label = "сумму") {
 }
 
 const positive = (v) => Number(v) > 0;
+// Продажа имущества: свой маршрут без шага «Доходы» (дубль isSaleDraft из
+// data/wizard.js — импорт оттуда сделал бы цикл модулей).
+const isSale = (draft) =>
+  (draft?.types || []).some((t) => ["prodazha_auto", "prodazha_realty"].includes(t));
 
 // --- Пошаговая валидация ------------------------------------------------------
 // Возвращает объект { имяПоля: текстОшибки } — пустой объект, если всё в порядке.
@@ -178,6 +182,31 @@ export function validateStep(stepKey, draft) {
   }
 
   if (stepKey === "income") {
+    // МЯГКАЯ проверка: реквизиты из справки о доходах разрешено внести
+    // позже (справки часто нет под рукой — главный обрыв воронки).
+    // Проверяем только ФОРМАТ уже введённого; полнота требуется на шаге
+    // «Проверка» (см. ветку "review") — перед документами всё равно нужны
+    // все реквизиты, но к тому моменту человек уже видит свою сумму.
+    (draft.incomes || []).forEach((inc, i) => {
+      if (digits(inc.inn)) put(e, `income.${i}.inn`, validateInnOrg(inc.inn));
+      put(e, `income.${i}.kpp`, validateKpp(inc.kpp));
+      if (digits(inc.oktmo)) put(e, `income.${i}.oktmo`, validateOktmo(inc.oktmo));
+      if (inc.income !== "") put(e, `income.${i}.income`, validateMoney(inc.income, "доход"));
+      if (inc.withheld !== "")
+        put(e, `income.${i}.withheld`, validateMoney(inc.withheld, "удержанный налог"));
+      if (
+        !e[`income.${i}.withheld`] &&
+        inc.income !== "" &&
+        inc.withheld !== "" &&
+        Number(inc.withheld) > Number(inc.income)
+      )
+        put(e, `income.${i}.withheld`, "Налог не может быть больше дохода");
+    });
+  }
+
+  // Шаг «Проверка» возвратной декларации: здесь реквизиты доходов становятся
+  // обязательными — дальше формируются документы, ФНС требует все поля.
+  if (stepKey === "review" && !isSale(draft)) {
     const list = draft.incomes || [];
     if (!list.length) e.incomes = "Добавьте хотя бы одного работодателя";
     list.forEach((inc, i) => {
