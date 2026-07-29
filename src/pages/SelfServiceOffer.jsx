@@ -18,7 +18,7 @@ export default function SelfServiceOffer() {
       <section className="page-hero">
         <div className="container">
           <nav className="breadcrumbs" aria-label="Хлебные крошки">
-            <Link to="/deklaraciya">Заполнить самому</Link>
+            <Link to="/">Заполнить самому</Link>
             <span>/ Оферта</span>
           </nav>
           <h1 className="page-hero__title">Публичная оферта</h1>

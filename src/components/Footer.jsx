@@ -11,8 +11,8 @@ const MAIN_SECTIONS = [
   { to: "/kontakty", label: "Контакты" },
 ];
 const SELF_SECTIONS = [
-  { to: "/deklaraciya", scrollTo: "sd-vychety", label: "Виды вычетов" },
-  { to: "/deklaraciya", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
+  { to: "/", scrollTo: "sd-vychety", label: "Виды вычетов" },
+  { to: "/", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },
   { to: "/deklaraciya/kontakty", label: "Контакты" },
 ];
@@ -22,7 +22,8 @@ export default function Footer() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  const isSelf = pathname.startsWith("/deklaraciya");
+  // Самозаполнение: главная и /deklaraciya/* (лендинг теперь живёт на «/»).
+  const isSelf = pathname === "/" || pathname.startsWith("/deklaraciya");
   const sections = isSelf ? SELF_SECTIONS : MAIN_SECTIONS;
 
   // Ссылка-секция лендинга: прокрутка (если уже на лендинге) или переход
@@ -30,10 +31,10 @@ export default function Footer() {
   const onSectionClick = (e, link) => {
     if (!link.scrollTo) return;
     e.preventDefault();
-    if (pathname === "/deklaraciya") {
+    if (pathname === "/") {
       document.getElementById(link.scrollTo)?.scrollIntoView({ behavior: "smooth" });
     } else {
-      navigate("/deklaraciya", { state: { scrollTo: link.scrollTo } });
+      navigate("/", { state: { scrollTo: link.scrollTo } });
     }
   };
 
@@ -42,7 +43,7 @@ export default function Footer() {
       <div className="container">
         <div className="footer__grid">
           <div>
-            <Link to={isSelf ? "/deklaraciya" : "/"} className="footer__brand">
+            <Link to={isSelf ? "/" : "/pod-klyuch"} className="footer__brand">
               <Logo />
               Налог-сервис
             </Link>

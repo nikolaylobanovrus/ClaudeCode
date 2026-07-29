@@ -4,10 +4,10 @@ import { company } from "../data/content.js";
 import { isLoggedIn } from "../lib/account.js";
 import Logo from "./Logo.jsx";
 
-// Шапка основного сайта. «Главной» в меню нет — на неё ведёт клик по логотипу.
-// «Заполнить самому» (199 ₽) намеренно НЕ в этом меню: сервис рекламируется
-// отдельным лендингом /deklaraciya, чтобы дешёвый тариф не перетягивал
-// клиентов основных тарифов (решение владельца, июль 2026).
+// С июля 2026 главная (/) — сервис самозаполнения (199 ₽): весь платящий
+// трафик и прямые заходы «запомнил адрес из рекламы» идут в него. «Под ключ» —
+// отдельный раздел /pod-klyuch со своим меню, БЕЗ ссылок на 199 ₽ (никакого
+// downsell — решение владельца; позже раздел переедет на nalog-service.online).
 const MAIN_LINKS = [
   { to: "/vychety", label: "Виды вычетов" },
   { to: "/kak-rabotaem", label: "Как работаем" },
@@ -15,13 +15,11 @@ const MAIN_LINKS = [
   { to: "/kontakty", label: "Контакты" },
 ];
 
-// Раздел «Заполнить самому» — самостоятельный мини-сайт: у него свои пункты
-// меню и логотип ведёт на его лендинг, чтобы рекламный трафик не «утекал»
-// в основной сайт. «Виды вычетов» и «Как работаем» — секции лендинга (scrollTo),
-// «Тарифы» — своя страница; «Кабинета» у авто-вычета нет.
+// Меню самозаполнения: «Виды вычетов» и «Как работаем» — секции лендинга
+// на главной (scrollTo), «Тарифы» — своя страница; «Кабинета» здесь нет.
 const SELF_LINKS = [
-  { to: "/deklaraciya", scrollTo: "sd-vychety", label: "Виды вычетов" },
-  { to: "/deklaraciya", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
+  { to: "/", scrollTo: "sd-vychety", label: "Виды вычетов" },
+  { to: "/", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },
   { to: "/deklaraciya/kontakty", label: "Контакты" },
 ];
@@ -32,9 +30,9 @@ export default function Navbar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  // Внутри раздела авто-вычета — своя шапка.
-  const isSelf = pathname.startsWith("/deklaraciya");
-  const brandTo = isSelf ? "/deklaraciya" : "/";
+  // Самозаполнение: главная и раздел /deklaraciya/* — своя шапка.
+  const isSelf = pathname === "/" || pathname.startsWith("/deklaraciya");
+  const brandTo = isSelf ? "/" : "/pod-klyuch";
   const links = isSelf ? SELF_LINKS : MAIN_LINKS;
   const cabinetTarget = isLoggedIn() ? "/kabinet" : "/vhod";
 
@@ -45,10 +43,10 @@ export default function Navbar() {
     if (!link.scrollTo) return;
     e.preventDefault();
     e.currentTarget.blur(); // это прокрутка, а не «текущая страница» — не оставляем в фокусе
-    if (pathname === "/deklaraciya") {
+    if (pathname === "/") {
       document.getElementById(link.scrollTo)?.scrollIntoView({ behavior: "smooth" });
     } else {
-      navigate("/deklaraciya", { state: { scrollTo: link.scrollTo } });
+      navigate("/", { state: { scrollTo: link.scrollTo } });
     }
   };
 

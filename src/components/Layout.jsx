@@ -45,7 +45,7 @@ export default function Layout() {
           <a href={`tel:${company.phoneRaw}`} className="btn btn--ghost">
             Позвонить
           </a>
-          {pathname.startsWith("/deklaraciya") ? (
+          {pathname === "/" || pathname.startsWith("/deklaraciya") ? (
             <Link to="/deklaraciya/anketa" className="btn btn--primary">
               Заполнить
             </Link>

@@ -31,7 +31,7 @@ export default function SelfServiceTariffs() {
       <section className="page-hero">
         <div className="container">
           <nav className="breadcrumbs" aria-label="Хлебные крошки">
-            <Link to="/deklaraciya">Заполнить самому</Link>
+            <Link to="/">Заполнить самому</Link>
             <span>/ Сделаем за вас</span>
           </nav>
           <span className="eyebrow hero__eyebrow">Сделаем за вас</span>
@@ -188,7 +188,7 @@ export default function SelfServiceTariffs() {
             <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
               Заполнить самому
             </Link>
-            <Link to="/deklaraciya" className="btn btn--light btn--lg">
+            <Link to="/" className="btn btn--light btn--lg">
               ← Вернуться на страницу услуги
             </Link>
           </div>

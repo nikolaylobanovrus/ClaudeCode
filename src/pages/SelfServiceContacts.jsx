@@ -21,7 +21,7 @@ export default function SelfServiceContacts() {
       <section className="page-hero">
         <div className="container">
           <nav className="breadcrumbs" aria-label="Хлебные крошки">
-            <Link to="/deklaraciya">Заполнить самому</Link>
+            <Link to="/">Заполнить самому</Link>
             <span>/ Контакты</span>
           </nav>
           <span className="eyebrow hero__eyebrow">Контакты</span>
@@ -105,7 +105,7 @@ export default function SelfServiceContacts() {
             <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
               Заполнить самому
             </Link>
-            <Link to="/deklaraciya" className="btn btn--light btn--lg">
+            <Link to="/" className="btn btn--light btn--lg">
               ← Вернуться на страницу услуги
             </Link>
           </div>

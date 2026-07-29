@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import Home from "./pages/Home.jsx";
 import Deductions from "./pages/Deductions.jsx";
@@ -36,7 +36,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
+        {/* Главная — сервис самозаполнения (199 ₽): весь платящий трафик и
+            прямые заходы «запомнил из рекламы» идут сюда. «Под ключ» — на
+            /pod-klyuch (решение владельца, июль 2026; позже переедет на
+            отдельный домен nalog-service.online). */}
+        <Route index element={lazyPage(<SelfService />)} />
+        <Route path="pod-klyuch" element={<Home />} />
         <Route path="vychety" element={<Deductions />} />
         <Route path="tarify" element={<Pricing />} />
         <Route path="kak-rabotaem" element={<HowItWorks />} />
@@ -52,7 +57,9 @@ export default function App() {
         <Route path="situaciya/inaya" element={<SituationInaya />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="operator" element={<Operator />} />
-        <Route path="deklaraciya" element={lazyPage(<SelfService />)} />
+        {/* Старый адрес лендинга: сюда ведут все объявления Директа —
+            редирект сохраняет их работоспособность без перемодерации. */}
+        <Route path="deklaraciya" element={<Navigate to="/" replace />} />
         <Route path="deklaraciya/tarify" element={lazyPage(<SelfServiceTariffs />)} />
         <Route path="deklaraciya/kontakty" element={lazyPage(<SelfServiceContacts />)} />
         <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />

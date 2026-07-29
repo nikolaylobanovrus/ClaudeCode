@@ -26,7 +26,7 @@ export default function SelfServiceInstrukciya() {
       <section className="page-hero">
         <div className="container">
           <nav className="breadcrumbs" aria-label="Хлебные крошки">
-            <Link to="/deklaraciya">Заполнить самому</Link>
+            <Link to="/">Заполнить самому</Link>
             <span>/ Как подать</span>
           </nav>
           <h1 className="page-hero__title">Как подать декларацию 3-НДФЛ</h1>

@@ -130,7 +130,7 @@ export default function SelfService() {
       <Seo
         title={`Заполнить 3-НДФЛ онлайн самому за ${fmtRub(selfService.price)} | Налог-сервис`}
         description={`Декларация 3-НДФЛ онлайн за 10 минут: анкета с подсказками, автоматический расчёт вычета, файл для Личного кабинета ФНС и заявление на возврат. Фиксированная цена ${fmtRub(selfService.price)}.`}
-        path="/deklaraciya"
+        path="/"
         jsonLd={jsonLd}
       />
 
