@@ -33,6 +33,10 @@ export function draftSnapshot(draft) {
     if (!SKIP_KEYS.has(k)) snap[k] = draft[k];
   }
   if (Array.isArray(snap.types)) snap.types = [...snap.types].sort();
+  // Первичная декларация (корректировка 0) хешируется БЕЗ поля correction:
+  // оплаты, сделанные до появления уточнёнки, должны узнаваться и после
+  // миграции черновика (loadDraft дописывает correction: 0).
+  if (!Number(snap.correction)) delete snap.correction;
   return snap;
 }
 

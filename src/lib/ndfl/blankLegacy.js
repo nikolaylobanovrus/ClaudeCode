@@ -171,7 +171,7 @@ export async function buildOfficialPdfLegacy(model) {
   // --- Титульный лист: в старых формах паспорт и дата рождения заполняются ----
   function fillTitle(pen) {
     const T = M.title;
-    pen.left("0", ...T.corr, 3);
+    pen.left(String(Number(model.correction) || 0), ...T.corr, 3); // 0 — первичная, 1+ — уточнённая
     pen.left(CODES.period, ...T.period, 2);
     pen.left(String(model.year), ...T.year, 4);
     pen.left(person.ifns, ...T.ifns, 4);

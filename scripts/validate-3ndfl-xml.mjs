@@ -64,6 +64,8 @@ const scenarios = [
     tag: "дом, супруг-пенсионер",
     patch: { objectKind: "houseLand", owner: "spouse", pensioner: true, buildMethod: "new" },
   },
+  // Уточнённая декларация: НомКорр="1" на титуле (остальное идентично).
+  { tag: "квартира, уточнёнка (НомКорр=1)", patch: {}, correction: 1 },
 ];
 
 // Продажа имущества (Приложение 6, налог к уплате): проверяем для лет из
@@ -99,9 +101,10 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
   for (const sc of scenarios) {
     const draft = sampleDraft(year);
     Object.assign(draft.property, sc.patch);
+    if (sc.correction) draft.correction = sc.correction;
     const model = buildDeclarationModel(draft);
     const { filename, bytes } = buildDeclarationXml(model);
-    const xmlPath = join(tmp, `${sc.tag === "квартира" ? "a" : "b"}-${filename}`);
+    const xmlPath = join(tmp, `${scenarios.indexOf(sc)}-${filename}`);
     writeFileSync(xmlPath, bytes); // байты в windows-1251, как для ЛК ФНС
     try {
       execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {

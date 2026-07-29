@@ -92,6 +92,9 @@ export default function StepReview({ calc, errors = {} }) {
 
   const rows = [
     ["Отчётный год", draft.year, "types"],
+    ...(Number(draft.correction) > 0
+      ? [["Тип декларации", `Уточнённая, корректировка № ${draft.correction}`, "types"]]
+      : []),
     [
       "Вычеты",
       draft.types

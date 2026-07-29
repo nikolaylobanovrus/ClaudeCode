@@ -13,6 +13,9 @@ export function initialDraft() {
     savedAt: null,
     year: YEARS[0],
     types: [],
+    // Номер корректировки: 0 — первичная декларация, 1+ — уточнённая
+    // (титул «Номер корректировки», в XML — атрибут НомКорр).
+    correction: 0,
     personal: {
       lastName: "",
       firstName: "",
@@ -191,6 +194,8 @@ export function loadDraft() {
     // Черновики до появления продажи не имеют секции sale — добавляем дефолт,
     // чтобы reducer PATCH("sale", …) и шаг «Продажа» работали.
     if (!draft.sale) draft.sale = emptySale();
+    // Черновики до появления уточнёнки: первичная декларация.
+    if (draft.correction === undefined) draft.correction = 0;
     return draft;
   } catch {
     return null;

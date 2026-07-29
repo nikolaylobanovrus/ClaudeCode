@@ -82,7 +82,11 @@ export default function StepDocuments({ onUnpaid }) {
         setDocs([
           {
             key: "decl",
-            title: `Декларация 3-НДФЛ за ${source.year} год`,
+            title:
+              `Декларация 3-НДФЛ за ${source.year} год` +
+              (Number(source.correction) > 0
+                ? ` (уточнённая, корректировка № ${source.correction})`
+                : ""),
             note: sale
               ? "Напечатана на официальном бланке ФНС. Внутри — Приложение 6 (расчёт по продаже) и налог к уплате в Разделах 1 и 2."
               : "Напечатана на официальном бланке ФНС за выбранный год — как из программы налоговой. Заявление о возврате уже внутри (Приложение к Разделу 1).",
@@ -154,6 +158,25 @@ export default function StepDocuments({ onUnpaid }) {
           одного человека — оплачивается отдельно. Верните прежние данные, чтобы
           снова открыть оплаченные документы, или оплатите новую декларацию.
         </div>
+        {/* Типовой сценарий правки после оплаты — исправление уже поданной
+            декларации: подсказываем уточнёнку (номер корректировки на титуле). */}
+        {!Number(draft.correction) && (
+          <div className="doc-note doc-note--ok">
+            Исправляете декларацию, которую уже <strong>подали</strong> в
+            налоговую? Тогда нужна <strong>уточнённая</strong> — с номером
+            корректировки на титульном листе.{" "}
+            <button
+              type="button"
+              className="wiz__edit"
+              onClick={() => {
+                ymGoal("correction_on", { n: 1, where: "changed" });
+                dispatch({ type: "SET", key: "correction", value: 1 });
+              }}
+            >
+              Сделать уточнённой (корректировка № 1)
+            </button>
+          </div>
+        )}
         <button type="button" className="btn btn--primary" onClick={onUnpaid}>
           Оплатить новую декларацию
         </button>

@@ -34,6 +34,9 @@ const drafts = {
   realty2024: { year: 2024, types: ["prodazha_realty"], incomes: [], sale: realtySale(true) },
   realty2023: { year: 2023, types: ["prodazha_realty"], incomes: [], sale: realtySale(true) },
   auto2025: { year: 2025, types: ["prodazha_auto"], incomes: [], sale: { kind: "auto", price: "600000", saleDate: "2025-06-10", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" } },
+  // Уточнёнка: титул с номером корректировки 1 (в остальном — realty2025/2023).
+  korr2025: { year: 2025, correction: 1, types: ["prodazha_realty"], incomes: [], sale: realtySale(true) },
+  korr2023: { year: 2023, correction: 2, types: ["prodazha_realty"], incomes: [], sale: realtySale(true) },
 };
 
 const [out, scenario] = process.argv.slice(2);

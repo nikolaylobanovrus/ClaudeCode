@@ -1,5 +1,6 @@
 // Шаг 1: отчётный год и виды вычетов. Несколько вычетов объединяются
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
+import { useState } from "react";
 import { useWizard } from "../WizardContext.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
 import { wizardDeductions, HINTS, SALE_SLUGS, isSaleDraft, saleKindOf } from "../../data/wizard.js";
@@ -35,6 +36,14 @@ function yearNote(year, pensionerTransfer) {
 export default function StepDeductions({ errors }) {
   const { draft, dispatch } = useWizard();
   const saleActive = isSaleDraft(draft);
+  // «Уточнёнка» — тихая опция: свёрнута в одну строку, основной флоу не
+  // нагружает. Раскрыта, если уже включена (correction > 0 или deep-link).
+  const [corrOpen, setCorrOpen] = useState(Number(draft.correction) > 0);
+  const corr = Number(draft.correction) || 0;
+  const setCorr = (n) => {
+    if (n > 0 && corr === 0) ymGoal("correction_on", { n });
+    dispatch({ type: "SET", key: "correction", value: n });
+  };
   const pensionerTransfer =
     Boolean(draft.property?.pensioner) &&
     (draft.types.includes("kvartira") || draft.types.includes("ipoteka"));
@@ -103,6 +112,42 @@ export default function StepDeductions({ errors }) {
             {note.text}
           </div>
         )}
+
+        {/* Уточнённая (корректирующая) декларация — свёрнутая опция. */}
+        <div style={{ marginTop: 10 }}>
+          {!corrOpen && corr === 0 ? (
+            <button
+              type="button"
+              className="wiz__edit"
+              onClick={() => setCorrOpen(true)}
+            >
+              Подаёте уточнённую (корректирующую) декларацию?
+            </button>
+          ) : (
+            <div className="doc-note doc-note--ok">
+              <strong>Уточнённая декларация.</strong> Если вы уже подавали
+              3-НДФЛ за {draft.year} год и нашли ошибку — подаётся уточнённая:
+              та же декларация, заполненная заново <strong>целиком</strong> (все
+              данные, а не только исправленное), с номером корректировки на
+              титульном листе. Номер = сколько уточнёнок вы уже подавали + 1.
+              <div className="calc__types" style={{ marginTop: 8 }}>
+                {[0, 1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={"calc__chip" + (corr === n ? " is-active" : "")}
+                    onClick={() => setCorr(n)}
+                  >
+                    {n === 0 ? "Первичная" : `Корректировка ${n}`}
+                  </button>
+                ))}
+              </div>
+              {errors.correction && (
+                <div className="form__error">{errors.correction}</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="form__field">

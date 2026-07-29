@@ -95,6 +95,8 @@ export function buildDeclarationModel(draft) {
 
   return {
     year: draft.year,
+    // Номер корректировки: 0 — первичная, 1+ — уточнённая (НомКорр).
+    correction: Number(draft.correction) || 0,
     types: draft.types || [],
     person,
     incomes,

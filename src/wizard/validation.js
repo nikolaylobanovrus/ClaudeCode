@@ -164,6 +164,9 @@ export function validateStep(stepKey, draft) {
 
   if (stepKey === "types") {
     if (!(draft.types || []).length) e.types = "Выберите хотя бы один вычет";
+    const corr = Number(draft.correction);
+    if (draft.correction !== undefined && (!Number.isInteger(corr) || corr < 0 || corr > 99))
+      e.correction = "Номер корректировки — целое число от 1 до 99 (0 — первичная)";
   }
 
   if (stepKey === "personal") {

@@ -65,6 +65,10 @@ function WizardBody() {
     }
     const saved = loadDraft();
     if (!saved) {
+      // Уточнёнка из ссылки (?korr=1) — для рекламы/статей «ошиблись в декларации».
+      const korr = parseInt(params.get("korr"), 10);
+      if (Number.isInteger(korr) && korr > 0 && korr < 100)
+        dispatch({ type: "SET", key: "correction", value: korr });
       // Ситуация из объявления (?s=lechenie) или с плашки лендинга (state).
       const s = params.get("s");
       const slug = preselect || (PRESELECT_SLUGS.includes(s) ? s : null);

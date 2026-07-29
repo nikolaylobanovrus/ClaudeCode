@@ -99,7 +99,9 @@ export function buildDeclarationXml(model) {
           Период: CODES.period,
           ОтчетГод: String(year),
           КодНО: person.ifns,
-          НомКорр: "0",
+          // 0 — первичная, 1+ — уточнённая. Строго строкой: el() отбрасывает
+          // пустые значения, а атрибут по XSD обязателен.
+          НомКорр: String(Number(model.correction) || 0),
         },
         // Сведения о налогоплательщике
         el(

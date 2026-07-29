@@ -49,7 +49,7 @@ export async function buildOfficialPdf2025(model) {
 
   // --- Титульный лист --------------------------------------------------------
   function fillTitle(pen) {
-    pen.left("0", 91.0, 717, 3); // номер корректировки
+    pen.left(String(Number(model.correction) || 0), 91.0, 717, 3); // номер корректировки (0 — первичная)
     pen.left(CODES.period, 215.7, 717, 2); // налоговый период — 34 (год)
     pen.left(String(model.year), 337.6, 717, 4);
     pen.left(person.ifns, 524.7, 717, 4); // код налогового органа
