@@ -12,6 +12,7 @@ const PROOF_TITLES = {
   obuchenie: "Обучение",
   iis: "ИИС",
   strahovanie: "Страхование жизни",
+  sport: "Спорт и фитнес",
 };
 
 export default function SelfServiceInstrukciya() {

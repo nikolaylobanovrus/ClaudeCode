@@ -114,7 +114,7 @@ export default function StepReview({ calc, errors = {} }) {
     ["Имущественный вычет", calc.applied.property],
     ["Проценты по ипотеке", calc.applied.interest],
     [
-      `Лечение, обучение, страхование (лимит ${fmtRub(yearRules(draft.year).socialGroup)})`,
+      `Лечение, обучение, страхование, спорт (лимит ${fmtRub(yearRules(draft.year).socialGroup)})`,
       calc.applied.socialGroup,
     ],
     ["Обучение детей", calc.applied.childEducation],

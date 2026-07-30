@@ -50,6 +50,7 @@ export function initialDraft() {
     education: { self: "", children: [] },
     iis: { contribution: "" },
     insurance: { amount: "" },
+    sport: { amount: "" },
     bank: { bik: "", account: "" },
     // Продажа имущества (ситуация prodazha_auto): доход, вычет/расходы,
     // покупатель. Заполняется на шаге «Продажа»; в возвратной декларации
@@ -196,6 +197,8 @@ export function loadDraft() {
     if (!draft.sale) draft.sale = emptySale();
     // Черновики до появления уточнёнки: первичная декларация.
     if (draft.correction === undefined) draft.correction = 0;
+    // Черновики до появления вычета за спорт.
+    if (!draft.sport) draft.sport = { amount: "" };
     return draft;
   } catch {
     return null;

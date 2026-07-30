@@ -20,7 +20,7 @@ import { ymGoal } from "../lib/metrika.js";
 // клик по «вычет за лечение» открывает анкету с уже выбранной плиткой —
 // на телефоне это убирает скролл пятнадцати плиток до кнопки «Далее».
 const PRESELECT_SLUGS = [
-  "kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie",
+  "kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport",
   ...SALE_SLUGS,
 ];
 

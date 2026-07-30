@@ -188,6 +188,7 @@ export async function buildOfficialPdf2025(model) {
     const X = 365.9;
     if (calc.lines.medicalOrdinary > 0) pen.money(calc.lines.medicalOrdinary, X, 716, 12); // 140
     if (calc.lines.insurance > 0) pen.money(calc.lines.insurance, X, 570, 12); // 160
+    if (calc.lines.sport > 0) pen.money(calc.lines.sport, X, 476, 12); // 171 физкультура
     pen.money(ap.socialGroup, X, 450, 12); // 180 итог с ограничением 219.2
     const social = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
     pen.money(social, X, 371, 12); // 190 все социальные

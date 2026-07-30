@@ -52,7 +52,7 @@ const MAP_22_23 = {
     nameY: [[648, 624, 601, 577], [432, 408, 385, 362], [217, 194, 169, 146]],
     sumY: [540, 324, 108], taxX: 298.0,
   },
-  app5b: { 130: 696, 140: 666, 160: 491, 180: 347, 190: 276, 200: 247, 210: 204 },
+  app5b: { 130: 696, 140: 666, 160: 491, 171: 376, 180: 347, 190: 276, 200: 247, 210: 204 },
   // Приложение 6 (доходы от продажи) формы 903@/615@ — лист из
   // КонсультантПлюс-рендера (штрихкод 0332 0129, та же редакция, что и скан).
   // У этой формы нет строки 115 → своя вертикальная развёрстка; координаты
@@ -105,7 +105,7 @@ const MAPS = {
       sumY: [533, 318, 102], taxX: 297.9,
     },
     app5a: { 100: 301, 110: 209, 120: 183, 130: 123 },
-    app5b: { 140: 716, 160: 550, 180: 411, 190: 317, 200: 288, 210: 242 },
+    app5b: { 140: 716, 160: 550, 171: 440, 180: 411, 190: 317, 200: 288, 210: 242 },
     // Приложение 7 формы 757@ свёрстано как в 913@ (сверено по сеткам).
     app7: {
       obj: [156.2, 699], sign: [354.6, 699], build: [354.6, 674],
@@ -308,6 +308,7 @@ export async function buildOfficialPdfLegacy(model) {
       pen.money(calc.lines.educationSelf, X, A[130], 12);
     if (calc.lines.medicalOrdinary > 0) pen.money(calc.lines.medicalOrdinary, X, A[140], 12); // 140
     if (calc.lines.insurance > 0) pen.money(calc.lines.insurance, X, A[160], 12); // 160
+    if (A[171] && calc.lines.sport > 0) pen.money(calc.lines.sport, X, A[171], 12); // 171 физкультура
     pen.money(ap.socialGroup, X, A[180], 12); // 180 итог с ограничением 219 НК
     const social = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
     pen.money(social, X, A[190], 12); // 190 все социальные

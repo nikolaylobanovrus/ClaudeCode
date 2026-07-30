@@ -21,7 +21,7 @@ const schemaDir = join(root, "docs", "fns-schemas");
 // (Приложения 1, 5, 7), которые должна покрыть схема.
 const sampleDraft = (year) => ({
   year,
-  types: ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie"],
+  types: ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport"],
   personal: {
     lastName: "Иванов", firstName: "Пётр", middleName: "Сергеевич",
     inn: "500100732259", birthDate: "1985-04-12", birthPlace: "г. Челябинск",
@@ -37,6 +37,7 @@ const sampleDraft = (year) => ({
   education: { self: "40000", children: [{ amount: "50000" }] },
   iis: { contribution: "100000" },
   insurance: { amount: "0" },
+  sport: { amount: "30000" },
   bank: { bik: "047501711", account: "40702810007710002545" },
   order: null,
 });

@@ -141,9 +141,9 @@ export function computeDeclaration(draft) {
       warnings.push(
         `Срок возврата налога за ${draft.year} год истёк (вернуть можно только за три последних года). Декларацию сформируем, но налоговая, скорее всего, откажет в возврате. Исключение — пенсионеры по имущественному вычету: если это ваш случай, отметьте «Я пенсионер» на шаге «Расходы» в блоке «Жильё».`
       );
-    } else if (has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie")) {
+    } else if (has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie") || has("sport")) {
       warnings.push(
-        `Как пенсионер вы можете вернуть налог за ${draft.year} год по имущественному вычету (перенос остатка, п. 10 ст. 220 НК). Но по остальным вычетам в этой декларации (лечение, обучение, ИИС, страхование) срок возврата за ${draft.year} год уже истёк.`
+        `Как пенсионер вы можете вернуть налог за ${draft.year} год по имущественному вычету (перенос остатка, п. 10 ст. 220 НК). Но по остальным вычетам в этой декларации (лечение, обучение, ИИС, страхование, спорт) срок возврата за ${draft.year} год уже истёк.`
       );
     }
   } else if (!sale && nowYear === refundDeadlineYear(draft.year)) {
@@ -157,16 +157,17 @@ export function computeDeclaration(draft) {
 
   // --- Заявляемые суммы (в пределах лимитов, но ещё без учёта дохода) --------
   // Группа с общим лимитом по году (rules.socialGroup): обычное лечение +
-  // своё обучение + страхование жизни. Дорогостоящее лечение и обучение
-  // детей — вне этого лимита.
+  // своё обучение + страхование жизни + спорт. Дорогостоящее лечение и
+  // обучение детей — вне этого лимита.
   const groupSpent =
     (has("lechenie") ? num(draft.medical?.ordinary) : 0) +
     (has("obuchenie") ? num(draft.education?.self) : 0) +
-    (has("strahovanie") ? num(draft.insurance?.amount) : 0);
+    (has("strahovanie") ? num(draft.insurance?.amount) : 0) +
+    (has("sport") ? num(draft.sport?.amount) : 0);
   const groupEligible = Math.min(groupSpent, rules.socialGroup);
   if (groupSpent > rules.socialGroup) {
     warnings.push(
-      `Расходы на лечение, своё обучение и страхование (${fmtRub(groupSpent)}) превышают общий лимит ${fmtRub(rules.socialGroup)} — к вычету принята сумма в пределах лимита.`
+      `Расходы на лечение, своё обучение, страхование и спорт (${fmtRub(groupSpent)}) превышают общий лимит ${fmtRub(rules.socialGroup)} — к вычету принята сумма в пределах лимита.`
     );
   }
 
@@ -227,7 +228,8 @@ export function computeDeclaration(draft) {
   }
 
   // Разбивка группового лимита по строкам Приложения 5 (тот же принцип:
-  // лечение → своё обучение → страхование, пока есть место в socialGroup).
+  // лечение → своё обучение → страхование → спорт, пока есть место в
+  // socialGroup).
   let groupRoom = socialGroup;
   const takeGroup = (v) => {
     const t = Math.min(v, groupRoom);
@@ -238,6 +240,7 @@ export function computeDeclaration(draft) {
     medicalOrdinary: takeGroup(has("lechenie") ? num(draft.medical?.ordinary) : 0),
     educationSelf: takeGroup(has("obuchenie") ? num(draft.education?.self) : 0),
     insurance: takeGroup(has("strahovanie") ? num(draft.insurance?.amount) : 0),
+    sport: takeGroup(has("sport") ? num(draft.sport?.amount) : 0),
   };
 
   const carryover = {

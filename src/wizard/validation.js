@@ -275,6 +275,8 @@ export function validateStep(stepKey, draft) {
       e["iis.contribution"] = "Укажите сумму взносов на ИИС за год";
     if (has("strahovanie") && !positive(draft.insurance?.amount))
       e["insurance.amount"] = "Укажите взносы по договору страхования";
+    if (has("sport") && !positive(draft.sport?.amount))
+      e["sport.amount"] = "Укажите расходы на физкультурно-оздоровительные услуги";
   }
 
   if (stepKey === "bank") {

@@ -137,7 +137,7 @@ export function buildDeclarationModel(draft) {
         : null,
     // Приложение 5 (социальные и ИИС)
     social:
-      has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie")
+      has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie") || has("sport")
         ? {
             medicalOrdinary: has("lechenie") ? num(draft.medical?.ordinary) : 0,
             medicalExpensive: has("lechenie") ? num(draft.medical?.expensive) : 0,
@@ -146,6 +146,7 @@ export function buildDeclarationModel(draft) {
               ? (draft.education?.children || []).map((c) => num(c.amount)).filter(Boolean)
               : [],
             insurance: has("strahovanie") ? num(draft.insurance?.amount) : 0,
+            sport: has("sport") ? num(draft.sport?.amount) : 0,
             iis: has("iis") ? num(draft.iis?.contribution) : 0,
           }
         : null,

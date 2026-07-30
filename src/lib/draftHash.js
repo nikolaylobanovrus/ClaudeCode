@@ -37,6 +37,9 @@ export function draftSnapshot(draft) {
   // оплаты, сделанные до появления уточнёнки, должны узнаваться и после
   // миграции черновика (loadDraft дописывает correction: 0).
   if (!Number(snap.correction)) delete snap.correction;
+  // Тот же приём для секций, добавленных после запуска оплат: пустая секция
+  // не попадает в хеш, чтобы старые покупки узнавались после миграции.
+  if (!Number(snap.sport?.amount)) delete snap.sport;
   return snap;
 }
 

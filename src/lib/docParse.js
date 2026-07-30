@@ -253,6 +253,7 @@ export function mergePatch(draft, patch) {
   mergeSection("medical", { ordinary: "лечение", expensive: "дорогостоящее лечение" });
   mergeSection("iis", { contribution: "взносы на ИИС" });
   mergeSection("insurance", { amount: "страхование жизни" });
+  mergeSection("sport", { amount: "спорт и фитнес" });
   mergeSection("bank", { bik: "БИК", account: "номер счёта" });
   // Числовые реквизиты модель может вернуть с пробелами — приводим к цифрам,
   // как это делают поля ввода.

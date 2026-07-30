@@ -199,6 +199,19 @@ export default function StepDetails({ errors }) {
           </Field>
         </section>
       )}
+
+      {has("sport") && (
+        <section className="wiz__block">
+          <h3 className="wiz__subhead">🏋️ Спорт и фитнес</h3>
+          <Field label={`Расходы на спорт за ${draft.year} год, ₽`} hint={HINTS.sport}
+            error={errors["sport.amount"]}>
+            <MoneyInput value={draft.sport.amount} error={errors["sport.amount"]}
+              onChange={(v) =>
+                dispatch({ type: "PATCH", section: "sport", patch: { amount: v } })
+              } />
+          </Field>
+        </section>
+      )}
     </div>
   );
 }

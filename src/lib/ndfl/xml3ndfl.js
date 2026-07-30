@@ -260,12 +260,14 @@ export function buildDeclarationXml(model) {
                   СумЛечен: ap.expensiveMedical > 0 ? kop2(ap.expensiveMedical) : undefined,
                   ИтогВычСоциал: kop2(ap.childEducation + ap.expensiveMedical),
                 }),
-              // Соц. вычеты с ограничением (своё обучение, обычное лечение, страхование)
+              // Соц. вычеты с ограничением (своё обучение, обычное лечение,
+              // страхование, физкультурно-оздоровительные услуги)
               grp219 > 0 &&
                 el("РасчВычСоц219.2", {
                   СумОбуч: calc.lines.educationSelf > 0 ? kop2(calc.lines.educationSelf) : undefined,
                   СумМедУсл: calc.lines.medicalOrdinary > 0 ? kop2(calc.lines.medicalOrdinary) : undefined,
                   СумЛичСтрах: calc.lines.insurance > 0 ? kop2(calc.lines.insurance) : undefined,
+                  СумФиз: calc.lines.sport > 0 ? kop2(calc.lines.sport) : undefined,
                   ОбщВычСоциал: kop2(grp219),
                 }),
               // Инвестиционный вычет по взносам на ИИС (тип А)

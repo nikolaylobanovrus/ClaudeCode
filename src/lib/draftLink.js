@@ -8,7 +8,7 @@ import { initialDraft } from "../wizard/WizardContext.jsx";
 // Поля, которые есть смысл переносить (без оплат и служебного).
 const FIELDS = [
   "v", "step", "year", "types", "correction", "personal", "incomes",
-  "property", "medical", "education", "iis", "insurance", "bank", "sale",
+  "property", "medical", "education", "iis", "insurance", "sport", "bank", "sale",
 ];
 
 const b64encode = (s) => btoa(unescape(encodeURIComponent(s)));
