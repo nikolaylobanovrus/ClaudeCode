@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
+import { company } from "../../data/content.js";
 import { isSaleDraft } from "../../data/wizard.js";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
@@ -188,7 +189,11 @@ export default function StepDocuments({ onUnpaid }) {
     return (
       <div className="doc-note doc-note--err">
         Не получилось сформировать документы. Обновите страницу и попробуйте ещё
-        раз — черновик сохранён. Если не поможет, напишите нам в Telegram.
+        раз — черновик сохранён. Если не поможет,{" "}
+        <a href={company.telegram} target="_blank" rel="noopener noreferrer">
+          напишите нам в Telegram
+        </a>{" "}
+        или позвоните: <a href={`tel:${company.phoneRaw}`}>{company.phone}</a>.
       </div>
     );
 

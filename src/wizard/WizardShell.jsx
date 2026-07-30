@@ -3,6 +3,7 @@
 // после оплаты (гейтинг дублируется внутри StepDocuments серверной проверкой).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
+import { company } from "../data/content.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { ymGoal } from "../lib/metrika.js";
 import { stepsFor, stepIndexIn, isSaleDraft, potentialRefund } from "../data/wizard.js";
@@ -227,6 +228,38 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
               </button>
             </div>
           )}
+
+          {/* Живая поддержка на каждом шаге: человек не один на один с
+              полями. Статичный блок в конце шага — НЕ липкая панель:
+              ту убирали сознательно, она перекрывала кнопку «Оплатить». */}
+          <p className="wiz__note wiz__help">
+            💬 Возникли вопросы при заполнении? Позвоните — подскажем:{" "}
+            <a
+              href={`tel:${company.phoneRaw}`}
+              onClick={() => ymGoal("wizard_help", { channel: "call", step: step.key })}
+            >
+              {company.phone}
+            </a>{" "}
+            или напишите в{" "}
+            <a
+              href={company.telegram}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => ymGoal("wizard_help", { channel: "tg", step: step.key })}
+            >
+              Telegram
+            </a>{" "}
+            /{" "}
+            <a
+              href={company.max}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => ymGoal("wizard_help", { channel: "max", step: step.key })}
+            >
+              Max
+            </a>
+            . Это бесплатно.
+          </p>
         </div>
 
         <aside className="wiz__aside">
