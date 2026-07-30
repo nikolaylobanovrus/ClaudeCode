@@ -63,6 +63,24 @@ def metrika(date1, date2, filters=None):
                     [round(x) for x in d["totals"]]))
 
 
+
+def get_conv(d):
+    """Колонка конверсий: с параметром Goals называется Conversions_<goal>_<attr>."""
+    for k, v in d.items():
+        if k.startswith("Conversions") or k.startswith("CostPerConversion"):
+            pass
+    for k, v in d.items():
+        if k.startswith("Conversions"):
+            return 0 if v in ("--", "", None) else int(float(v))
+    return 0
+
+
+def get_cpo(d):
+    for k, v in d.items():
+        if k.startswith("CostPerConversion"):
+            return None if v in ("--", "", None) else v
+    return None
+
 def fmt_num(s):
     try:
         return f"{float(s):.2f}".rstrip("0").rstrip(".")
@@ -84,12 +102,12 @@ def main():
         name = CAMPAIGNS.get(int(d["CampaignId"]), d["CampaignId"])
         cost = float(d["Cost"]) if d["Cost"] != "--" else 0
         clicks = int(d["Clicks"]) if d["Clicks"] != "--" else 0
-        conv = 0 if d.get("Conversions") in ("--", None, "") else int(d["Conversions"])
+        conv = get_conv(d)
         total_cost += cost; total_clicks += clicks; total_conv += conv
         print(f"{name}: показы {d['Impressions']}, клики {clicks}, "
               f"CTR {fmt_num(d['Ctr'])}%, CPC {fmt_num(d['AvgCpc'])} ₽, "
               f"расход {fmt_num(d['Cost'])} ₽, покупок {conv}"
-              + (f", CPO {fmt_num(d['CostPerConversion'])} ₽" if conv else ""))
+              + (f", CPO {fmt_num(get_cpo(d))} ₽" if conv and get_cpo(d) else ""))
     print(f"ИТОГО: {fmt_num(str(total_cost))} ₽, кликов {int(total_clicks)}, покупок {int(total_conv)}")
 
     print(f"\n===== ДИРЕКТ · группы (топ по кликам, {dr}) =====")
@@ -100,7 +118,7 @@ def main():
     rows2.sort(key=lambda r: -int(r[3]))
     for row in rows2[:10]:
         d = dict(zip(hdr2, row))
-        conv = 0 if d.get("Conversions") in ("--", "") else d["Conversions"]
+        conv = get_conv(d)
         print(f"  {d['AdGroupName']}: клики {d['Clicks']}, CTR {fmt_num(d['Ctr'])}%, "
               f"расход {fmt_num(d['Cost'])} ₽, покупок {conv}")
     if not rows2:
