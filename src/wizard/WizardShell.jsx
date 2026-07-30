@@ -258,7 +258,7 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
             >
               Max
             </a>
-            . Это бесплатно.
+            .
           </p>
         </div>
 
