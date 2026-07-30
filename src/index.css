@@ -2208,6 +2208,13 @@ h4 {
     display: none;
   }
 }
+/* Ещё уже: подпись «Помощь» выталкивала бургер за край экрана —
+   остаётся только кнопка-трубка (шапка сжимается до ~350px). */
+@media (max-width: 420px) {
+  .navbar__phone-top .navbar__phone-label {
+    display: none;
+  }
+}
 
 /* Уважаем настройку «меньше движения» */
 @media (prefers-reduced-motion: reduce) {
