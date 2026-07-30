@@ -229,6 +229,8 @@ export function mergePatch(draft, patch) {
     passportNumber: "номер паспорта",
     passportDate: "дата выдачи паспорта",
     passportIssuer: "кем выдан",
+    ifns: "код инспекции",
+    oktmo: "ОКТМО",
   });
   mergeSection("property", {
     address: "адрес объекта",
@@ -251,6 +253,15 @@ export function mergePatch(draft, patch) {
   mergeSection("medical", { ordinary: "лечение", expensive: "дорогостоящее лечение" });
   mergeSection("iis", { contribution: "взносы на ИИС" });
   mergeSection("insurance", { amount: "страхование жизни" });
+  mergeSection("bank", { bik: "БИК", account: "номер счёта" });
+  // Числовые реквизиты модель может вернуть с пробелами — приводим к цифрам,
+  // как это делают поля ввода.
+  if (draftPatch.bank)
+    for (const f of ["bik", "account"])
+      if (draftPatch.bank[f]) draftPatch.bank[f] = String(draftPatch.bank[f]).replace(/\D/g, "");
+  if (draftPatch.personal)
+    for (const f of ["ifns", "oktmo"])
+      if (draftPatch.personal[f]) draftPatch.personal[f] = String(draftPatch.personal[f]).replace(/\D/g, "");
 
   // education: self — как обычное поле; children заполняем только если
   // у пользователя список детей пуст.

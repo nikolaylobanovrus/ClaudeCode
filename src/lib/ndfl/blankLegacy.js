@@ -181,8 +181,12 @@ export async function buildOfficialPdfLegacy(model) {
     pen.left(person.firstName, ...T.fio[1], 35);
     pen.left(person.middleName, ...T.fio[2], 35);
     pen.date(person.birthDate, ...T.birth);
-    pen.left(person.passport.code, ...T.docCode, 2); // 21 — паспорт РФ
-    pen.left(`${person.passport.series} ${person.passport.number}`, ...T.docSerial, 25);
+    // Паспорт не обязателен при указанном ИНН (2024+): код вида документа
+    // без серии и номера на титуле выглядел бы как ошибка — не печатаем.
+    if (person.passport.series || person.passport.number) {
+      pen.left(person.passport.code, ...T.docCode, 2); // 21 — паспорт РФ
+      pen.left(`${person.passport.series} ${person.passport.number}`, ...T.docSerial, 25);
+    }
     pen.left(CODES.status, ...T.status, 1);
     pen.left(digits(person.phone), ...T.phone, 20);
     pen.left(String(total).padStart(3, "0"), ...T.pages, 3);

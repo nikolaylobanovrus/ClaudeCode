@@ -1,7 +1,7 @@
 // Оболочка мастера: прогресс по шагам, текущий шаг, кнопки Назад/Далее
 // и сайдбар с живым расчётом возврата. Шаг «Документы» доступен только
 // после оплаты (гейтинг дублируется внутри StepDocuments серверной проверкой).
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWizard } from "./WizardContext.jsx";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { ymGoal } from "../lib/metrika.js";
@@ -83,6 +83,16 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
     draft.order?.status === "paid" || (draft.purchases || []).length > 0;
 
   const calc = useMemo(() => computeDeclaration(draft), [draft]);
+
+  // Живая перепроверка: после «Далее» с ошибками каждое изменение анкеты
+  // пересчитывает валидацию шага — исправленное поле сразу теряет красную
+  // рамку, а не держит её до следующего клика. Пока ошибок нет, ничего не
+  // проверяем: ошибки появляются только по кнопке «Далее».
+  useEffect(() => {
+    if (!Object.keys(errors).length) return;
+    setErrors(validateStep(step.key, draft));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
 
   // Карта потерь: цель на первый заход на каждый шаг заполнения (types
   // покрыт целью wizard_open, payment — wizard_payment_step). Set — чтобы

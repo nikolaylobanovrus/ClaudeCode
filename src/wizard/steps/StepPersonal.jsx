@@ -20,6 +20,9 @@ export default function StepPersonal({ errors }) {
   const hintOktmo = addressOn
     ? "Определяется по адресу прописки выше. Для сверки: код ОКТМО есть и в справке о доходах (раздел 1)."
     : HINTS.oktmo;
+  // С формы за 2024 год при указанном ИНН паспорт и дата рождения не
+  // обязательны (см. validation.js) — честно говорим об этом в форме.
+  const passportOptional = Number(draft.year) >= 2024;
 
   return (
     <div>
@@ -43,17 +46,26 @@ export default function StepPersonal({ errors }) {
           <TextInput value={p.inn} error={errors.inn} inputMode="numeric" maxLength={12}
             placeholder="12 цифр" onChange={(v) => set({ inn: v.replace(/\D/g, "") })} />
         </Field>
-        <Field label="Дата рождения" error={errors.birthDate}>
+        <Field label={passportOptional ? "Дата рождения (необязательно)" : "Дата рождения"} error={errors.birthDate}>
           <DateInput value={p.birthDate} error={errors.birthDate}
             onChange={(v) => set({ birthDate: v })} />
         </Field>
-        <Field label="Место рождения">
+        <Field label={passportOptional ? "Место рождения (необязательно)" : "Место рождения"}>
           <TextInput value={p.birthPlace} placeholder="как в паспорте"
             onChange={(v) => set({ birthPlace: v })} />
         </Field>
       </div>
 
-      <h3 className="wiz__subhead">Паспорт</h3>
+      <h3 className="wiz__subhead">
+        Паспорт{passportOptional ? " — можно пропустить" : ""}
+      </h3>
+      {passportOptional && (
+        <p className="wiz__note">
+          С декларации за 2024 год паспортные данные и дату рождения можно не
+          указывать — налоговой достаточно вашего ИНН. Заполняйте, только если
+          хотите.
+        </p>
+      )}
       <div className="wiz__row">
         <Field label="Серия" error={errors.passportSeries}>
           <TextInput value={p.passportSeries} error={errors.passportSeries} inputMode="numeric"

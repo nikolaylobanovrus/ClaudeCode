@@ -174,11 +174,27 @@ export function validateStep(stepKey, draft) {
     put(e, "lastName", validateName(p.lastName, "фамилию"));
     put(e, "firstName", validateName(p.firstName, "имя"));
     put(e, "inn", validateInn(p.inn));
-    put(e, "birthDate", validateDate(p.birthDate, "дату рождения"));
-    put(e, "passportSeries", validatePassportSeries(p.passportSeries));
-    put(e, "passportNumber", validatePassportNumber(p.passportNumber));
-    put(e, "passportDate", validateDate(p.passportDate, "дату выдачи"));
-    put(e, "passportIssuer", validateName(p.passportIssuer, "кем выдан паспорт"));
+    // С формы за 2024 год при указанном ИНН паспорт и дата рождения не
+    // обязательны: в XML блок СведФЛ при ИНН вообще не выгружается (choice
+    // в XSD ФНС), на бумажном титуле поля разрешено оставить пустыми.
+    // ИНН в анкете обязателен всегда (проверка выше), поэтому условие —
+    // только по году. За 2022–2023 паспорт обязателен: схема требует СведФЛ1.
+    const passportOptional = Number(draft.year) >= 2024;
+    if (passportOptional) {
+      // Проверяем только формат уже введённого — пустое разрешено.
+      if (p.birthDate) put(e, "birthDate", validateDate(p.birthDate, "дату рождения"));
+      if (digits(p.passportSeries))
+        put(e, "passportSeries", validatePassportSeries(p.passportSeries));
+      if (digits(p.passportNumber))
+        put(e, "passportNumber", validatePassportNumber(p.passportNumber));
+      if (p.passportDate) put(e, "passportDate", validateDate(p.passportDate, "дату выдачи"));
+    } else {
+      put(e, "birthDate", validateDate(p.birthDate, "дату рождения"));
+      put(e, "passportSeries", validatePassportSeries(p.passportSeries));
+      put(e, "passportNumber", validatePassportNumber(p.passportNumber));
+      put(e, "passportDate", validateDate(p.passportDate, "дату выдачи"));
+      put(e, "passportIssuer", validateName(p.passportIssuer, "кем выдан паспорт"));
+    }
     put(e, "oktmo", validateOktmo(p.oktmo));
     put(e, "ifns", validateIfns(p.ifns));
     put(e, "phone", validatePhone(p.phone));

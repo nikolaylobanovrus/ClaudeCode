@@ -66,6 +66,9 @@ const scenarios = [
   },
   // Уточнённая декларация: НомКорр="1" на титуле (остальное идентично).
   { tag: "квартира, уточнёнка (НомКорр=1)", patch: {}, correction: 1 },
+  // С формы за 2024 год паспорт и дата рождения не обязательны при ИНН
+  // (choice ИННФЛ|СведФЛ в XSD) — анкета разрешает пропуск, XML обязан пройти.
+  { tag: "квартира, без паспорта (ИНН указан)", patch: {}, noPassport: true, minYear: 2024 },
 ];
 
 // Продажа имущества (Приложение 6, налог к уплате): проверяем для лет из
@@ -99,9 +102,15 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
   }
   anySchema = true;
   for (const sc of scenarios) {
+    if (sc.minYear && year < sc.minYear) continue;
     const draft = sampleDraft(year);
     Object.assign(draft.property, sc.patch);
     if (sc.correction) draft.correction = sc.correction;
+    if (sc.noPassport)
+      Object.assign(draft.personal, {
+        birthDate: "", birthPlace: "", passportSeries: "",
+        passportNumber: "", passportDate: "", passportIssuer: "",
+      });
     const model = buildDeclarationModel(draft);
     const { filename, bytes } = buildDeclarationXml(model);
     const xmlPath = join(tmp, `${scenarios.indexOf(sc)}-${filename}`);
