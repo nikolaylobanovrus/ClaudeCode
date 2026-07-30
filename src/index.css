@@ -280,6 +280,9 @@ h4 {
   align-items: flex-end;
   line-height: 1.2;
   margin-left: 6px;
+  /* Номер стоит на одной линии с пунктами меню, подпись «Помощь»
+     уходит вверх — блок приподнят на половину высоты подписи. */
+  transform: translateY(-7px);
 }
 .navbar__phone a {
   font-weight: 800;
