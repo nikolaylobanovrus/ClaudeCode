@@ -128,30 +128,62 @@ export async function parseDocuments(fileList, { year, types }) {
     ),
   };
 
-  let res;
-  try {
-    res = await fetch(`${cfg.url}/functions/v1/parse-documents`, {
+  // 125 с — заметно меньше wall-clock лимита воркера Supabase (~150 с):
+  // клиентский таймер должен сработать РАНЬШЕ обрыва на платформе, иначе
+  // вместо TimeoutError браузер получает оборванный сокет («нет связи»).
+  // Сервер, в свою очередь, режет вызов Anthropic на 110 с.
+  const post = (timeoutMs) =>
+    fetch(`${cfg.url}/functions/v1/parse-documents`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${cfg.anonKey}`,
       },
       body: JSON.stringify(payload),
-      // 125 с — заметно меньше wall-clock лимита воркера Supabase (~150 с):
-      // клиентский таймер должен сработать РАНЬШЕ обрыва на платформе, иначе
-      // вместо TimeoutError браузер получает оборванный сокет («нет связи»).
-      // Сервер, в свою очередь, режет вызов Anthropic на 110 с.
-      signal: AbortSignal.timeout(125_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch (e) {
-    // fetch реджектится и при обрыве соединения платформой, и при офлайне —
-    // обвинять интернет пользователя нельзя (в 3 случаях из 4 он ни при чём).
-    throw new DocParseError(
-      e?.name === "TimeoutError"
-        ? "распознавание идёт дольше обычного — загрузите меньше файлов за раз (по 3–5) и повторите"
-        : "не получилось передать файлы — попробуйте меньше файлов, фото вместо PDF или повторите позже",
-      e?.name === "TimeoutError" ? "timeout" : "network"
+  const asTimeout = (e) => {
+    if (e?.name !== "TimeoutError") return null;
+    return new DocParseError(
+      "распознавание идёт дольше обычного — загрузите меньше файлов за раз (по 3–5) и повторите",
+      "timeout"
     );
+  };
+
+  let res;
+  try {
+    res = await post(125_000);
+  } catch (e1) {
+    const t1 = asTimeout(e1);
+    if (t1) throw t1;
+    // Сетевой обрыв: у части пользователей антивирус/VPN/провайдер режет
+    // именно КРУПНЫЕ тела к CDN (preflight проходит, POST исчезает).
+    // Одна повторная попытка — флапающий канал часто пропускает со второго
+    // раза; риск двойного вызова распознавания минимален (обрыв = недоставка).
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      res = await post(60_000);
+    } catch (e2) {
+      const t2 = asTimeout(e2);
+      if (t2) throw t2;
+      // Самодиагностика: мелкий запрос к тому же адресу. Проходит → сеть
+      // жива, но большие тела режутся по дороге; нет → соединения нет вовсе.
+      const alive = await fetch(`${cfg.url}/functions/v1/parse-documents`, {
+        method: "OPTIONS",
+        signal: AbortSignal.timeout(10_000),
+      })
+        .then((r) => r.ok)
+        .catch(() => false);
+      throw alive
+        ? new DocParseError(
+            "файлы не доходят до сервера — похоже, их блокирует антивирус, VPN или сеть. Попробуйте другой браузер, мобильный интернет или фото вместо PDF",
+            "upload_blocked"
+          )
+        : new DocParseError(
+            "нет соединения с сервисом распознавания — проверьте интернет и повторите",
+            "offline"
+          );
+    }
   }
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.patch)
