@@ -69,7 +69,10 @@ export default function Navbar() {
           <span className="navbar__phone-top-ico" aria-hidden="true">
             📞
           </span>
-          <span className="navbar__phone-top-num">{company.phone}</span>
+          <span className="navbar__phone-top-txt">
+            <span className="navbar__phone-label">Помощь</span>
+            <span className="navbar__phone-top-num">{company.phone}</span>
+          </span>
         </a>
 
         <button
@@ -110,6 +113,7 @@ export default function Navbar() {
             </NavLink>
           )}
           <span className="navbar__phone">
+            <span className="navbar__phone-label">Помощь</span>{" "}
             <a href={`tel:${company.phoneRaw}`}>{company.phone}</a>
           </span>
           {isSelf ? (
