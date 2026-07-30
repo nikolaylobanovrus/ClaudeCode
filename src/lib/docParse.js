@@ -5,8 +5,13 @@
 import { supabase as cfg } from "../data/content.js";
 
 export const MAX_FILES = 10;
-const MAX_PDF_BYTES = 15 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+// 10 МБ — с запасом ниже серверного порога (12 МБ сырых байт): раньше
+// 15 МБ raw давали ровно 20 МБ base64 = граница гейтвея Supabase, и
+// большие тела обрывались БЕЗ ответа («нет связи»).
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
+// Многостраничные PDF — главный источник таймаутов распознавания.
+const MAX_PDF_PAGES = 25;
 // Фото даунскейлится до этого размера по длинной стороне: выше рабочего
 // разрешения модели, поэтому на качество распознавания не влияет, а вес
 // снимка с телефона падает с ~8 МБ до сотен КБ.
@@ -15,15 +20,22 @@ const JPEG_QUALITY = 0.82;
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-export class DocParseError extends Error {}
+// code уходит в телеметрию (autofill_fail reason) первым словом, чтобы
+// в Метрике отличать сеть/таймаут/HTTP-статусы, а не один русский текст.
+export class DocParseError extends Error {
+  constructor(message, code = "client") {
+    super(message);
+    this.code = code;
+  }
+}
 
 // Фото → сжатый JPEG через canvas. Заодно конвертирует HEIC/HEIF, если
 // браузер умеет их декодировать (Safari умеет). PDF возвращается как есть.
 async function prepareFile(file) {
   if (file.type === "application/pdf") {
     if (file.size > MAX_PDF_BYTES)
-      throw new DocParseError(`«${file.name}»: PDF больше 15 МБ — сожмите или разбейте на части`);
-    return { name: file.name, mediaType: "application/pdf", blob: file };
+      throw new DocParseError(`«${file.name}»: PDF больше 10 МБ — сожмите или разбейте на части`, "pdf_size");
+    return { name: file.name, mediaType: "application/pdf", blob: file, pdf: true };
   }
 
   const isKnownImage = IMAGE_TYPES.includes(file.type);
@@ -79,7 +91,30 @@ export async function parseDocuments(fileList, { year, types }) {
     prepared.push(p);
   }
   if (total > MAX_TOTAL_BYTES)
-    throw new DocParseError("файлы слишком большие даже после сжатия — разбейте на два захода");
+    throw new DocParseError("файлы слишком большие даже после сжатия — разбейте на два захода", "total_size");
+
+  // Суммарный лимит страниц PDF: длинные документы гарантированно упираются
+  // в таймаут распознавания — честнее остановить до отправки. pdf-lib грузим
+  // лениво (он и так в бандле генерации документов, но не в бандле мастера).
+  const pdfs = prepared.filter((p) => p.pdf);
+  if (pdfs.length) {
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      let pages = 0;
+      for (const p of pdfs) {
+        const doc = await PDFDocument.load(await p.blob.arrayBuffer(), { ignoreEncryption: true });
+        pages += doc.getPageCount();
+      }
+      if (pages > MAX_PDF_PAGES)
+        throw new DocParseError(
+          `в PDF слишком много страниц (${pages}) — сфотографируйте нужные страницы или загрузите по частям`,
+          "pdf_pages"
+        );
+    } catch (e) {
+      if (e instanceof DocParseError) throw e;
+      // Не смогли посчитать страницы (битый/зашифрованный PDF) — пусть решает сервер.
+    }
+  }
 
   const payload = {
     year,
@@ -102,21 +137,28 @@ export async function parseDocuments(fileList, { year, types }) {
         Authorization: `Bearer ${cfg.anonKey}`,
       },
       body: JSON.stringify(payload),
-      // 150 с — под потолок edge-функции Supabase (~150 с wall-clock). Выше
-      // ставить смысла нет: сервер завершится раньше. Партия из 8–10 фото
-      // объективно долгая, поэтому подсказка в UI советует грузить по 3–5.
-      signal: AbortSignal.timeout(150_000),
+      // 125 с — заметно меньше wall-clock лимита воркера Supabase (~150 с):
+      // клиентский таймер должен сработать РАНЬШЕ обрыва на платформе, иначе
+      // вместо TimeoutError браузер получает оборванный сокет («нет связи»).
+      // Сервер, в свою очередь, режет вызов Anthropic на 110 с.
+      signal: AbortSignal.timeout(125_000),
     });
   } catch (e) {
+    // fetch реджектится и при обрыве соединения платформой, и при офлайне —
+    // обвинять интернет пользователя нельзя (в 3 случаях из 4 он ни при чём).
     throw new DocParseError(
       e?.name === "TimeoutError"
         ? "распознавание идёт дольше обычного — загрузите меньше файлов за раз (по 3–5) и повторите"
-        : "нет связи с сервисом распознавания — проверьте интернет"
+        : "не получилось передать файлы — попробуйте меньше файлов, фото вместо PDF или повторите позже",
+      e?.name === "TimeoutError" ? "timeout" : "network"
     );
   }
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.patch)
-    throw new DocParseError(data?.error || "не получилось распознать документы");
+    throw new DocParseError(
+      data?.error || "не получилось распознать документы",
+      `http_${res.status}`
+    );
   return data;
 }
 

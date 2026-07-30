@@ -26,6 +26,7 @@ export default function DocAutofill() {
   const [error, setError] = useState("");
   const [applied, setApplied] = useState(null); // string[] — что подставили
   const [warnings, setWarnings] = useState([]);
+  const [dropped, setDropped] = useState(0); // сколько файлов не влезло в лимит
   const alive = useRef(true);
   const opened = useRef(false); // цель autofill_open — один раз за визит
 
@@ -43,7 +44,11 @@ export default function DocAutofill() {
     // Копируем FileList сразу: onChange очищает input.value, и живой FileList
     // опустеет раньше, чем React выполнит функцию-обновитель состояния.
     const picked = Array.from(list);
-    setFiles((prev) => [...prev, ...picked].slice(0, MAX_FILES));
+    setFiles((prev) => {
+      const all = [...prev, ...picked];
+      setDropped(Math.max(0, all.length - MAX_FILES));
+      return all.slice(0, MAX_FILES);
+    });
   };
 
   const recognize = async () => {
@@ -64,13 +69,17 @@ export default function DocAutofill() {
       setApplied(done);
       setWarnings(w || []);
       setFiles([]);
+      setDropped(0);
       if (done.length) ymGoal("wizard_autofill", { fields: done.length });
       // Распознали, но подставить нечего (в документах нет данных для пустых
       // полей) — для воронки это тоже неудача, фиксируем причину.
       else ymGoal("autofill_fail", { reason: "empty_patch" });
     } catch (e) {
       if (!alive.current) return;
-      const reason = e instanceof DocParseError ? e.message : "unknown";
+      // Код первым словом — чтобы в Метрике группировать причины (network,
+      // timeout, http_504…), а не разбирать русские тексты.
+      const reason =
+        e instanceof DocParseError ? `${e.code}: ${e.message}` : "unknown";
       ymGoal("autofill_fail", { reason: reason.slice(0, 80) });
       setError(
         e instanceof DocParseError
@@ -176,6 +185,13 @@ export default function DocAutofill() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {dropped > 0 && (
+            <p className="wiz__note" role="status">
+              Загружены первые {MAX_FILES} файлов — остальные ({dropped})
+              добавьте вторым заходом после распознавания.
+            </p>
           )}
 
           {files.length > 0 && (

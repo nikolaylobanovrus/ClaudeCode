@@ -14,7 +14,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 // Модель сменяема без передеплоя кода — через секрет ANTHROPIC_MODEL.
-const MODEL = Deno.env.get("ANTHROPIC_MODEL") || "claude-opus-4-8";
+// haiku: извлечение полей по json_schema не требует opus, зато в разы
+// быстрее — многостраничные PDF перестают упираться в wall-clock воркера.
+const MODEL = Deno.env.get("ANTHROPIC_MODEL") || "claude-haiku-4-5";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -28,7 +30,13 @@ const CORS = {
 };
 
 const MAX_FILES = 10;
-const MAX_TOTAL_BASE64 = 20 * 1024 * 1024; // тех. потолок тела запроса
+// Порог по СЫРЫМ байтам (len*3/4): раньше сравнивали base64-длину с 20 МБ,
+// и клиентский лимит 15 МБ raw = ровно 20 МБ base64 — большие тела резал
+// гейтвей платформы БЕЗ CORS-заголовков, браузер видел «нет связи».
+const MAX_TOTAL_RAW = 12 * 1024 * 1024;
+// Таймаут вызова Anthropic: заведомо меньше wall-clock лимита воркера
+// (~150 с), чтобы ответить СВОИМ 504 с CORS, а не оборванным сокетом.
+const ANTHROPIC_TIMEOUT_MS = 110_000;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 // Схема structured output зеркалит секции черновика мастера
@@ -218,7 +226,7 @@ Deno.serve(async (req) => {
       return json({ error: `формат ${mt || "неизвестен"} не поддерживается — приложите фото (JPG/PNG) или PDF` }, 415);
     total += data.length;
   }
-  if (total > MAX_TOTAL_BASE64)
+  if (Math.floor((total * 3) / 4) > MAX_TOTAL_RAW)
     return json({ error: "файлы слишком большие — уменьшите фото или разбейте на два захода" }, 413);
 
   const content: unknown[] = files.map((f) =>
@@ -248,8 +256,13 @@ Deno.serve(async (req) => {
         messages: [{ role: "user", content }],
         output_config: { format: { type: "json_schema", schema: EXTRACT_SCHEMA } },
       }),
+      signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
     });
-  } catch {
+  } catch (e) {
+    if ((e as Error)?.name === "TimeoutError" || (e as Error)?.name === "AbortError") {
+      console.error(`anthropic timeout after ${Date.now() - started}ms model=${MODEL}`);
+      return json({ error: "распознавание заняло слишком долго — попробуйте меньше файлов или фото вместо PDF" }, 504);
+    }
     return json({ error: "сервис распознавания недоступен, попробуйте позже" }, 502);
   }
 
