@@ -10,6 +10,26 @@ import { fmtRub } from "../lib/format.js";
 import { wizardDeductions } from "../data/wizard.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 
+// Продажа имущества — не вычет (налог к уплате), в каталоге deductions её
+// нет; плитки для блока «Подходит для» задаём здесь. Слаги понимает
+// предвыбор анкеты (Wizard.jsx, state.deduction).
+const SALE_TILES = [
+  {
+    slug: "prodazha_auto",
+    icon: "🚗",
+    title: "Продали автомобиль",
+    short: "Декларация при продаже машины: посчитаем налог и уменьшим его вычетом.",
+    limit: "вычет до 250 000 ₽",
+  },
+  {
+    slug: "prodazha_realty",
+    icon: "🏠",
+    title: "Продали недвижимость",
+    short: "Квартира, дом, участок: декларация с проверкой по кадастровой стоимости.",
+    limit: "вычет до 1 000 000 ₽",
+  },
+];
+
 // Тексты про автозаполнение из документов включаются серверным флагом
 // doc_autofill (как и сам блок в мастере): выключили фичу — реклама
 // исчезает вместе с ней, лендинг выглядит как раньше (fail-closed).
@@ -207,9 +227,12 @@ export default function SelfService() {
               выберите их в анкете галочками.
             </p>
           </div>
-          {/* Плашки кликабельны: анкета открывается с уже выбранным вычетом */}
+          {/* Плашки кликабельны: анкета открывается с уже выбранным вычетом.
+              Продажи — не вычеты (налог к уплате), поэтому их плитки заданы
+              здесь, а не в каталоге deductions; предвыбор работает тем же
+              state.deduction (Wizard.jsx понимает sale-слаги). */}
           <div className="sd-grid">
-            {wizardDeductions.map((d) => (
+            {[...wizardDeductions, ...SALE_TILES].map((d) => (
               <Link
                 className="sd-tile"
                 key={d.slug}
