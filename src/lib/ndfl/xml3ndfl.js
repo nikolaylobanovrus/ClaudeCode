@@ -217,7 +217,9 @@ export function buildDeclarationXml(model) {
                   "ДоходИстРФ",
                   {
                     ВидДоход: sale.incomeCode,
-                    Ставка: String(model.ratePercent),
+                    // Ставка НЕ указывается: форматный контроль ФНС (Schematron
+                    // внутри XSD) требует её ТОЛЬКО при ВидДоход 25/025/046 —
+                    // при других кодах файл отклоняется ЛК ФНС.
                     ОКТМО: person.oktmo,
                     Доход: kop2(sale.price),
                     НалУдерж: "0",
@@ -238,7 +240,7 @@ export function buildDeclarationXml(model) {
                   {
                     // Код вида дохода: 2 цифры до 2025, 3 цифры с 2025.
                     ВидДоход: is2025 ? "010" : "07",
-                    Ставка: String(model.ratePercent),
+                    // Ставка запрещена при этих кодах (Schematron ФНС) — см. выше.
                     ОКТМО: inc.oktmo,
                     Доход: kop2(inc.income),
                     НалУдерж: rub(inc.withheld),

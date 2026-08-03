@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "validate:xml": "node scripts/validate-3ndfl-xml.mjs"
+    "validate:xml": "node scripts/validate-3ndfl-xml.mjs",
+    "validate:sch": "node scripts/gen-test-xml.mjs /tmp/ndfl-sch && python3 scripts/validate-3ndfl-schematron.py /tmp/ndfl-sch"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
