@@ -110,13 +110,19 @@ export default function StepReview({ calc, errors = {} }) {
     ["Счёт для возврата", `${draft.bank.bik} / ${draft.bank.account}`, "bank"],
   ];
 
+  // Социальные вычеты показываем ПОСТРОЧНО, а не одной строкой «лечение,
+  // обучение, страхование, спорт»: основание вычета — то, что проверяет
+  // налоговая, и подмена (например, обучение заявлено как лечение) должна
+  // быть видна человеку до выдачи документов. Суммы — из calc.lines,
+  // это ровно те значения, что уйдут в строки 130/140/160/171 Прил. 5.
+  const socialLimit = fmtRub(yearRules(draft.year).socialGroup);
   const applied = [
     ["Имущественный вычет", calc.applied.property],
     ["Проценты по ипотеке", calc.applied.interest],
-    [
-      `Лечение, обучение, страхование, спорт (лимит ${fmtRub(yearRules(draft.year).socialGroup)})`,
-      calc.applied.socialGroup,
-    ],
+    ["Лечение и лекарства", calc.lines.medicalOrdinary],
+    ["Своё обучение", calc.lines.educationSelf],
+    ["Страхование жизни", calc.lines.insurance],
+    ["Спорт и фитнес", calc.lines.sport],
     ["Обучение детей", calc.applied.childEducation],
     ["Дорогостоящее лечение", calc.applied.expensiveMedical],
     ["ИИС", calc.applied.iis],
@@ -176,6 +182,14 @@ export default function StepReview({ calc, errors = {} }) {
           <span>Налог к возврату</span>
           <span>{fmtRub(calc.refund)}</span>
         </div>
+        {calc.applied.socialGroup > 0 && (
+          <p className="wiz__note">
+            Лечение, своё обучение, страхование и спорт учитываются вместе — в
+            пределах {socialLimit} за год. Проверьте, что вычет заявлен по тому
+            основанию, по которому у вас есть документы: налоговая сверяет
+            строку декларации с приложенными договорами и чеками.
+          </p>
+        )}
         {calc.carryover.property + calc.carryover.interest > 0 && (
           <p className="wiz__note">
             Остаток вычета {fmtRub((calc.carryover.property + calc.carryover.interest) )}{" "}
