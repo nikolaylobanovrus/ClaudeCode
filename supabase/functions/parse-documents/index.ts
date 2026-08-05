@@ -314,8 +314,11 @@ Deno.serve(async (req) => {
   }
 
   // Только метаданные — содержимое файлов и результат НЕ логируются.
+  // usage пишем, чтобы считать реальную стоимость распознавания
+  // (в отчёте по балансу Anthropic) — содержимое файлов НЕ логируется.
+  const u = msg.usage ?? {};
   console.log(
-    `parsed files=${files.length} size=${Math.round(total / 1024)}KB model=${MODEL} ms=${Date.now() - started}`
+    `parsed files=${files.length} size=${Math.round(total / 1024)}KB model=${MODEL} ms=${Date.now() - started} in=${u.input_tokens ?? "?"} out=${u.output_tokens ?? "?"}`
   );
 
   const { warnings = [], ...sections } = patch as Record<string, unknown> & { warnings?: string[] };

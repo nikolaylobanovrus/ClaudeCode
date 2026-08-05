@@ -55,15 +55,26 @@ export function TextInput({ value, onChange, error, ...rest }) {
 }
 
 // Денежное поле: числовая клавиатура на телефоне, только цифры.
+// Суммы в декларации — рубли с копейками: справка о доходах даёт
+// «1 693 820.60», и раньше поле вырезало всё, кроме цифр. Копейки было не
+// ввести, а распознанное значение при первом же касании превращалось в
+// 169382060 (лишний ноль). Разрешаем одну точку/запятую и два знака после.
+export function normalizeMoney(raw) {
+  let s = String(raw ?? "").replace(",", ".").replace(/[^\d.]/g, "");
+  const dot = s.indexOf(".");
+  if (dot >= 0) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+  return s;
+}
+
 export function MoneyInput({ value, onChange, error, ...rest }) {
   return (
     <input
       type="text"
-      inputMode="numeric"
+      inputMode="decimal"
       className={error ? "is-error" : ""}
       placeholder="0"
       value={value === "" || value == null ? "" : String(value)}
-      onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ""))}
+      onChange={(e) => onChange(normalizeMoney(e.target.value))}
       {...rest}
     />
   );
