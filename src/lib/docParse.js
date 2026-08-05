@@ -229,6 +229,7 @@ export function mergePatch(draft, patch) {
     passportNumber: "номер паспорта",
     passportDate: "дата выдачи паспорта",
     passportIssuer: "кем выдан",
+    phone: "телефон",
     ifns: "код инспекции",
     oktmo: "ОКТМО",
   });
@@ -260,9 +261,15 @@ export function mergePatch(draft, patch) {
   if (draftPatch.bank)
     for (const f of ["bik", "account"])
       if (draftPatch.bank[f]) draftPatch.bank[f] = String(draftPatch.bank[f]).replace(/\D/g, "");
-  if (draftPatch.personal)
+  if (draftPatch.personal) {
     for (const f of ["ifns", "oktmo"])
       if (draftPatch.personal[f]) draftPatch.personal[f] = String(draftPatch.personal[f]).replace(/\D/g, "");
+    // Телефон приводим к виду поля ввода: +7 (900) 000-00-00.
+    const ph = String(draftPatch.personal.phone || "").replace(/\D/g, "");
+    if (ph.length === 11)
+      draftPatch.personal.phone = `+7 (${ph.slice(1, 4)}) ${ph.slice(4, 7)}-${ph.slice(7, 9)}-${ph.slice(9)}`;
+    else if (ph) delete draftPatch.personal.phone; // мусор не подставляем
+  }
 
   // education: self — как обычное поле; children заполняем только если
   // у пользователя список детей пуст.
@@ -306,11 +313,38 @@ export function mergePatch(draft, patch) {
       draftPatch.incomes = clean;
       applied.push(`доходы: ${clean.length} работодател${clean.length === 1 ? "ь" : "я(ей)"}`);
     } else {
-      const known = new Set(existing.map((i) => i.inn).filter(Boolean));
-      const extra = clean.filter((i) => i.inn && !known.has(i.inn));
-      if (extra.length) {
-        draftPatch.incomes = [...existing, ...extra];
-        applied.push(`доходы: +${extra.length} работодатель(я)`);
+      // Частично заполненные записи ДОПОЛНЯЕМ (раньше распознанное просто
+      // терялось: совпал ИНН — и название, КПП, ОКТМО, суммы не подставлялись).
+      // Ручной ввод по-прежнему приоритетнее: пишем только в пустые поля.
+      const next = existing.map((row) => ({ ...row }));
+      const used = new Set();
+      let touched = 0;
+      const findMatch = (rec) => {
+        const byInn = next.findIndex((r, k) => !used.has(k) && r.inn && rec.inn && r.inn === rec.inn);
+        if (byInn >= 0) return byInn;
+        // Строка без ИНН (человек начал вписывать что-то одно) — берём первую
+        // подходящую: пустую или ту, где ИНН ещё не указан.
+        return next.findIndex((r, k) => !used.has(k) && !filled(r.inn));
+      };
+      const extra = [];
+      for (const rec of clean) {
+        const idx = findMatch(rec);
+        if (idx < 0) {
+          extra.push(rec);
+          continue;
+        }
+        used.add(idx);
+        for (const f of ["name", "inn", "kpp", "oktmo", "income", "withheld"]) {
+          if (filled(rec[f]) && !filled(next[idx][f])) {
+            next[idx][f] = rec[f];
+            touched++;
+          }
+        }
+      }
+      if (touched || extra.length) {
+        draftPatch.incomes = [...next, ...extra];
+        if (touched) applied.push(`доходы: дозаполнено полей — ${touched}`);
+        if (extra.length) applied.push(`доходы: +${extra.length} работодатель(я)`);
       }
     }
   }
