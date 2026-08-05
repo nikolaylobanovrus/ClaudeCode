@@ -63,11 +63,18 @@ export default function DocAutofill() {
         types: draft.types,
       });
       if (!alive.current) return;
-      const { draftPatch, applied: done } = mergePatch(draft, patch);
+      const { draftPatch, applied: done, skipped } = mergePatch(draft, patch);
       if (Object.keys(draftPatch).length)
         dispatch({ type: "APPLY_PATCH", patch: draftPatch });
       setApplied(done);
-      setWarnings(w || []);
+      // Реквизиты, не прошедшие проверку, честно называем: пустое поле
+      // заметно, а правдоподобно неверный ИНН человек пропустит.
+      setWarnings([
+        ...(w || []),
+        ...(skipped?.length
+          ? [`Не удалось уверенно прочитать: ${skipped.join(", ")} — впишите вручную`]
+          : []),
+      ]);
       setFiles([]);
       setDropped(0);
       if (done.length) ymGoal("wizard_autofill", { fields: done.length });

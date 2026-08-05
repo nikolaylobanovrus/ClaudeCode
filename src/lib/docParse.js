@@ -3,6 +3,7 @@
 // Файлы уходят на сервер распознавания и НЕ сохраняются (см. дисклеймер
 // в DocAutofill и docs/anthropic-setup.md).
 import { supabase as cfg } from "../data/content.js";
+import { validateInn, validateInnOrg, validateKpp, validateOktmo } from "../wizard/validation.js";
 
 export const MAX_FILES = 10;
 // 10 МБ — с запасом ниже серверного порога (12 МБ сырых байт): раньше
@@ -29,12 +30,59 @@ export class DocParseError extends Error {
   }
 }
 
+// PDF → страницы-картинки. Сервис распознавания рендерит присланный PDF
+// сам, но в низком разрешении: в бланках ФНС буквы стоят в клетках, и при
+// таком рендере имя, отчество и название организации просто исчезают
+// (проверено на декларации клиента — пропадали и у haiku, и у sonnet).
+// Рендерим страницы сами в ~200 dpi: те же поля читаются без ошибок.
+const PDF_PAGE_MAX_SIDE = 2400; // до сжатия на стороне модели (1568 px)
+const PDF_JPEG_QUALITY = 0.85;
+
+async function pdfToImages(file) {
+  const pdfjs = await import("pdfjs-dist");
+  // Воркер в том же бандле: отдельный CDN-файл сломался бы на Pages.
+  const worker = await import("pdfjs-dist/build/pdf.worker.mjs?url");
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  // Страница ~2400 px весит ~0,5 МБ: у толстых документов снижаем сторону,
+  // чтобы уложиться в лимит тела запроса (10 МБ) без обрыва на гейтвее.
+  const maxSide =
+    doc.numPages <= 8 ? PDF_PAGE_MAX_SIDE : doc.numPages <= 15 ? 1900 : 1600;
+  const pages = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const page = await doc.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(3, maxSide / Math.max(base.width, base.height));
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d");
+    // Бланки печатаются на белом: без заливки прозрачный фон станет чёрным.
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", PDF_JPEG_QUALITY));
+    canvas.width = canvas.height = 0; // освобождаем память сразу
+    if (blob) pages.push({ name: `${file.name} — стр. ${n}`, mediaType: "image/jpeg", blob });
+  }
+  doc.destroy?.();
+  return pages;
+}
+
 // Фото → сжатый JPEG через canvas. Заодно конвертирует HEIC/HEIF, если
-// браузер умеет их декодировать (Safari умеет). PDF возвращается как есть.
+// браузер умеет их декодировать (Safari умеет). PDF разбирается на
+// страницы-картинки (см. pdfToImages), при сбое уходит на сервер как есть.
 async function prepareFile(file) {
   if (file.type === "application/pdf") {
     if (file.size > MAX_PDF_BYTES)
       throw new DocParseError(`«${file.name}»: PDF больше 10 МБ — сожмите или разбейте на части`, "pdf_size");
+    try {
+      const pages = await pdfToImages(file);
+      if (pages.length) return pages;
+    } catch {
+      // Битый/зашифрованный PDF — пусть сервер попробует прочитать сам.
+    }
     return { name: file.name, mediaType: "application/pdf", blob: file, pdf: true };
   }
 
@@ -86,35 +134,20 @@ export async function parseDocuments(fileList, { year, types }) {
   const prepared = [];
   let total = 0;
   for (const f of files) {
-    const p = await prepareFile(f);
-    total += p.blob.size;
-    prepared.push(p);
+    // PDF возвращает массив страниц-картинок, остальное — один файл.
+    const parts = [await prepareFile(f)].flat();
+    if (parts.length > MAX_PDF_PAGES)
+      throw new DocParseError(
+        `в «${f.name}» слишком много страниц (${parts.length}) — сфотографируйте нужные страницы или загрузите по частям`,
+        "pdf_pages"
+      );
+    for (const p of parts) {
+      total += p.blob.size;
+      prepared.push(p);
+    }
   }
   if (total > MAX_TOTAL_BYTES)
     throw new DocParseError("файлы слишком большие даже после сжатия — разбейте на два захода", "total_size");
-
-  // Суммарный лимит страниц PDF: длинные документы гарантированно упираются
-  // в таймаут распознавания — честнее остановить до отправки. pdf-lib грузим
-  // лениво (он и так в бандле генерации документов, но не в бандле мастера).
-  const pdfs = prepared.filter((p) => p.pdf);
-  if (pdfs.length) {
-    try {
-      const { PDFDocument } = await import("pdf-lib");
-      let pages = 0;
-      for (const p of pdfs) {
-        const doc = await PDFDocument.load(await p.blob.arrayBuffer(), { ignoreEncryption: true });
-        pages += doc.getPageCount();
-      }
-      if (pages > MAX_PDF_PAGES)
-        throw new DocParseError(
-          `в PDF слишком много страниц (${pages}) — сфотографируйте нужные страницы или загрузите по частям`,
-          "pdf_pages"
-        );
-    } catch (e) {
-      if (e instanceof DocParseError) throw e;
-      // Не смогли посчитать страницы (битый/зашифрованный PDF) — пусть решает сервер.
-    }
-  }
 
   const payload = {
     year,
@@ -201,7 +234,27 @@ const filled = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 // что реально подставили (для отчёта в UI).
 export function mergePatch(draft, patch) {
   const applied = [];
+  const skipped = []; // распознано, но не прошло проверку — вписать вручную
   const draftPatch = {};
+
+  // Реквизиты с контрольной суммой/фиксированной длиной подставляем ТОЛЬКО
+  // если они корректны: в бланках ФНС цифры стоят по клеткам, и модель
+  // иногда прихватывает лишний символ. Пустое поле лучше правдоподобного
+  // мусора — его человек может не заметить, а ФНС отклонит декларацию.
+  const checkers = {
+    "personal.inn": [validateInn, "ИНН"],
+    "personal.oktmo": [validateOktmo, "ОКТМО"],
+    "income.inn": [validateInnOrg, "ИНН работодателя"],
+    "income.kpp": [validateKpp, "КПП"],
+    "income.oktmo": [validateOktmo, "ОКТМО работодателя"],
+  };
+  const valid = (key, value) => {
+    const rule = checkers[key];
+    if (!rule || !filled(value)) return true;
+    if (!rule[0](String(value))) return true;
+    if (!skipped.includes(rule[1])) skipped.push(rule[1]);
+    return false;
+  };
 
   const mergeSection = (key, labels) => {
     const src = patch?.[key];
@@ -210,6 +263,7 @@ export function mergePatch(draft, patch) {
     let touched = false;
     for (const [field, label] of Object.entries(labels)) {
       if (filled(src[field]) && !filled(target[field])) {
+        if (!valid(`${key}.${field}`, src[field])) continue;
         target[field] = String(src[field]).trim();
         applied.push(label);
         touched = true;
@@ -262,7 +316,9 @@ export function mergePatch(draft, patch) {
     for (const f of ["bik", "account"])
       if (draftPatch.bank[f]) draftPatch.bank[f] = String(draftPatch.bank[f]).replace(/\D/g, "");
   if (draftPatch.personal) {
-    for (const f of ["ifns", "oktmo"])
+    // Реквизиты модель выписывает по одной цифре через дефис (так она не
+    // переставляет порядок в клеточных бланках) — приводим к виду поля.
+    for (const f of ["inn", "ifns", "oktmo", "passportSeries", "passportNumber"])
       if (draftPatch.personal[f]) draftPatch.personal[f] = String(draftPatch.personal[f]).replace(/\D/g, "");
     // Телефон приводим к виду поля ввода: +7 (900) 000-00-00.
     const ph = String(draftPatch.personal.phone || "").replace(/\D/g, "");
@@ -298,11 +354,13 @@ export function mergePatch(draft, patch) {
     (i) => filled(i?.income) || filled(i?.name) || filled(i?.inn)
   );
   if (foundIncomes.length) {
+    const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
+    const checked = (field, v) => (valid(`income.${field}`, v) ? v : "");
     const clean = foundIncomes.map((i) => ({
       name: String(i.name || "").trim(),
-      inn: String(i.inn || "").replace(/\D/g, ""),
-      kpp: String(i.kpp || "").replace(/\D/g, ""),
-      oktmo: String(i.oktmo || "").replace(/\D/g, ""),
+      inn: checked("inn", digitsOnly(i.inn)),
+      kpp: checked("kpp", digitsOnly(i.kpp)),
+      oktmo: checked("oktmo", digitsOnly(i.oktmo)),
       income: String(i.income || "").trim(),
       withheld: String(i.withheld || "").trim(),
     }));
@@ -349,5 +407,5 @@ export function mergePatch(draft, patch) {
     }
   }
 
-  return { draftPatch, applied };
+  return { draftPatch, applied, skipped };
 }
