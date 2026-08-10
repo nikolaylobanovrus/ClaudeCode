@@ -2720,6 +2720,30 @@ h4 {
   line-height: 1.7;
   font-size: 14.5px;
 }
+/* «А за прошлые годы вычет заявляли?» — предложение после выдачи документов.
+   Выделяем рамкой, но мягче, чем doc-note: это не статус, а подсказка. */
+.wiz__again {
+  margin-top: 22px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green-600);
+  border-radius: 14px;
+  background: #f6fef9;
+}
+.wiz__again .wiz__subhead {
+  margin-top: 0;
+}
+.wiz__again p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+.wiz__again .doc-actions {
+  flex-wrap: wrap;
+}
+.wiz__again .wiz__note {
+  margin: 12px 0 0;
+}
 @media (max-width: 900px) {
   .wiz__grid {
     grid-template-columns: 1fr;

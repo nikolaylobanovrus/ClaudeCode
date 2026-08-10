@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
 import { company } from "../../data/content.js";
 import { isSaleDraft } from "../../data/wizard.js";
+import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
@@ -197,6 +198,25 @@ export default function StepDocuments({ onUnpaid }) {
       </div>
     );
 
+  // Прошлые годы: налог за год X возвращают, подав декларацию не позднее
+  // конца года X+3 (ст. 79 НК РФ) — годы с истёкшим сроком не предлагаем.
+  // Год, за который только что сформировали комплект, исключаем.
+  const filedYear = Number(draft.year);
+  const thisYear = new Date().getFullYear();
+  const pastYears = YEARS.filter(
+    (y) => y !== filedYear && refundDeadlineYear(y) >= thisYear
+  );
+  const oldestYear = pastYears.length ? Math.min(...pastYears) : null;
+
+  // Клиенты регулярно возвращаются за декларациями прошлых лет — предлагаем
+  // сами, пока паспорт, ИНН и счёт под рукой (RESET_KEEP_PERSONAL их хранит).
+  const startYear = (y) => {
+    ymGoal("another_year", { year: y });
+    dispatch({ type: "RESET_KEEP_PERSONAL" });
+    dispatch({ type: "SET", key: "year", value: y });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const shareAll = async () => {
     const ok = await shareFiles({
       files,
@@ -302,13 +322,44 @@ export default function StepDocuments({ onUnpaid }) {
         (она же лежит PDF-файлом в вашем комплекте).
       </p>
 
+      {pastYears.length > 0 && (
+        <div className="wiz__again">
+          <h3 className="wiz__subhead">А за прошлые годы вычет заявляли?</h3>
+          <p>
+            Вычет не сгорает сразу: налог возвращают за три последних года. Если
+            в {pastYears.map((y, i) => (i ? `, ${y}` : String(y))).join("")} вы
+            платили за лечение, лекарства, обучение, спорт или страхование,
+            покупали жильё или платили проценты по ипотеке — за эти годы деньги
+            тоже можно вернуть.
+          </p>
+          <div className="doc-actions">
+            {pastYears.map((y) => (
+              <button
+                key={y}
+                type="button"
+                className="btn btn--primary"
+                onClick={() => startYear(y)}
+              >
+                Декларация за {y} год
+              </button>
+            ))}
+          </div>
+          <p className="wiz__note">
+            Паспорт, ИНН и реквизиты счёта уже сохранены — останется отметить
+            вычеты и вписать суммы. Каждый год — отдельная декларация и отдельная
+            оплата 199 ₽. Крайний срок по самому старому году: за {oldestYear}{" "}
+            — до 31 декабря {refundDeadlineYear(oldestYear)} года.
+          </p>
+        </div>
+      )}
+
       <div className="doc-actions" style={{ marginTop: 18 }}>
         <button
           type="button"
           className="btn btn--ghost"
           onClick={() => dispatch({ type: "RESET_KEEP_PERSONAL" })}
         >
-          Заполнить ещё одну декларацию — за другой год или с новыми данными
+          Заполнить ещё одну декларацию — с новыми данными
         </button>
       </div>
       <p className="wiz__note">
