@@ -29,7 +29,12 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MAX_FILES = 10;
+// Клиент присылает СТРАНИЦЫ, а не документы: многостраничный PDF он рендерит
+// сам (см. docParse.js — иначе бланки ФНС теряют буквы в клетках). Поэтому
+// лимит считаем в страницах: справка о доходах + паспорт + договор легко
+// дают 12–15 картинок из трёх выбранных файлов. Расход всё равно ограничен
+// MAX_TOTAL_RAW и таймаутом вызова.
+const MAX_PAGES = 10;
 // Порог по СЫРЫМ байтам (len*3/4): раньше сравнивали base64-длину с 20 МБ,
 // и клиентский лимит 15 МБ raw = ровно 20 МБ base64 — большие тела резал
 // гейтвей платформы БЕЗ CORS-заголовков, браузер видел «нет связи».
@@ -234,8 +239,8 @@ Deno.serve(async (req) => {
   }
 
   if (!files.length) return json({ error: "нет файлов" }, 400);
-  if (files.length > MAX_FILES)
-    return json({ error: `не больше ${MAX_FILES} файлов за один раз` }, 400);
+  if (files.length > MAX_PAGES)
+    return json({ error: `не больше ${MAX_PAGES} страниц за один раз — загрузите документы в два захода` }, 400);
   let total = 0;
   for (const f of files) {
     const data = f?.dataBase64;
