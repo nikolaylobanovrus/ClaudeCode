@@ -13,6 +13,7 @@ import {
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
 import { paymentStepFor, SALE_SLUGS } from "../data/wizard.js";
+import { SALE_REALTY_BASES } from "../lib/ndfl/refs.js";
 import { decodeDraftLink } from "../lib/draftLink.js";
 import { ymGoal } from "../lib/metrika.js";
 
@@ -23,6 +24,36 @@ const PRESELECT_SLUGS = [
   "kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport",
   ...SALE_SLUGS,
 ];
+
+// Цифры из калькулятора налога с продажи (?price=&exp=&cad=&acq=&sold=&basis=).
+// Переносим только то, что человек там уже ввёл: пустые параметры не должны
+// затирать поля значениями-заглушками. Суммы — строки без пробелов, как их
+// хранит анкета; даты валидируем по формату, чтобы мусор из ссылки не попал в
+// поле типа date.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function saleFromParams(params, kind) {
+  const patch = {};
+  const money = (key, field) => {
+    const n = Number(params.get(key));
+    if (Number.isFinite(n) && n > 0) patch[field] = String(Math.round(n));
+  };
+  money("price", "price");
+  money("exp", "expenses");
+  // Расходы заявляются только по документам — если человек указал цену
+  // покупки, сразу переключаем вид вычета, иначе анкета посчитает по лимиту.
+  if (patch.expenses) patch.deductionKind = "expenses";
+  for (const [key, field] of [["acq", "acquireDate"], ["sold", "saleDate"]]) {
+    const v = params.get(key);
+    if (v && ISO_DATE.test(v)) patch[field] = v;
+  }
+  if (kind === "realty") {
+    money("cad", "cadastralValue");
+    const basis = params.get("basis");
+    if (SALE_REALTY_BASES.some((b) => b.value === basis)) patch.realtyBasis = basis;
+  }
+  return patch;
+}
 
 function WizardBody() {
   const { dispatch } = useWizard();
@@ -77,7 +108,11 @@ function WizardBody() {
         // и для авто, и для недвижимости, менять год не нужно.
         const kind = slug === "prodazha_realty" ? "realty" : "auto";
         dispatch({ type: "SET", key: "types", value: [slug] });
-        dispatch({ type: "PATCH", section: "sale", patch: { kind } });
+        dispatch({
+          type: "PATCH",
+          section: "sale",
+          patch: { kind, ...saleFromParams(params, kind) },
+        });
       } else if (slug) {
         dispatch({ type: "TOGGLE_TYPE", slug });
       }
