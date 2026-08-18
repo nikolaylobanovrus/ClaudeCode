@@ -55,9 +55,22 @@ HTTPS, SSH оттуда недоступен. Поэтому инициатив�
 В ветке `deploy/nalog-servis-dist` лежит только содержимое `dist/` — ни
 исходников, ни истории; сервер клонирует её с `--depth 1`.
 
-**Разовая настройка на сервере** (выполнить один раз под root):
+**Разовая настройка на сервере** (под root). Порядок именно такой:
+сертификат выпускается ПОСЛЕ переключения домена — Let's Encrypt проверяет
+владение, обращаясь к домену по DNS, и пока записи смотрят на GitHub Pages,
+проверка уходит не на наш сервер.
 
 ```bash
+# 0. Проверить, что на сервере работает разрешение имён: без него не
+#    пройдут ни git fetch, ни certbot (симптом — «Temporary failure in
+#    name resolution»).
+getent hosts github.com || {
+  mkdir -p /etc/systemd/resolved.conf.d
+  printf '[Resolve]\nDNS=77.88.8.8 8.8.8.8\nFallbackDNS=1.1.1.1\n' \
+    > /etc/systemd/resolved.conf.d/dns.conf
+  systemctl restart systemd-resolved
+}
+
 # 1. Код выкладки и веб-корень
 mkdir -p /opt/nalog-servis /var/www/nalog-servis
 cd /root/src && git fetch origin claude/tax-deduction-declaration-site-dfit30 \
@@ -75,13 +88,26 @@ nginx -t && systemctl reload nginx
 cp /root/src/deploy/nalog-servis-pull.{service,timer} /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now nalog-servis-pull.timer
 
-# 4. TLS (домен кириллический — certbot работает с punycode)
+# 4. Проверка ДО переключения домена: подставляем имя вручную.
+#    Должен прийти наш HTML, а не сайт соседнего проекта.
+curl -s -H "Host: xn----7sbhcltqolxje.xn--p1ai" http://127.0.0.1/ | head -c 300
+```
+
+**5. Переключить A-записи** домена (и апекса, и `www`) на `159.194.210.112`
+у регистратора. TTL записей — 300 секунд, так что расходится за пять минут.
+Дождаться: `getent hosts xn----7sbhcltqolxje.xn--p1ai` показывает новый адрес.
+
+**6. Сертификат** — сразу после того, как домен переехал:
+
+```bash
 certbot --nginx -d xn----7sbhcltqolxje.xn--p1ai -d www.xn----7sbhcltqolxje.xn--p1ai
 ```
 
-**Только после этого** — переключить A-записи домена у регистратора на
-`159.194.210.112`. Порядок важен: если переключить раньше, посетители
-попадут на `default_server` соседнего проекта.
+На вопрос о перенаправлении HTTP → HTTPS отвечать «да».
+
+Между шагами 5 и 6 сайт живёт только по `http://`, а реклама ведёт на
+`https://` — эти несколько минут посетители получат ошибку сертификата.
+Поэтому certbot запускается сразу, как только резолвится новый адрес.
 
 Проверить, что таймер живёт: `systemctl list-timers | grep nalog-servis`,
 журнал выкладок — `/var/log/nalog-servis-deploy.log`.
