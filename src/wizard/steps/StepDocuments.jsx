@@ -8,7 +8,7 @@ import { company } from "../../data/content.js";
 import { isSaleDraft } from "../../data/wizard.js";
 import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { fetchOrderStatus } from "../../lib/payments.js";
-import { computeDraftHash, findPurchase } from "../../lib/draftHash.js";
+import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
 import { ymGoal } from "../../lib/metrika.js";
 
@@ -20,6 +20,9 @@ export default function StepDocuments({ onUnpaid }) {
   // denied — оплаты нет; changed — анкета изменилась после оплаты
   const [state, setState] = useState("checking"); // checking | building | ready | denied | changed | error
   const [shareOk, setShareOk] = useState(null);
+  // Счётчик попыток: восстановление доступа по номеру заказа перезапускает
+  // ту же проверку, что и при обычном заходе на шаг.
+  const [attempt, setAttempt] = useState(0);
 
   // File-объекты создаются один раз: new File копирует мегабайтные буферы,
   // пересоздавать их на каждый рендер (и дёргать canShare) расточительно.
@@ -126,6 +129,10 @@ export default function StepDocuments({ onUnpaid }) {
           },
         ].filter(Boolean));
         setState("ready");
+        // Без этой цели мы не знаем, дошли ли документы до оплатившего
+        // человека: статус «paid» в базе стоит и тогда, когда он их так и
+        // не увидел (ровно это случилось 18.08 при переезде хостинга).
+        ymGoal("docs_ready", { year: source.year });
       } catch (e) {
         if (!alive) return;
         console.error(e);
@@ -136,7 +143,7 @@ export default function StepDocuments({ onUnpaid }) {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attempt]);
 
   if (state === "checking")
     return <p className="wiz__note">Проверяем оплату…</p>;
@@ -150,6 +157,7 @@ export default function StepDocuments({ onUnpaid }) {
         <button type="button" className="btn btn--ghost" onClick={onUnpaid}>
           ← К оплате
         </button>
+        <RecoverByOrder draft={draft} dispatch={dispatch} onDone={() => setAttempt((a) => a + 1)} />
       </div>
     );
   if (state === "changed")
@@ -182,6 +190,7 @@ export default function StepDocuments({ onUnpaid }) {
         <button type="button" className="btn btn--primary" onClick={onUnpaid}>
           Оплатить новую декларацию
         </button>
+        <RecoverByOrder draft={draft} dispatch={dispatch} onDone={() => setAttempt((a) => a + 1)} />
       </div>
     );
   if (state === "building")
@@ -367,5 +376,106 @@ export default function StepDocuments({ onUnpaid }) {
         сохранятся, анкета начнётся заново.
       </p>
     </div>
+  );
+}
+
+// Восстановление доступа по номеру заказа.
+//
+// Оплаченные комплекты живут в localStorage браузера: очистил данные, сменил
+// устройство или не смог вернуться на сайт после оплаты — и человек, который
+// заплатил, документов не получит. 18.08.2026 так и вышло: клиент оплатил в
+// 17:34, а сайт в этот момент был недоступен у его провайдера (переезжали с
+// GitHub Pages), возврат с ЮKassa не открылся.
+//
+// Номер заказа приходит человеку в адресной строке при возврате с оплаты
+// (?order=…) и знает его только плательщик — этого достаточно, чтобы по нему
+// разблокировать выдачу: статус всё равно перепроверяется в базе.
+function RecoverByOrder({ draft, dispatch, onDone }) {
+  const [open, setOpen] = useState(false);
+  const [id, setId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const orderId = id.trim().toLowerCase();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(orderId)) {
+      setError("Номер заказа выглядит не так — это длинный код из адресной строки после «?order=».");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const status = await fetchOrderStatus({ id: orderId, provider: "yookassa" });
+      if (status !== "paid") {
+        setError("По этому номеру оплата не подтверждена. Проверьте номер или напишите нам — разберёмся вручную.");
+        return;
+      }
+      // Привязываем оплату к ТЕКУЩЕЙ анкете: снимок нужен, чтобы документы
+      // потом собрались ровно из этих данных, даже если человек продолжит
+      // править поля.
+      const hash = await computeDraftHash(draft);
+      dispatch({
+        type: "ADD_PURCHASE",
+        purchase: {
+          id: orderId,
+          provider: "yookassa",
+          amount: 199,
+          paidAt: new Date().toISOString(),
+          draftHash: hash,
+          snapshot: draftSnapshot(draft),
+        },
+      });
+      ymGoal("order_recovered");
+      onDone();
+    } catch {
+      setError("Не получилось проверить оплату — попробуйте ещё раз или напишите нам.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open)
+    return (
+      <p className="wiz__note" style={{ marginTop: 14 }}>
+        Оплатили, а документы не открылись?{" "}
+        <button type="button" className="wiz__edit" onClick={() => setOpen(true)}>
+          Восстановить доступ по номеру заказа
+        </button>
+      </p>
+    );
+
+  return (
+    <form className="wiz__recover" onSubmit={submit}>
+      <label htmlFor="recover-order">Номер заказа</label>
+      <p className="wiz__note">
+        Он был в адресной строке сразу после оплаты — длинный код после
+        «?order=». Ещё его видно в письме или SMS от ЮKassa.
+      </p>
+      <div className="wiz__recover-row">
+        <input
+          id="recover-order"
+          type="text"
+          autoComplete="off"
+          spellCheck="false"
+          placeholder="00000000-0000-0000-0000-000000000000"
+          value={id}
+          onChange={(e) => setId(e.target.value)}
+          disabled={busy}
+        />
+        <button type="submit" className="btn btn--primary" disabled={busy}>
+          {busy ? "Проверяем…" : "Открыть документы"}
+        </button>
+      </div>
+      {error && (
+        <p className="form__error" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="wiz__note">
+        Важно: документы соберутся из того, что сейчас в анкете. Если данные
+        пришлось вводить заново — сверьте их перед скачиванием.
+      </p>
+    </form>
   );
 }

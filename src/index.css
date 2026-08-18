@@ -3256,3 +3256,27 @@ h4 {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Восстановление доступа по номеру заказа на шаге «Документы». */
+.wiz__recover {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.wiz__recover > label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.wiz__recover-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.wiz__recover-row input {
+  flex: 1 1 260px;
+  min-width: 0;
+}
