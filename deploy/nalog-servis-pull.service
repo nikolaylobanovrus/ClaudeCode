@@ -1,0 +1,10 @@
+[Unit]
+Description=Выкладка налог-сервис.рф из git
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/nalog-servis/nalog-servis-pull.sh
+StandardOutput=append:/var/log/nalog-servis-deploy.log
+StandardError=append:/var/log/nalog-servis-deploy.log

@@ -36,46 +36,64 @@ SPA на hash-роутере, сервер ему не нужен — нужен
 
 ### Вариант А — Beget VPS (выбран)
 
-Сервер уже оплачен под соседний проект, и его мощности с запасом хватает:
-сайт весит около 3 МБ, трафика ~150 визитов в день. Марджинальная
-стоимость — ноль, и это самый быстрый способ остановить потери.
+Сервер уже оплачен под соседний проект «Деловой Портрет» (`d-portret.ru`,
+IP `159.194.210.112`), и его мощности с запасом хватает: наш сайт — 3 МБ
+статики и ~150 визитов в день. Марджинальная стоимость нулевая.
 
-Что нужно на сервере:
+**Как выкладываем.** Не по SSH: среда разработки ходит наружу только по
+HTTPS, SSH оттуда недоступен. Поэтому инициатива у сервера — он сам
+забирает готовую сборку из отдельной ветки git. Ровно та же схема, к
+которой пришёл соседний проект (`headshot-bot/deploy/self_deploy.sh`).
 
-1. Добавить публичный ключ выкладки в `~/.ssh/authorized_keys`
-   (ключ выдан отдельно, приватная часть лежит в `/root/.ssh/ndfl_deploy`
-   в рабочей среде и в репозиторий не попадает).
-2. `sudo mkdir -p /var/www/nalog-servis && sudo chown -R $USER /var/www/nalog-servis`
-3. Положить конфиг nginx: `deploy/nginx-nalog-servis.conf`
-   (кэш, gzip, SPA-фолбэк — см. комментарии внутри).
-4. Выпустить TLS: `sudo certbot --nginx -d xn----7sbhcltqolxje.xn--p1ai`
-   (домен кириллический, certbot работает с punycode).
-5. У регистратора заменить A-записи домена на IP сервера.
-
-Выкладка после этого — одной командой:
+Цепочка получается такая:
 
 ```
-VITE_HASH_ROUTER=1 npm run build && ./scripts/deploy-vps.sh
+здесь:   npm run build → ./scripts/publish-dist.sh → ветка deploy/nalog-servis-dist
+сервер:  systemd-таймер раз в 5 минут → git fetch → rsync в /var/www/nalog-servis
 ```
 
-Параметры в `/root/.ndfl-tokens`:
+В ветке `deploy/nalog-servis-dist` лежит только содержимое `dist/` — ни
+исходников, ни истории; сервер клонирует её с `--depth 1`.
 
+**Разовая настройка на сервере** (выполнить один раз под root):
+
+```bash
+# 1. Код выкладки и веб-корень
+mkdir -p /opt/nalog-servis /var/www/nalog-servis
+cd /root/src && git fetch origin claude/tax-deduction-declaration-site-dfit30 \
+  && git checkout origin/claude/tax-deduction-declaration-site-dfit30 -- deploy
+cp /root/src/deploy/nalog-servis-pull.sh /opt/nalog-servis/
+chmod +x /opt/nalog-servis/nalog-servis-pull.sh
+
+# 2. nginx (свой server_name, default_server соседа не трогаем)
+cp /root/src/deploy/nginx-nalog-servis.conf /etc/nginx/sites-available/nalog-servis
+ln -sf /etc/nginx/sites-available/nalog-servis /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+
+# 3. Первая выкладка и таймер
+/opt/nalog-servis/nalog-servis-pull.sh
+cp /root/src/deploy/nalog-servis-pull.{service,timer} /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now nalog-servis-pull.timer
+
+# 4. TLS (домен кириллический — certbot работает с punycode)
+certbot --nginx -d xn----7sbhcltqolxje.xn--p1ai -d www.xn----7sbhcltqolxje.xn--p1ai
 ```
-VPS_HOST=<ip сервера>
-VPS_USER=root
-VPS_PATH=/var/www/nalog-servis
-```
 
-Риски варианта и что с ними делать:
+**Только после этого** — переключить A-записи домена у регистратора на
+`159.194.210.112`. Порядок важен: если переключить раньше, посетители
+попадут на `default_server` соседнего проекта.
 
-* **Одна точка отказа.** Упал сервер — упал сайт, резерва нет. Пока
-  переходный период, GitHub Pages остаётся собранным и рабочим: если что,
+Проверить, что таймер живёт: `systemctl list-timers | grep nalog-servis`,
+журнал выкладок — `/var/log/nalog-servis-deploy.log`.
+
+**Риски варианта:**
+
+* **Общая точка отказа с «Деловым Портретом».** Упал сервер — упали оба
+  сайта. Пока идёт переходный период, GitHub Pages остаётся собранным:
   A-записи возвращаются назад за время TTL.
-* **Сервер общий с другим проектом.** Конфиги nginx разводятся по
-  отдельным server-блокам, каталоги не пересекаются; но нагрузку и место
-  надо иметь в виду.
-* **Сертификат.** `certbot renew` ставится таймером systemd при установке;
-  стоит один раз проверить `systemctl list-timers | grep certbot`.
+* **Общие ресурсы.** Статика почти ничего не ест, но диск и трафик общие.
+* **Сертификат.** `certbot renew` ставится таймером при установке; стоит
+  один раз проверить `systemctl list-timers | grep certbot`.
 
 ### Вариант Б — Яндекс Облако Object Storage (запасной)
 
