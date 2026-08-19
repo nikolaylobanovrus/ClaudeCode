@@ -292,8 +292,16 @@ export function validateStep(stepKey, draft) {
     if (!e["sale.price"] && !positive(s.price))
       put(e, "sale.price", "Укажите цену продажи");
     put(e, "sale.saleDate", validateDate(s.saleDate, "дату продажи"));
+    // Год декларации выбирается на первом шаге, и человек про это уже забыл:
+    // без подсказки «дата должна быть в 2025 году» — тупик для того, кто
+    // продал в 2024-м.
     if (!e["sale.saleDate"] && String(s.saleDate).slice(0, 4) !== String(draft.year))
-      put(e, "sale.saleDate", `Дата продажи должна быть в ${draft.year} году`);
+      put(
+        e,
+        "sale.saleDate",
+        `Декларация подаётся за ${draft.year} год, поэтому дата продажи должна быть в ${draft.year} году. ` +
+          "Продали в другом году — вернитесь на шаг «Ситуация» и выберите его."
+      );
     if (realty) {
       // Кадастровый номер и стоимость нужны для «Расчёта к Приложению 1»
       // (сверка по правилу кадастр × 0,7) — в XML все поля обязательны.
