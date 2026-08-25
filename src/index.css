@@ -2793,6 +2793,18 @@ h4 {
   font-size: 13.5px;
   color: var(--ink-500);
 }
+/* Кнопка стоит внутри карточки с суммой — рядом с ответом, а не через два
+   экрана прокрутки под таблицей. */
+.stax__big-cta {
+  align-self: flex-start;
+  margin-top: 10px;
+}
+@media (max-width: 640px) {
+  .stax__big-cta {
+    align-self: stretch;
+    text-align: center;
+  }
+}
 .stax__verdict p {
   margin: 8px 0 0;
 }

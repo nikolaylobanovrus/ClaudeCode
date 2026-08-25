@@ -51,12 +51,24 @@ export default function SelfServiceKalkulyator() {
   // Цель отправляем один раз за визит и только когда есть с чего считать —
   // иначе каждое нажатие клавиши в поле цены было бы «расчётом».
   const show = num(price) > 0;
+  // Исход расчёта — главный недостающий разрез. Без него в статистике видно
+  // «150 расчётов, 2 перехода», но не видно, ушёл человек потому, что
+  // декларация ему не нужна, или потому, что мы его не убедили:
+  //   exempt — владел дольше срока, декларация НЕ нужна (мы честно не зовём);
+  //   zero   — налога нет, но декларацию подать надо (иначе штраф);
+  //   tax    — есть налог к уплате.
+  const outcome = r.exempt ? "exempt" : r.tax === 0 ? "zero" : "tax";
+  // Отправляем не сразу, а когда человек перестал править поля: цену он
+  // вводит первой, и в этот момент исход ещё «налога нет» — даты и кадастр
+  // впереди. Без задержки в статистику попадал бы промежуточный расчёт.
   useEffect(() => {
-    if (show && !counted.current) {
+    if (!show || counted.current) return;
+    const t = setTimeout(() => {
       counted.current = true;
-      ymGoal("sale_calc", { kind: objectKind });
-    }
-  }, [show, objectKind]);
+      ymGoal("sale_calc", { kind: objectKind, result: outcome });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [show, objectKind, outcome]);
 
   // Ссылка в анкету с перенесёнными цифрами: параметры читаются до решётки
   // (см. Wizard.jsx), поэтому порядок именно такой — сначала query, потом хеш.
@@ -240,6 +252,22 @@ export default function SelfServiceKalkulyator() {
                       1 000 ₽.
                     </span>
                   )}
+                  {/* Действие стоит там же, где ответ. Раньше единственная
+                      кнопка жила под таблицей и оговорками — на телефоне это
+                      ещё два экрана прокрутки после того, как человек уже
+                      узнал главное и мысленно закончил. */}
+                  <a
+                    className="btn btn--primary btn--lg stax__big-cta"
+                    href={wizardHref}
+                    onClick={() => ymGoal("sale_calc_to_wizard", { kind: objectKind, result: outcome, where: "top" })}
+                  >
+                    {r.tax > 0
+                      ? "Заполнить декларацию — 199 ₽"
+                      : "Подать декларацию без налога — 199 ₽"}
+                  </a>
+                  <span className="stax__big-note">
+                    Цифры перенесутся в анкету — останутся паспортные данные.
+                  </span>
                 </div>
 
                 <table className="stax__table">
@@ -319,7 +347,7 @@ export default function SelfServiceKalkulyator() {
                   <a
                     className="btn btn--primary btn--lg"
                     href={wizardHref}
-                    onClick={() => ymGoal("sale_calc_to_wizard", { kind: objectKind })}
+                    onClick={() => ymGoal("sale_calc_to_wizard", { kind: objectKind, result: outcome, where: "bottom" })}
                   >
                     Заполнить декларацию — 199 ₽
                   </a>
