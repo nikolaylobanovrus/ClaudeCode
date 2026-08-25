@@ -86,16 +86,19 @@ const saleScenarios = [
 // класс имущества, а не на каждую продажу. Проверяем и это, и то, что в
 // Приложении 1 источник дохода появляется на каждый объект.
 const multiScenario = {
-  tag: "две машины и две недвижимости",
+  tag: "жильё, гараж и две машины",
   sales: [
     { kind: "auto", price: "400000", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" },
     { kind: "auto", price: "500000", deductionKind: "expenses", expenses: "450000", buyerName: "Сидоров Иван Иванович", buyerInn: "" },
     { kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1", cadastralValue: "5000000", price: "3000000", acquireDate: "2022-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна Ивановна", buyerInn: "" },
-    { kind: "realty", objectKind: "land", cadastralNumber: "74:36:0000000:2", cadastralValue: "600000", price: "800000", acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна Ивановна", buyerInn: "" },
+    { kind: "realty", objectKind: "garage", cadastralNumber: "74:36:0000000:2", cadastralValue: "600000", price: "800000", acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна Ивановна", buyerInn: "" },
   ],
-  // Жильё и земля: 3 500 000 (по кадастру) + 800 000, вычет 1 000 000 на всё.
-  // Иное имущество: 400 000 + 500 000, вычет 250 000 на всё + расходы 450 000.
-  expect: { taxable: 5200000, deduction: 1700000, sources: 4 },
+  // Три независимых лимита (пп. 1 п. 2 ст. 220):
+  //   жильё      3 500 000 (по кадастру)            → вычет 1 000 000
+  //   гараж        800 000                          → свои 250 000
+  //   движимое     400 000 + 500 000                → ещё 250 000 + расходы 450 000
+  // Итого доход 5 200 000, вычетов 1 950 000.
+  expect: { taxable: 5200000, deduction: 1950000, sources: 4 },
 };
 const multiDraft = (year) => ({
   year,

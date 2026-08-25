@@ -12,26 +12,60 @@ export const RATE = 0.13;
 // --- Продажа имущества (декларация с налогом К УПЛАТЕ, Приложение 6) ----------
 // Имущественный вычет при продаже (пп. 1 п. 2 ст. 220 НК): вместо документально
 // подтверждённых расходов на покупку можно уменьшить доход на фиксированную
-// сумму — 1 000 000 ₽ для жилья и земли, 250 000 ₽ для иного имущества
-// (автомобиль и пр.). Вычет не может превышать сам доход от продажи.
-export const SALE_DEDUCTION = { realty: 1_000_000, other: 250_000 };
+// сумму. Классов ТРИ, и лимиты у них независимые (пп. 1 п. 2 ст. 220 НК,
+// дословно — три отдельных абзаца, «не превышающем в целом»):
+//   • жилые дома, квартиры, комнаты, садовые дома, земельные участки и доли
+//     в них — 1 000 000 ₽ на всё проданное за год;
+//   • ИНОЕ НЕДВИЖИМОЕ имущество (гараж, машиноместо, апартаменты, нежилое
+//     помещение) — свои 250 000 ₽;
+//   • иное имущество, то есть движимое (автомобиль и пр.), в собственности
+//     меньше трёх лет — ещё 250 000 ₽.
+// Два лимита по 250 000 ₽ НЕ общие: продал за год гараж и машину — по
+// 250 000 ₽ на каждый класс. В бланке это три разных пункта Приложения 6,
+// в XML — ВычДохНедвЖил, ВычПродНедвИн и ВычПродИмущИн.
+// Вычет не может превышать сам доход от продажи.
+export const SALE_DEDUCTION = {
+  realty: 1_000_000, // жильё и земля
+  realtyOther: 250_000, // иное недвижимое
+  other: 250_000, // движимое имущество
+};
 
-// Антизанижение цены (ст. 214.10 НК, только недвижимость): если доход по
-// договору меньше кадастровой стоимости × 0,7, налог считают с 0,7 кадастра.
-// К автомобилю и иному движимому имуществу не применяется.
 export const SALE_CADASTRAL_COEF = 0.7;
 
-// Виды продаваемого объекта недвижимости (фаза 2). На первом заходе — целые
-// жилые объекты и земля: все они дают вычет 1 000 000 ₽ и заполняют пункт 1
-// Приложения 6 (жильё/земля), строки 010/020. Доли и нежилое недвижимое —
-// отдельным заходом (другой вычет/строки). value используется в анкете,
-// label — в интерфейсе.
-export const SALE_REALTY_OBJECTS = [
-  { value: "flat", label: "Квартира" },
-  { value: "house", label: "Жилой дом" },
-  { value: "room", label: "Комната" },
-  { value: "land", label: "Земельный участок" },
+// Виды продаваемого объекта. value хранится в анкете, label показывается
+// человеку, class определяет и размер вычета, и пункт Приложения 6:
+//   home       — жильё и земля, вычет 1 000 000 ₽, строки 010/020;
+//   realtyOther — иное недвижимое, вычет 250 000 ₽, строки 050/060;
+//   movable    — движимое имущество, вычет 250 000 ₽, строки 070/080.
+// Доли в жилье (строки 030/040) пока не отделяем: их считают по той же
+// тысяче, просто пропорционально доле, и человек вводит уже свою сумму.
+export const SALE_OBJECTS = [
+  { value: "auto", label: "Автомобиль или иное движимое имущество", class: "movable" },
+  { value: "flat", label: "Квартира", class: "home" },
+  { value: "house", label: "Жилой дом", class: "home" },
+  { value: "room", label: "Комната", class: "home" },
+  { value: "land", label: "Земельный участок", class: "home" },
+  { value: "garage", label: "Гараж", class: "realtyOther" },
+  { value: "parking", label: "Машиноместо", class: "realtyOther" },
+  { value: "apartments", label: "Апартаменты", class: "realtyOther" },
+  { value: "commercial", label: "Нежилое помещение", class: "realtyOther" },
 ];
+
+// Виды недвижимости — для анкеты и подписей (всё, кроме движимого).
+export const SALE_REALTY_OBJECTS = SALE_OBJECTS.filter((o) => o.value !== "auto");
+
+// Класс объекта по виду. Старые черновики вида не хранили: там ориентируемся
+// на kind ("realty" → квартира по умолчанию, иначе движимое).
+export function saleClassOf(objectKind, kind) {
+  const found = SALE_OBJECTS.find((o) => o.value === objectKind);
+  if (found) return found.class;
+  return kind === "realty" ? "home" : "movable";
+}
+// Недвижимость это или нет — от этого зависят и кадастровое правило
+// (ст. 214.10), и минимальный срок владения (ст. 217.1).
+export const saleIsRealty = (cls) => cls === "home" || cls === "realtyOther";
+export const saleLimitFor = (cls) =>
+  cls === "home" ? SALE_DEDUCTION.realty : cls === "realtyOther" ? SALE_DEDUCTION.realtyOther : SALE_DEDUCTION.other;
 
 // Минимальный срок владения для освобождения от НДФЛ (ст. 217.1 НК). Продал
 // раньше срока — доход декларируется; дольше — налога нет и декларация не
@@ -40,19 +74,25 @@ export const SALE_REALTY_OBJECTS = [
 // Автомобиль (иное имущество, п. 17.1 ст. 217) — всегда 3 года.
 export const SALE_MIN_HOLDING = { realtyDefault: 5, realtyPrivileged: 3, auto: 3 };
 
-// Основания приобретения, дающие льготный 3-летний срок владения недвижимостью.
+// Основания приобретения, дающие льготный 3-летний срок владения недвижимостью
+// (п. 3 ст. 217.1 НК). homeOnly — основание работает только для ЖИЛЬЯ: подп. 4
+// говорит именно о жилом помещении, гаражу и апартаментам оно не положено.
 export const SALE_REALTY_BASES = [
   { value: "purchase", label: "Покупка, ДДУ или иное", privileged: false },
   { value: "inherit", label: "Наследство или дар близкого родственника", privileged: true },
   { value: "privatize", label: "Приватизация", privileged: true },
   { value: "rent", label: "Договор пожизненного содержания (ренты)", privileged: true },
-  { value: "onlyHome", label: "Это моё единственное жильё", privileged: true },
+  { value: "onlyHome", label: "Это моё единственное жильё", privileged: true, homeOnly: true },
 ];
+// Основания, доступные для конкретного класса объекта.
+export const saleBasesFor = (cls) =>
+  SALE_REALTY_BASES.filter((b) => !b.homeOnly || cls === "home");
 
 // Минимальный срок владения по типу продажи и основанию приобретения (лет).
-export function saleMinHolding(saleKind, realtyBasis) {
-  if (saleKind !== "realty") return SALE_MIN_HOLDING.auto;
-  const base = SALE_REALTY_BASES.find((b) => b.value === realtyBasis);
+export function saleMinHolding(saleClass, realtyBasis) {
+  // Движимое имущество — три года без вариантов (п. 17.1 ст. 217 НК).
+  if (!saleIsRealty(saleClass)) return SALE_MIN_HOLDING.auto;
+  const base = saleBasesFor(saleClass).find((b) => b.value === realtyBasis);
   return base?.privileged ? SALE_MIN_HOLDING.realtyPrivileged : SALE_MIN_HOLDING.realtyDefault;
 }
 

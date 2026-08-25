@@ -2,13 +2,12 @@
 // calc приходит из WizardShell — расчёт выполняется один раз на рендер.
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
-import { yearRules, SALE_REALTY_OBJECTS } from "../../lib/ndfl/refs.js";
+import { yearRules, SALE_OBJECTS } from "../../lib/ndfl/refs.js";
 
 // Что именно продали — одной строкой на объект.
 const objectLabelOf = (o) =>
-  o.kind === "realty"
-    ? SALE_REALTY_OBJECTS.find((x) => x.value === o.objectKind)?.label || "Недвижимость"
-    : "Автомобиль (иное имущество)";
+  SALE_OBJECTS.find((x) => x.value === (o.objectKind || "auto"))?.label ||
+  (o.kind === "realty" ? "Недвижимость" : "Автомобиль или иное движимое имущество");
 // Несколько объектов — перечисляем через запятую: в сводке важно, что именно
 // декларируется, а не только сумма.
 const saleObjectsLabel = (sale) => sale.items.map(objectLabelOf).join(", ");

@@ -80,18 +80,17 @@ export function buildDeclarationModel(draft) {
         deduction: calc.sale.deduction,
         base: calc.sale.base,
         tax: calc.sale.tax,
-        // Приложение 6 разводит вычет по двум пунктам: жильё и земля — свой,
-        // иное имущество (авто) — свой. Отсюда и признаки «по расходам».
-        dedRealtyStandard: calc.sale.dedRealtyStandard,
-        dedRealtyExpenses: calc.sale.dedRealtyExpenses,
-        dedOtherStandard: calc.sale.dedOtherStandard,
-        dedOtherExpenses: calc.sale.dedOtherExpenses,
+        // Приложение 6 разводит вычет по трём пунктам: жильё и земля, иное
+        // недвижимое, иное (движимое) имущество. Внутри пункта отдельно
+        // фиксированный вычет и отдельно расходы на покупку.
+        ded: calc.sale.ded,
         hasRealty: calc.sale.hasRealty,
         hasOther: calc.sale.hasOther,
         // Пообъектные данные — для Приложения 1 (по источнику дохода на
         // объект) и «Расчёта к Приложению 1» (по объекту недвижимости).
         items: calc.sale.items.map((o) => ({
-          kind: o.kind, // "auto" | "realty"
+          cls: o.cls, // "home" | "realtyOther" | "movable" — пункт Приложения 6
+          kind: o.kind, // "auto" | "realty" — нужна ли кадастровая сверка
           objectKind: o.objectKind, // вид объекта недвижимости (flat/house/…)
           price: o.price,
           cadastral: o.cadastral, // кадастровая стоимость (недвижимость)

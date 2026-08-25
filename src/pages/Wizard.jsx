@@ -13,7 +13,7 @@ import {
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
 import { paymentStepFor, SALE_SLUGS } from "../data/wizard.js";
-import { SALE_REALTY_BASES } from "../lib/ndfl/refs.js";
+import { SALE_REALTY_BASES, SALE_OBJECTS } from "../lib/ndfl/refs.js";
 import { decodeDraftLink } from "../lib/draftLink.js";
 import { ymGoal } from "../lib/metrika.js";
 
@@ -47,6 +47,10 @@ function saleFromParams(params, kind) {
     const v = params.get(key);
     if (v && ISO_DATE.test(v)) patch[field] = v;
   }
+  // Конкретный вид объекта (квартира, гараж, авто) определяет лимит вычета —
+  // берём его из ссылки, иначе гараж посчитался бы по миллиону как квартира.
+  const obj = params.get("obj");
+  if (SALE_OBJECTS.some((o) => o.value === obj)) patch.objectKind = obj === "auto" ? "" : obj;
   if (kind === "realty") {
     money("cad", "cadastralValue");
     const basis = params.get("basis");
@@ -108,9 +112,10 @@ function WizardBody() {
         // и для авто, и для недвижимости, менять год не нужно.
         const kind = slug === "prodazha_realty" ? "realty" : "auto";
         dispatch({ type: "SET", key: "types", value: [slug] });
+        // Продажа теперь список объектов — цифры из ссылки кладём в первый.
         dispatch({
-          type: "PATCH",
-          section: "sale",
+          type: "PATCH_SALE",
+          index: 0,
           patch: { kind, ...saleFromParams(params, kind) },
         });
       } else if (slug) {

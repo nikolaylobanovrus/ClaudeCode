@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import { fmtRub } from "../lib/format.js";
 import { computeSaleTax } from "../lib/ndfl/saleTax.js";
-import { SALE_REALTY_BASES, SALE_DEDUCTION } from "../lib/ndfl/refs.js";
+import { SALE_DEDUCTION, saleClassOf, saleIsRealty, saleBasesFor } from "../lib/ndfl/refs.js";
 import { normalizeMoney } from "../wizard/fields.jsx";
 import { todayIso } from "../wizard/validation.js";
 import { ymGoal } from "../lib/metrika.js";
@@ -19,7 +19,9 @@ import { ymGoal } from "../lib/metrika.js";
 const num = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
 
 export default function SelfServiceKalkulyator() {
-  const [kind, setKind] = useState("realty");
+  // Три вкладки, потому что и лимитов вычета три: жильё и земля — 1 000 000 ₽,
+  // нежилая недвижимость — свои 250 000 ₽, движимое имущество — ещё 250 000 ₽.
+  const [objectKind, setObjectKind] = useState("flat");
   const [price, setPrice] = useState("");
   const [expenses, setExpenses] = useState("");
   const [cadastral, setCadastral] = useState("");
@@ -28,11 +30,14 @@ export default function SelfServiceKalkulyator() {
   const [realtyBasis, setRealtyBasis] = useState("purchase");
   const counted = useRef(false);
 
-  const isRealty = kind === "realty";
+  const cls = saleClassOf(objectKind);
+  const isRealty = saleIsRealty(cls);
+  const kind = isRealty ? "realty" : "auto";
   const r = useMemo(
     () =>
       computeSaleTax({
         kind,
+        objectKind,
         price: num(price),
         expenses: num(expenses),
         cadastral: isRealty ? num(cadastral) : 0,
@@ -40,7 +45,7 @@ export default function SelfServiceKalkulyator() {
         saleDate,
         realtyBasis: isRealty ? realtyBasis : "purchase",
       }),
-    [kind, price, expenses, cadastral, acquireDate, saleDate, realtyBasis, isRealty]
+    [kind, objectKind, price, expenses, cadastral, acquireDate, saleDate, realtyBasis, isRealty]
   );
 
   // Цель отправляем один раз за визит и только когда есть с чего считать —
@@ -49,14 +54,16 @@ export default function SelfServiceKalkulyator() {
   useEffect(() => {
     if (show && !counted.current) {
       counted.current = true;
-      ymGoal("sale_calc", { kind });
+      ymGoal("sale_calc", { kind: objectKind });
     }
-  }, [show, kind]);
+  }, [show, objectKind]);
 
   // Ссылка в анкету с перенесёнными цифрами: параметры читаются до решётки
   // (см. Wizard.jsx), поэтому порядок именно такой — сначала query, потом хеш.
   const wizardHref = useMemo(() => {
     const p = new URLSearchParams({ s: isRealty ? "prodazha_realty" : "prodazha_auto" });
+    // Конкретный вид объекта важен: у гаража и квартиры разные лимиты вычета.
+    p.set("obj", objectKind);
     if (num(price) > 0) p.set("price", String(num(price)));
     if (num(expenses) > 0) p.set("exp", String(num(expenses)));
     if (isRealty && num(cadastral) > 0) p.set("cad", String(num(cadastral)));
@@ -64,7 +71,7 @@ export default function SelfServiceKalkulyator() {
     if (saleDate) p.set("sold", saleDate);
     if (isRealty && realtyBasis !== "purchase") p.set("basis", realtyBasis);
     return `/?${p.toString()}#/deklaraciya/anketa`;
-  }, [isRealty, price, expenses, cadastral, acquireDate, saleDate, realtyBasis]);
+  }, [isRealty, objectKind, price, expenses, cadastral, acquireDate, saleDate, realtyBasis]);
 
   return (
     <>
@@ -93,20 +100,25 @@ export default function SelfServiceKalkulyator() {
         <div className="container stax">
           <div className="stax__form card">
             <div className="stax__tabs" role="group" aria-label="Что продали">
-              <button
-                type="button"
-                className={"stax__tab" + (isRealty ? " is-active" : "")}
-                onClick={() => setKind("realty")}
-              >
-                Недвижимость
-              </button>
-              <button
-                type="button"
-                className={"stax__tab" + (!isRealty ? " is-active" : "")}
-                onClick={() => setKind("auto")}
-              >
-                Автомобиль
-              </button>
+              {[
+                { value: "flat", label: "Жильё или земля" },
+                { value: "garage", label: "Гараж, апартаменты" },
+                { value: "auto", label: "Автомобиль" },
+              ].map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  className={"stax__tab" + (objectKind === t.value ? " is-active" : "")}
+                  onClick={() => {
+                    setObjectKind(t.value);
+                    // «Единственное жильё» для гаража не существует — сбрасываем.
+                    if (!saleBasesFor(saleClassOf(t.value)).some((b) => b.value === realtyBasis))
+                      setRealtyBasis("purchase");
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
 
             <div className="form__field">
@@ -183,7 +195,7 @@ export default function SelfServiceKalkulyator() {
                   value={realtyBasis}
                   onChange={(e) => setRealtyBasis(e.target.value)}
                 >
-                  {SALE_REALTY_BASES.map((b) => (
+                  {saleBasesFor(cls).map((b) => (
                     <option key={b.value} value={b.value}>
                       {b.label}
                     </option>
@@ -307,7 +319,7 @@ export default function SelfServiceKalkulyator() {
                   <a
                     className="btn btn--primary btn--lg"
                     href={wizardHref}
-                    onClick={() => ymGoal("sale_calc_to_wizard", { kind })}
+                    onClick={() => ymGoal("sale_calc_to_wizard", { kind: objectKind })}
                   >
                     Заполнить декларацию — 199 ₽
                   </a>
@@ -340,7 +352,9 @@ export default function SelfServiceKalkulyator() {
               <p>
                 Можно уменьшить доход на фиксированный вычет —{" "}
                 {fmtRub(SALE_DEDUCTION.realty)} для жилья и земли,{" "}
-                {fmtRub(SALE_DEDUCTION.other)} для автомобиля и иного имущества, — либо
+                {fmtRub(SALE_DEDUCTION.realtyOther)} для гаражей, машиномест и
+                апартаментов, {fmtRub(SALE_DEDUCTION.other)} для автомобиля и
+                иного движимого имущества, — либо
                 на документально подтверждённые расходы на покупку. Выбирают то, что
                 выгоднее; совмещать нельзя.
               </p>

@@ -172,10 +172,14 @@ export async function buildOfficialPdf2025(model) {
     // Суммы годовые и общие на все объекты класса; вычет и расходы стоят в
     // разных строках, поэтому «одну машину по вычету, другую по расходам»
     // бланк выражает без потерь.
-    if (sale.dedRealtyStandard > 0) pen.money(sale.dedRealtyStandard, X, 678.4, 8); // 010 вычет 1 млн
-    if (sale.dedRealtyExpenses > 0) pen.money(sale.dedRealtyExpenses, X, 652.9, 8); // 020 расходы
-    if (sale.dedOtherStandard > 0) pen.money(sale.dedOtherStandard, X, 494.2, 8); // 070 вычет 250 тыс
-    if (sale.dedOtherExpenses > 0) pen.money(sale.dedOtherExpenses, X, 468.7, 8); // 080 расходы
+    const d = sale.ded;
+    if (d.home.standard > 0) pen.money(d.home.standard, X, 678.4, 8); // 010 вычет 1 млн
+    if (d.home.expenses > 0) pen.money(d.home.expenses, X, 652.9, 8); // 020 расходы
+    // Пункт 2 бланка — иное недвижимое (гараж, машиноместо, апартаменты).
+    if (d.realtyOther.standard > 0) pen.money(d.realtyOther.standard, X, 556.2, 8); // 050 вычет 250 тыс
+    if (d.realtyOther.expenses > 0) pen.money(d.realtyOther.expenses, X, 530.7, 8); // 060 расходы
+    if (d.movable.standard > 0) pen.money(d.movable.standard, X, 494.2, 8); // 070 вычет 250 тыс
+    if (d.movable.expenses > 0) pen.money(d.movable.expenses, X, 468.7, 8); // 080 расходы
     pen.money(sale.deduction, X, 64.9, 8); // 160 общая сумма вычетов
   }
 

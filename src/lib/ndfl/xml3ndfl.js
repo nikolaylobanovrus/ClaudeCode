@@ -314,8 +314,9 @@ export function buildDeclarationXml(model) {
           // движимое (пункт 3) — ВычПродИмущИн (ВычДохПродИмущ — вычет 250 тыс ₽
           // / РасхПриобрИмущ — расходы). Имена атрибутов различаются (сверено с
           // XSD: тип СвСумПр6 у иного имущества, inline-атрибуты у жилья).
-          // Пунктов в Приложении 6 два — жильё с землёй и иное имущество, — и
-          // суммы в них ГОДОВЫЕ, на все проданные объекты класса сразу.
+          // Пунктов в Приложении 6 три — жильё с землёй, иное недвижимое и
+          // иное (движимое) имущество, — и суммы в них ГОДОВЫЕ, на все
+          // проданные объекты класса сразу. Лимиты у пунктов независимы.
           // Внутри пункта фиксированный вычет и расходы на покупку живут в
           // разных атрибутах, поэтому «одну машину по вычету, другую по
           // расходам» форма выражает без потерь.
@@ -323,19 +324,28 @@ export function buildDeclarationXml(model) {
             el(
               "ИмущНалВычПр",
               { ОбщИмущВыч: kop2(sale.deduction) },
-              sale.hasRealty &&
+              sale.ded.home.has &&
                 el("ВычДохНедвЖил", {
                   ВычПродИмущ:
-                    sale.dedRealtyStandard > 0 ? kop2(sale.dedRealtyStandard) : undefined,
+                    sale.ded.home.standard > 0 ? kop2(sale.ded.home.standard) : undefined,
                   РасхПриобИмущ:
-                    sale.dedRealtyExpenses > 0 ? kop2(sale.dedRealtyExpenses) : undefined,
+                    sale.ded.home.expenses > 0 ? kop2(sale.ded.home.expenses) : undefined,
                 }),
-              sale.hasOther &&
+              // Иное недвижимое (гараж, машиноместо, апартаменты) — свой пункт
+              // со своим лимитом 250 000 ₽, не общим с движимым имуществом.
+              sale.ded.realtyOther.has &&
+                el("ВычПродНедвИн", {
+                  ВычДохПродИмущ:
+                    sale.ded.realtyOther.standard > 0 ? kop2(sale.ded.realtyOther.standard) : undefined,
+                  РасхПриобрИмущ:
+                    sale.ded.realtyOther.expenses > 0 ? kop2(sale.ded.realtyOther.expenses) : undefined,
+                }),
+              sale.ded.movable.has &&
                 el("ВычПродИмущИн", {
                   ВычДохПродИмущ:
-                    sale.dedOtherStandard > 0 ? kop2(sale.dedOtherStandard) : undefined,
+                    sale.ded.movable.standard > 0 ? kop2(sale.ded.movable.standard) : undefined,
                   РасхПриобрИмущ:
-                    sale.dedOtherExpenses > 0 ? kop2(sale.dedOtherExpenses) : undefined,
+                    sale.ded.movable.expenses > 0 ? kop2(sale.ded.movable.expenses) : undefined,
                 })
             ),
           // --- Приложение 7: имущественный вычет по приобретению жилья ---

@@ -52,7 +52,7 @@ for (const year of SALE_YEARS) {
     { kind: "auto", price: "400000", saleDate: `${year}-03-01`, deductionKind: "standard", buyerName: "Петров Пётр", buyerInn: "" },
     { kind: "auto", price: "500000", saleDate: `${year}-05-01`, deductionKind: "expenses", expenses: "450000", buyerName: "Сидоров Иван", buyerInn: "" },
     { kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1", cadastralValue: "5000000", price: "3000000", saleDate: `${year}-07-01`, acquireDate: "2022-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна", buyerInn: "" },
-    { kind: "realty", objectKind: "land", cadastralNumber: "74:36:0000000:2", cadastralValue: "600000", price: "800000", saleDate: `${year}-08-01`, acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна", buyerInn: "" },
+    { kind: "realty", objectKind: "garage", cadastralNumber: "74:36:0000000:2", cadastralValue: "600000", price: "800000", saleDate: `${year}-08-01`, acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна", buyerInn: "" },
   ];
   const d = { year, types: ["prodazha_auto", "prodazha_realty"], personal, incomes: [], sales };
   const { bytes } = buildDeclarationXml(buildDeclarationModel(d));

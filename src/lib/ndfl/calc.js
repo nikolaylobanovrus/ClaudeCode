@@ -11,6 +11,8 @@ import {
   RATE,
   SALE_DEDUCTION,
   SALE_CADASTRAL_COEF,
+  saleClassOf,
+  saleIsRealty,
   saleMinHolding,
   yearRules,
   refundDeadlineYear,
@@ -52,9 +54,12 @@ function salesOf(draft) {
 // вычет ДО применения годового лимита. Для авто (иного имущества) доход =
 // цена договора; для недвижимости доход = max(цена, кадастр × 0,7)
 // (ст. 214.10 НК) — от этого зависит и код вида дохода в Приложении 1.
-function parseSaleItem(item, isRealtyType, warnings) {
+function parseSaleItem(item, defaultKind, warnings) {
   const s = item || {};
-  const isRealty = isRealtyType;
+  // Класс определяет всё: размер вычета, пункт Приложения 6, применяется ли
+  // кадастровое правило и какой срок владения освобождает от налога.
+  const cls = saleClassOf(s.objectKind, s.kind || defaultKind);
+  const isRealty = saleIsRealty(cls);
   const price = num(s.price);
   const cadastral = isRealty ? num(s.cadastralValue) : 0;
   const cadastralTaxable = cadastral > 0 ? Math.round(cadastral * SALE_CADASTRAL_COEF) : 0;
@@ -70,13 +75,14 @@ function parseSaleItem(item, isRealtyType, warnings) {
 
   // Срок владения (ст. 217.1 НК): владел дольше минимального — доход НЕ
   // облагается и декларацию подавать не нужно. Не берём за это деньги —
-  // говорим прямо. Авто 3 года; недвижимость 5 лет (3 в льготных случаях).
-  const minHolding = saleMinHolding(isRealty ? "realty" : "auto", s.realtyBasis);
+  // говорим прямо. Движимое 3 года; недвижимость 5 лет (3 в льготных случаях).
+  const minHolding = saleMinHolding(cls, s.realtyBasis);
   const held = holdingYears(s.acquireDate, s.saleDate);
   const holdingExempt = held !== null && held >= minHolding;
 
   return {
-    kind: isRealty ? "realty" : "auto",
+    cls, // "home" | "realtyOther" | "movable"
+    kind: isRealty ? "realty" : "auto", // грубое деление — для бланка и подписей
     objectKind: isRealty ? String(s.objectKind || "flat") : "",
     cadastralNumber: isRealty ? String(s.cadastralNumber || "").trim() : "",
     price,
@@ -117,15 +123,16 @@ function computeSale(draft, warnings) {
   if (!typeAuto && !typeRealty) return null;
 
   const parsed = items.map((it) =>
-    parseSaleItem(
-      it,
-      it?.kind ? it.kind === "realty" : typeRealty,
-      warnings
-    )
+    parseSaleItem(it, typeRealty ? "realty" : "auto", warnings)
   );
 
-  // Годовые остатки фиксированного вычета — общие на все объекты класса.
-  const room = { realty: SALE_DEDUCTION.realty, auto: SALE_DEDUCTION.other };
+  // Годовые остатки фиксированного вычета. Пулов ТРИ и они независимы:
+  // жильё с землёй, иное недвижимое и движимое имущество (пп. 1 п. 2 ст. 220).
+  const room = {
+    home: SALE_DEDUCTION.realty,
+    realtyOther: SALE_DEDUCTION.realtyOther,
+    movable: SALE_DEDUCTION.other,
+  };
   const sales = parsed.map((o) => {
     let deduction;
     if (o.deductionKind === "expenses") {
@@ -136,8 +143,8 @@ function computeSale(draft, warnings) {
         );
       }
     } else {
-      deduction = Math.min(room[o.kind], o.taxable);
-      room[o.kind] -= deduction;
+      deduction = Math.min(room[o.cls], o.taxable);
+      room[o.cls] -= deduction;
     }
     const base = Math.max(0, o.taxable - deduction);
     return { ...o, deduction, base, tax: Math.round(base * RATE) };
@@ -145,13 +152,17 @@ function computeSale(draft, warnings) {
 
   // Лимит израсходован не полностью по вине второй продажи — говорим прямо,
   // иначе человек решит, что вычет «не сработал».
-  for (const kind of ["realty", "auto"]) {
-    const std = sales.filter((o) => o.kind === kind && o.deductionKind === "standard");
-    if (std.length > 1 && room[kind] === 0) {
-      const limit = kind === "realty" ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
+  const CLASS_WORDS = {
+    home: "объекты жилья и земли",
+    realtyOther: "гаражи, машиноместа и другую нежилую недвижимость",
+    movable: "машины и иное движимое имущество",
+  };
+  for (const cls of ["home", "realtyOther", "movable"]) {
+    const std = sales.filter((o) => o.cls === cls && o.deductionKind === "standard");
+    if (std.length > 1 && room[cls] === 0) {
       warnings.push(
-        `Вычет ${fmtRub(limit)} — общий на все проданные за год ` +
-          (kind === "realty" ? "объекты жилья и земли" : "машины и иное имущество") +
+        `Вычет ${fmtRub(SALE_DEDUCTION[cls === "home" ? "realty" : cls === "realtyOther" ? "realtyOther" : "other"])} — общий на все проданные за год ` +
+          CLASS_WORDS[cls] +
           ", а не на каждый. Он уже израсходован полностью; по остальным объектам налог считается с полной цены или с ваших расходов на покупку."
       );
     }
@@ -186,12 +197,16 @@ function computeSale(draft, warnings) {
     // внутри каждого — отдельно фиксированный вычет и отдельно расходы на
     // покупку. Человек может по одной машине заявить вычет, а по другой
     // расходы, и тогда заполнены обе строки пункта.
-    dedRealtyStandard: sum((o) => (o.kind === "realty" && o.deductionKind === "standard" ? o.deduction : 0)),
-    dedRealtyExpenses: sum((o) => (o.kind === "realty" && o.deductionKind === "expenses" ? o.deduction : 0)),
-    dedOtherStandard: sum((o) => (o.kind === "auto" && o.deductionKind === "standard" ? o.deduction : 0)),
-    dedOtherExpenses: sum((o) => (o.kind === "auto" && o.deductionKind === "expenses" ? o.deduction : 0)),
-    hasRealty: sales.some((o) => o.kind === "realty"),
-    hasOther: sales.some((o) => o.kind === "auto"),
+    ded: Object.fromEntries(
+      ["home", "realtyOther", "movable"].map((cls) => [
+        cls,
+        {
+          has: sales.some((o) => o.cls === cls),
+          standard: sum((o) => (o.cls === cls && o.deductionKind === "standard" ? o.deduction : 0)),
+          expenses: sum((o) => (o.cls === cls && o.deductionKind === "expenses" ? o.deduction : 0)),
+        },
+      ])
+    ),
     holdingExempt: sales.every((o) => o.holdingExempt),
   };
 }

@@ -9,21 +9,21 @@
 import { useWizard } from "../WizardContext.jsx";
 import { HINTS, SALE_SLUGS } from "../../data/wizard.js";
 import {
-  SALE_DEDUCTION,
-  SALE_REALTY_OBJECTS,
-  SALE_REALTY_BASES,
+  SALE_OBJECTS,
+  saleClassOf,
+  saleIsRealty,
+  saleLimitFor,
+  saleBasesFor,
 } from "../../lib/ndfl/refs.js";
 import { Field, TextInput, MoneyInput, DateInput, SelectInput } from "../fields.jsx";
 import { fmtRub } from "../../lib/format.js";
 
 // Один список видов вместо двух контролов: человек не обязан знать, что
-// машина в декларации называется «иным имуществом».
-const OBJECT_OPTIONS = [
-  { value: "auto", label: "Автомобиль или иное имущество" },
-  ...SALE_REALTY_OBJECTS,
-];
+// машина в декларации называется «иным имуществом», а гараж и апартаменты —
+// «иным недвижимым» со своим лимитом.
+const OBJECT_OPTIONS = SALE_OBJECTS;
 
-const kindOf = (value) => (value === "auto" ? "auto" : "realty");
+const kindOf = (value) => (saleIsRealty(saleClassOf(value)) ? "realty" : "auto");
 
 export default function StepSale({ errors = {}, calc }) {
   const { draft, dispatch } = useWizard();
@@ -42,9 +42,17 @@ export default function StepSale({ errors = {}, calc }) {
   };
 
   const patch = (i, p) => {
-    dispatch({ type: "PATCH_SALE", index: i, patch: p });
+    const next = { ...p };
+    // Сменили квартиру на гараж — основание «единственное жильё» перестало
+    // существовать; молча сбрасываем, иначе срок владения считался бы по нему.
+    if ("objectKind" in p) {
+      const cls = saleClassOf(p.objectKind, kindOf(p.objectKind));
+      const allowed = saleBasesFor(cls).map((b) => b.value);
+      if (!allowed.includes(items[i]?.realtyBasis)) next.realtyBasis = "purchase";
+    }
+    dispatch({ type: "PATCH_SALE", index: i, patch: next });
     if ("objectKind" in p || "kind" in p)
-      syncTypes(items.map((s, j) => (j === i ? { ...s, ...p } : s)));
+      syncTypes(items.map((s, j) => (j === i ? { ...s, ...next } : s)));
   };
 
   const addObject = () => dispatch({ type: "ADD_SALE" });
@@ -67,10 +75,11 @@ export default function StepSale({ errors = {}, calc }) {
       {items.map((s, i) => {
         const err = (f) => errors[`sale.${i}.${f}`];
         const value = s.objectKind || (s.kind === "realty" ? "flat" : "auto");
-        const realty = kindOf(value) === "realty";
+        const cls = saleClassOf(value, s.kind);
+        const realty = saleIsRealty(cls);
         const expenses = s.deductionKind === "expenses";
         const calcItem = sale?.items?.[i];
-        const stdDeduction = realty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
+        const stdDeduction = saleLimitFor(cls);
 
         return (
           <fieldset className="wiz__employer" key={i}>
@@ -148,10 +157,13 @@ export default function StepSale({ errors = {}, calc }) {
                 </Field>
 
                 <Field label="Как получили объект" hint={HINTS.saleRealtyBasis}>
+                  {/* «Единственное жильё» — основание из подп. 4 п. 3
+                      ст. 217.1: оно про жилое помещение, гаражу и
+                      апартаментам не положено, поэтому там его нет. */}
                   <SelectInput
                     value={s.realtyBasis || "purchase"}
                     onChange={(v) => patch(i, { realtyBasis: v })}
-                    options={SALE_REALTY_BASES}
+                    options={saleBasesFor(cls)}
                   />
                 </Field>
               </>
@@ -239,8 +251,13 @@ export default function StepSale({ errors = {}, calc }) {
                 </div>
                 {!expenses && calcItem.deduction < Math.min(stdDeduction, calcItem.taxable) && (
                   <p className="wiz__note" style={{ margin: "0 0 6px" }}>
-                    Вычет {fmtRub(stdDeduction)} — общий на все проданные за год
-                    объекты этого вида, а не на каждый. Здесь от него осталось{" "}
+                    Вычет {fmtRub(stdDeduction)} — общий на все проданные за год{" "}
+                    {cls === "home"
+                      ? "жильё и землю"
+                      : cls === "realtyOther"
+                        ? "гаражи, машиноместа и другую нежилую недвижимость"
+                        : "машины и иное движимое имущество"}
+                    , а не на каждый объект. Здесь от него осталось{" "}
                     {fmtRub(calcItem.deduction)}.
                   </p>
                 )}

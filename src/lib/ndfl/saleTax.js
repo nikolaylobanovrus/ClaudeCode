@@ -6,8 +6,10 @@
 // коэффициент кадастра, править надо там, и оба места подхватят новое.
 import {
   RATE,
-  SALE_DEDUCTION,
   SALE_CADASTRAL_COEF,
+  saleClassOf,
+  saleIsRealty,
+  saleLimitFor,
   saleMinHolding,
 } from "./refs.js";
 
@@ -26,7 +28,8 @@ export function holdingYears(acquireIso, saleIso) {
 
 /**
  * @param {object} p
- * @param {"realty"|"auto"} p.kind          вид имущества
+ * @param {"realty"|"auto"} p.kind          вид имущества (грубое деление)
+ * @param {string} p.objectKind            конкретный вид: flat, garage, auto…
  * @param {number} p.price                  цена продажи по договору, ₽
  * @param {number} p.expenses              расходы на покупку, ₽ (0 — не заявляются)
  * @param {number} p.cadastral             кадастровая стоимость, ₽ (недвижимость)
@@ -36,6 +39,7 @@ export function holdingYears(acquireIso, saleIso) {
  */
 export function computeSaleTax({
   kind = "auto",
+  objectKind = "",
   price = 0,
   expenses = 0,
   cadastral = 0,
@@ -43,7 +47,10 @@ export function computeSaleTax({
   saleDate = "",
   realtyBasis = "purchase",
 }) {
-  const isRealty = kind === "realty";
+  // Класс объекта решает и лимит вычета, и срок владения: гараж — недвижимость,
+  // но его лимит 250 000 ₽, а не миллион (пп. 1 п. 2 ст. 220 НК).
+  const cls = saleClassOf(objectKind, kind);
+  const isRealty = saleIsRealty(cls);
 
   // Доход к налогообложению: недвижимость — большее из цены договора и
   // 0,7 кадастровой стоимости (ст. 214.10 НК); авто — цена договора.
@@ -54,7 +61,7 @@ export function computeSaleTax({
 
   // Считаем ОБА варианта вычета и выбираем выгодный: людям важно увидеть, что
   // договор покупки экономит деньги (или что не экономит — тогда не искать его).
-  const limit = isRealty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
+  const limit = saleLimitFor(cls);
   const byLimit = Math.max(0, taxable - Math.min(limit, taxable));
   const byExpenses =
     expenses > 0 ? Math.max(0, taxable - Math.min(expenses, taxable)) : null;
@@ -67,7 +74,7 @@ export function computeSaleTax({
   // Срок владения (ст. 217.1 НК): продержал дольше минимального — доход не
   // облагается и декларацию подавать НЕ нужно. Говорим об этом прямо, даже
   // если это значит «вы нам не клиент».
-  const minHolding = saleMinHolding(kind, realtyBasis);
+  const minHolding = saleMinHolding(cls, realtyBasis);
   const held = holdingYears(acquireDate, saleDate);
   const exempt = held !== null && held >= minHolding;
 
