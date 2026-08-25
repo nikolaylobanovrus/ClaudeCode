@@ -92,6 +92,19 @@ const saleDraft = (year, sale) => ({
 });
 
 const tmp = mkdtempSync(join(tmpdir(), "ndfl-xml-"));
+// КБК (строка 020 Раздела 1) схемой не проверяется: оба кода формально
+// валидны, а разносятся налоговой по-разному. Возврат — налог, удержанный
+// агентом (...02010), продажа — налог, который человек платит сам по
+// ст. 228 (...02030). Проверяем явно, иначе подмена кода пройдёт незаметно.
+const KBK_EXPECT = { refund: "18210102010011000110", sale: "18210102030011000110" };
+function checkKbk(bytes, kind, label) {
+  const text = Buffer.from(bytes).toString("latin1");
+  const found = (text.match(/182101020\d{11}/) || [])[0];
+  if (found === KBK_EXPECT[kind]) return true;
+  console.log(`✗ ${label}: КБК ${found || "не найден"}, ожидался ${KBK_EXPECT[kind]}`);
+  return false;
+}
+
 let anySchema = false;
 let failed = 0;
 
@@ -116,6 +129,7 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
     const { filename, bytes } = buildDeclarationXml(model);
     const xmlPath = join(tmp, `${scenarios.indexOf(sc)}-${filename}`);
     writeFileSync(xmlPath, bytes); // байты в windows-1251, как для ЛК ФНС
+    if (!checkKbk(bytes, "refund", `${year} (${sc.tag})`)) failed++;
     try {
       execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
         stdio: ["ignore", "ignore", "pipe"],
@@ -133,6 +147,7 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
       const { filename, bytes } = buildDeclarationXml(model);
       const xmlPath = join(tmp, `s${i}-${filename}`);
       writeFileSync(xmlPath, bytes);
+      if (!checkKbk(bytes, "sale", `${year} (${sc.tag})`)) failed++;
       try {
         execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
           stdio: ["ignore", "ignore", "pipe"],

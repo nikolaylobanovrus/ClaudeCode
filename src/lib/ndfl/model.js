@@ -4,7 +4,7 @@
 import { computeDeclaration } from "./calc.js";
 import {
   CODES,
-  KBK,
+  kbkFor,
   RATE,
   SALE_CODES,
   propertyObjectCode,
@@ -101,7 +101,7 @@ export function buildDeclarationModel(draft) {
     person,
     incomes,
     calc,
-    kbk: KBK,
+    kbk: kbkFor(Boolean(sale)),
     ratePercent: Math.round(RATE * 100),
     refund: calc.refund,
     // Продажа: null для обычной (возвратной) декларации.
