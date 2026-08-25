@@ -105,7 +105,13 @@ export default function StepDeductions({ errors }) {
     const next = [...rest, slug];
     ymGoal("situation", { situation: slug });
     dispatch({ type: "SET", key: "types", value: next });
-    dispatch({ type: "PATCH", section: "sale", patch: { kind } });
+    // Плитка задаёт вид ПЕРВОГО объекта. Остальные объекты и их виды человек
+    // выбирает уже на шаге «Продажа» — там же список синхронизирует ситуации.
+    dispatch({
+      type: "PATCH_SALE",
+      index: 0,
+      patch: { kind, objectKind: kind === "realty" ? "flat" : "" },
+    });
     fixYear(next);
   };
 

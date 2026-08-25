@@ -40,24 +40,24 @@ function holdingYears(acquireIso, saleIso) {
 // расчётное ядро не должно зависеть от слоя интерфейса.
 const SALE_TYPES = ["prodazha_auto", "prodazha_realty"];
 
-// Продажа имущества → Приложение 6, налог К УПЛАТЕ (пп. 1 п. 2 ст. 220 НК).
-// Возвращает null, если ситуация продажи не выбрана. Для авто (иного имущества)
-// доход = цена договора; для недвижимости доход = max(цена, кадастр × 0,7).
-// Вычет — фиксированный (250 000 / 1 000 000 ₽) ИЛИ документально
-// подтверждённые расходы на покупку, но не больше самого дохода.
-function computeSale(draft, warnings) {
-  const types = draft.types || [];
-  const isRealty = types.includes("prodazha_realty"); // фаза 2
-  const isAuto = types.includes("prodazha_auto");
-  if (!isAuto && !isRealty) return null;
+// Проданные объекты из черновика. Раньше объект был один (draft.sale), теперь
+// список (draft.sales) — читаем оба вида: снимки оплаченных комплектов хранят
+// старую форму, и документы по ним должны собираться как прежде.
+function salesOf(draft) {
+  if (Array.isArray(draft?.sales)) return draft.sales;
+  return draft?.sale && typeof draft.sale === "object" ? [draft.sale] : [];
+}
 
-  const s = draft.sale || {};
+// Разбор одного проданного объекта: доход к налогообложению и заявленный
+// вычет ДО применения годового лимита. Для авто (иного имущества) доход =
+// цена договора; для недвижимости доход = max(цена, кадастр × 0,7)
+// (ст. 214.10 НК) — от этого зависит и код вида дохода в Приложении 1.
+function parseSaleItem(item, isRealtyType, warnings) {
+  const s = item || {};
+  const isRealty = isRealtyType;
   const price = num(s.price);
   const cadastral = isRealty ? num(s.cadastralValue) : 0;
   const cadastralTaxable = cadastral > 0 ? Math.round(cadastral * SALE_CADASTRAL_COEF) : 0;
-  // Доход к налогообложению: для недвижимости — большее из цены договора и
-  // 0,7 кадастра (ст. 214.10); для авто — цена договора. Основание дохода
-  // (договор/кадастр) определяет код вида дохода в Приложении 1.
   const byCadastral = isRealty && cadastralTaxable > price;
   const taxable = byCadastral ? cadastralTaxable : price;
   if (byCadastral) {
@@ -68,35 +68,12 @@ function computeSale(draft, warnings) {
     );
   }
 
-  // Вычет: жильё и земля целиком — 1 000 000 ₽ (пункт 1 Приложения 6), иное
-  // имущество (авто) — 250 000 ₽. Либо документально подтверждённые расходы
-  // на покупку. Вычет не может превышать доход.
-  const limit = isRealty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
-  const useExpenses = s.deductionKind === "expenses";
-  const expenses = num(s.expenses);
-  const deduction = Math.min(useExpenses ? expenses : limit, taxable);
-  if (useExpenses && expenses > taxable && taxable > 0) {
-    warnings.push(
-      "Расходы на покупку превышают доход от продажи — к вычету принят доход целиком, налог к уплате 0 ₽."
-    );
-  }
-  const base = Math.max(0, taxable - deduction);
-  const tax = Math.round(base * RATE);
-
-  // Честная проверка срока владения (ст. 217.1 НК): владел дольше минимального
-  // срока — доход НЕ облагается и декларацию подавать не нужно. Не берём за это
-  // деньги — прямо сообщаем клиенту. minHolding: авто 3 года; недвижимость 5
-  // лет (3 в льготных случаях — наследство/дар/приватизация/рента/единственное).
+  // Срок владения (ст. 217.1 НК): владел дольше минимального — доход НЕ
+  // облагается и декларацию подавать не нужно. Не берём за это деньги —
+  // говорим прямо. Авто 3 года; недвижимость 5 лет (3 в льготных случаях).
   const minHolding = saleMinHolding(isRealty ? "realty" : "auto", s.realtyBasis);
   const held = holdingYears(s.acquireDate, s.saleDate);
   const holdingExempt = held !== null && held >= minHolding;
-  if (holdingExempt) {
-    warnings.push(
-      `Вы владели этим имуществом ${held} ${held === 1 ? "год" : "лет"} — это не меньше ` +
-        `минимального срока (${minHolding} ${minHolding === 3 ? "года" : "лет"}). ` +
-        `Доход от продажи налогом не облагается и декларацию 3-НДФЛ подавать НЕ нужно.`
-    );
-  }
 
   return {
     kind: isRealty ? "realty" : "auto",
@@ -106,11 +83,9 @@ function computeSale(draft, warnings) {
     cadastral,
     cadastralTaxable,
     taxable,
-    byCadastral, // доход исчислен по кадастру (влияет на код Приложения 1)
-    deductionKind: useExpenses ? "expenses" : "standard",
-    deduction,
-    base,
-    tax,
+    byCadastral,
+    deductionKind: s.deductionKind === "expenses" ? "expenses" : "standard",
+    expenses: num(s.expenses),
     minHolding,
     held,
     holdingExempt,
@@ -118,6 +93,106 @@ function computeSale(draft, warnings) {
       name: String(s.buyerName || "").trim(),
       inn: String(s.buyerInn || "").replace(/\D/g, ""),
     },
+  };
+}
+
+// Продажа имущества → Приложение 6, налог К УПЛАТЕ (пп. 1 п. 2 ст. 220 НК).
+// Возвращает null, если ситуация продажи не выбрана.
+//
+// Главное отличие от расчёта «по одному объекту»: фиксированный вычет —
+// ГОДОВОЙ и ОБЩИЙ, а не на каждую продажу. 1 000 000 ₽ на всё проданное
+// жильё и землю вместе и 250 000 ₽ на всё иное имущество вместе («не
+// превышающем в целом» в тексте статьи). Форма устроена так же: в
+// Приложении 6 по одной строке на каждый из двух пунктов, а не на объект.
+// Объекты, по которым заявлены расходы на покупку, лимит не расходуют —
+// у них свой вычет, тоже не больше собственного дохода.
+function computeSale(draft, warnings) {
+  const types = draft.types || [];
+  const items = salesOf(draft);
+  if (!items.length) return null;
+  // Вид объекта берём из самой записи; ситуации на первом шаге лишь задают
+  // её по умолчанию (старые черновики вида не хранили).
+  const typeRealty = types.includes("prodazha_realty");
+  const typeAuto = types.includes("prodazha_auto");
+  if (!typeAuto && !typeRealty) return null;
+
+  const parsed = items.map((it) =>
+    parseSaleItem(
+      it,
+      it?.kind ? it.kind === "realty" : typeRealty,
+      warnings
+    )
+  );
+
+  // Годовые остатки фиксированного вычета — общие на все объекты класса.
+  const room = { realty: SALE_DEDUCTION.realty, auto: SALE_DEDUCTION.other };
+  const sales = parsed.map((o) => {
+    let deduction;
+    if (o.deductionKind === "expenses") {
+      deduction = Math.min(o.expenses, o.taxable);
+      if (o.expenses > o.taxable && o.taxable > 0) {
+        warnings.push(
+          "Расходы на покупку превышают доход от продажи — к вычету принят доход целиком, налог по этому объекту 0 ₽."
+        );
+      }
+    } else {
+      deduction = Math.min(room[o.kind], o.taxable);
+      room[o.kind] -= deduction;
+    }
+    const base = Math.max(0, o.taxable - deduction);
+    return { ...o, deduction, base, tax: Math.round(base * RATE) };
+  });
+
+  // Лимит израсходован не полностью по вине второй продажи — говорим прямо,
+  // иначе человек решит, что вычет «не сработал».
+  for (const kind of ["realty", "auto"]) {
+    const std = sales.filter((o) => o.kind === kind && o.deductionKind === "standard");
+    if (std.length > 1 && room[kind] === 0) {
+      const limit = kind === "realty" ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other;
+      warnings.push(
+        `Вычет ${fmtRub(limit)} — общий на все проданные за год ` +
+          (kind === "realty" ? "объекты жилья и земли" : "машины и иное имущество") +
+          ", а не на каждый. Он уже израсходован полностью; по остальным объектам налог считается с полной цены или с ваших расходов на покупку."
+      );
+    }
+  }
+
+  for (const o of sales) {
+    if (o.holdingExempt) {
+      warnings.push(
+        `Вы владели этим имуществом ${o.held} ${o.held === 1 ? "год" : "лет"} — это не меньше ` +
+          `минимального срока (${o.minHolding} ${o.minHolding === 3 ? "года" : "лет"}). ` +
+          `Доход от продажи налогом не облагается и декларацию 3-НДФЛ подавать НЕ нужно.`
+      );
+    }
+  }
+
+  const sum = (f) => sales.reduce((acc, o) => acc + f(o), 0);
+  const taxable = sum((o) => o.taxable);
+  const deduction = sum((o) => o.deduction);
+  const base = Math.max(0, taxable - deduction);
+  // Налог считаем от суммарной базы, а не сложением округлённых налогов по
+  // объектам: в Разделе 2 стоит одна база, и суммы обязаны сойтись.
+  const tax = Math.round(base * RATE);
+
+  return {
+    items: sales,
+    price: sum((o) => o.price),
+    taxable,
+    deduction,
+    base,
+    tax,
+    // Приложение 6 разбито на четыре строки: по пункту на класс имущества и
+    // внутри каждого — отдельно фиксированный вычет и отдельно расходы на
+    // покупку. Человек может по одной машине заявить вычет, а по другой
+    // расходы, и тогда заполнены обе строки пункта.
+    dedRealtyStandard: sum((o) => (o.kind === "realty" && o.deductionKind === "standard" ? o.deduction : 0)),
+    dedRealtyExpenses: sum((o) => (o.kind === "realty" && o.deductionKind === "expenses" ? o.deduction : 0)),
+    dedOtherStandard: sum((o) => (o.kind === "auto" && o.deductionKind === "standard" ? o.deduction : 0)),
+    dedOtherExpenses: sum((o) => (o.kind === "auto" && o.deductionKind === "expenses" ? o.deduction : 0)),
+    hasRealty: sales.some((o) => o.kind === "realty"),
+    hasOther: sales.some((o) => o.kind === "auto"),
+    holdingExempt: sales.every((o) => o.holdingExempt),
   };
 }
 

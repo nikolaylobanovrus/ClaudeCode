@@ -82,6 +82,29 @@ const saleScenarios = [
   { tag: "продажа квартиры, доход по договору", sale: { kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1234", cadastralValue: "3000000", price: "4000000", saleDate: `${2025}-06-10`, acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" } },
   { tag: "продажа дома, доход по кадастру", sale: { kind: "realty", objectKind: "house", cadastralNumber: "74:36:0000000:5678", cadastralValue: "8000000", price: "3000000", saleDate: `${2025}-06-10`, acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "expenses", expenses: "2000000", buyerName: "Петров Пётр Петрович", buyerInn: "500100732259" } },
 ];
+// Несколько объектов за год: вычет 250 000 / 1 000 000 — ГОДОВОЙ и общий на
+// класс имущества, а не на каждую продажу. Проверяем и это, и то, что в
+// Приложении 1 источник дохода появляется на каждый объект.
+const multiScenario = {
+  tag: "две машины и две недвижимости",
+  sales: [
+    { kind: "auto", price: "400000", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" },
+    { kind: "auto", price: "500000", deductionKind: "expenses", expenses: "450000", buyerName: "Сидоров Иван Иванович", buyerInn: "" },
+    { kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1", cadastralValue: "5000000", price: "3000000", acquireDate: "2022-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна Ивановна", buyerInn: "" },
+    { kind: "realty", objectKind: "land", cadastralNumber: "74:36:0000000:2", cadastralValue: "600000", price: "800000", acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Кузнецова Анна Ивановна", buyerInn: "" },
+  ],
+  // Жильё и земля: 3 500 000 (по кадастру) + 800 000, вычет 1 000 000 на всё.
+  // Иное имущество: 400 000 + 500 000, вычет 250 000 на всё + расходы 450 000.
+  expect: { taxable: 5200000, deduction: 1700000, sources: 4 },
+};
+const multiDraft = (year) => ({
+  year,
+  types: ["prodazha_auto", "prodazha_realty"],
+  personal: sampleDraft(year).personal,
+  incomes: [],
+  sales: multiScenario.sales.map((s) => ({ ...s, saleDate: `${year}-06-10` })),
+});
+
 const saleDraft = (year, sale) => ({
   year,
   types: [sale.kind === "realty" ? "prodazha_realty" : "prodazha_auto"],
@@ -169,6 +192,35 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
       failed++;
       console.log(`✗ ${year} (${sc.tag}): XML НЕ прошёл схему:`);
       console.log(String(e.stderr || e.message).trim().split("\n").map((l) => "    " + l).join("\n"));
+    }
+  }
+  if (SALE_YEARS.includes(year)) {
+    const model = buildDeclarationModel(multiDraft(year));
+    const { filename, bytes } = buildDeclarationXml(model);
+    const xmlPath = join(tmp, `multi-${filename}`);
+    writeFileSync(xmlPath, bytes);
+    const label = `${year} (${multiScenario.tag})`;
+    if (!checkKbk(bytes, "sale", label)) failed++;
+    const text = Buffer.from(bytes).toString("latin1");
+    const sources = (text.match(/<\xc4\xee\xf5\xee\xe4\xc8\xf1\xf2\xd0\xd4 /g) || []).length;
+    const e = multiScenario.expect;
+    if (model.sale.taxable !== e.taxable || model.sale.deduction !== e.deduction || sources !== e.sources) {
+      failed++;
+      console.log(
+        `✗ ${label}: доход ${model.sale.taxable} (ждали ${e.taxable}), ` +
+          `вычет ${model.sale.deduction} (ждали ${e.deduction}), ` +
+          `источников ${sources} (ждали ${e.sources})`
+      );
+    }
+    try {
+      execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      console.log(`✓ ${label}: OK — XML соответствует схеме ФНС`);
+    } catch (err) {
+      failed++;
+      console.log(`✗ ${label}: XML НЕ прошёл схему:`);
+      console.log(String(err.stderr || err.message).trim().split("\n").map((l) => "    " + l).join("\n"));
     }
   }
   if (MIXED_YEARS.includes(year)) {

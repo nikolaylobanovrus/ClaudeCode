@@ -2,14 +2,16 @@
 // calc приходит из WizardShell — расчёт выполняется один раз на рендер.
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
-import { yearRules, SALE_DEDUCTION, SALE_REALTY_OBJECTS } from "../../lib/ndfl/refs.js";
+import { yearRules, SALE_REALTY_OBJECTS } from "../../lib/ndfl/refs.js";
 
-// Что именно продали — одной строкой. Нужен и чистой продаже, и смешанной
-// декларации, поэтому вынесен из ветки.
-const saleObjectLabel = (sale) =>
-  sale.kind === "realty"
-    ? SALE_REALTY_OBJECTS.find((o) => o.value === sale.objectKind)?.label || "Недвижимость"
+// Что именно продали — одной строкой на объект.
+const objectLabelOf = (o) =>
+  o.kind === "realty"
+    ? SALE_REALTY_OBJECTS.find((x) => x.value === o.objectKind)?.label || "Недвижимость"
     : "Автомобиль (иное имущество)";
+// Несколько объектов — перечисляем через запятую: в сводке важно, что именно
+// декларируется, а не только сумма.
+const saleObjectsLabel = (sale) => sale.items.map(objectLabelOf).join(", ");
 import { fmtRub } from "../../lib/format.js";
 import { ymGoal } from "../../lib/metrika.js";
 
@@ -29,21 +31,27 @@ export default function StepReview({ calc, errors = {} }) {
   // отдельным блоком ниже, потому что вычеты и счёт тоже надо показать.
   if (calc.sale && !calc.mixed) {
     const s = calc.sale;
-    const expenses = s.deductionKind === "expenses";
-    const realty = s.kind === "realty";
-    const objectLabel = saleObjectLabel(s);
     const saleRows = [
       ["Отчётный год", draft.year, "types"],
-      ["Что продали", objectLabel, "sale"],
-      ["Цена продажи", fmtRub(s.price), "sale"],
-      ...(realty
-        ? [
-            ["Кадастровый номер", s.cadastralNumber || "—", "sale"],
-            ["Кадастровая стоимость", fmtRub(s.cadastral), "sale"],
-          ]
-        : []),
-      [expenses ? "Расходы на покупку" : "Вычет", fmtRub(s.deduction), "sale"],
-      ["Покупатель", draft.sale?.buyerName || "—", "sale"],
+      ...s.items.flatMap((o, i) => {
+        const n = s.items.length > 1 ? ` (объект ${i + 1})` : "";
+        return [
+          [`Что продали${n}`, objectLabelOf(o), "sale"],
+          [`Цена продажи${n}`, fmtRub(o.price), "sale"],
+          ...(o.kind === "realty"
+            ? [
+                [`Кадастровый номер${n}`, o.cadastralNumber || "—", "sale"],
+                [`Кадастровая стоимость${n}`, fmtRub(o.cadastral), "sale"],
+              ]
+            : []),
+          [
+            o.deductionKind === "expenses" ? `Расходы на покупку${n}` : `Вычет${n}`,
+            fmtRub(o.deduction),
+            "sale",
+          ],
+          [`Покупатель${n}`, o.buyer.name || "—", "sale"],
+        ];
+      }),
       ["ФИО", [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" "), "personal"],
       ["ИНН", p.inn, "personal"],
       ["Инспекция / ОКТМО", `${p.ifns} / ${p.oktmo}`, "personal"],
@@ -67,15 +75,11 @@ export default function StepReview({ calc, errors = {} }) {
         <div className="wiz__calc">
           <h3 className="wiz__subhead">Расчёт налога</h3>
           <div className="wiz__calc-row">
-            <span>Доход от продажи</span>
+            <span>Доход от {s.items.length > 1 ? "всех продаж" : "продажи"}</span>
             <span>{fmtRub(s.taxable)}</span>
           </div>
           <div className="wiz__calc-row">
-            <span>
-              {expenses
-                ? "Расходы на покупку"
-                : `Вычет ${fmtRub(realty ? SALE_DEDUCTION.realty : SALE_DEDUCTION.other)}`}
-            </span>
+            <span>Вычеты и расходы</span>
             <span>−{fmtRub(s.deduction)}</span>
           </div>
           <div className="wiz__calc-row wiz__calc-row--total">
@@ -116,7 +120,7 @@ export default function StepReview({ calc, errors = {} }) {
     ["Налог удержан", fmtRub(calc.totalWithheld), "income"],
     ...(calc.mixed
       ? [
-          ["Продали", saleObjectLabel(calc.sale), "sale"],
+          ["Продали", saleObjectsLabel(calc.sale), "sale"],
           ["Цена продажи", fmtRub(calc.sale.price), "sale"],
         ]
       : []),
@@ -223,15 +227,7 @@ export default function StepReview({ calc, errors = {} }) {
             <span>{fmtRub(calc.sale.taxable)}</span>
           </div>
           <div className="wiz__calc-row">
-            <span>
-              {calc.sale.deductionKind === "expenses"
-                ? "Расходы на покупку"
-                : `Вычет ${fmtRub(
-                    calc.sale.kind === "realty"
-                      ? SALE_DEDUCTION.realty
-                      : SALE_DEDUCTION.other
-                  )}`}
-            </span>
+            <span>Вычеты и расходы</span>
             <span>−{fmtRub(calc.sale.deduction)}</span>
           </div>
           <div className="wiz__calc-row wiz__calc-row--total">

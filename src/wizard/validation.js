@@ -290,43 +290,47 @@ export function validateStep(stepKey, draft) {
   }
 
   if (stepKey === "sale") {
-    const s = draft.sale || {};
-    const realty = (draft.types || []).includes("prodazha_realty");
-    put(e, "sale.price", validateMoney(s.price, "цену продажи"));
-    if (!e["sale.price"] && !positive(s.price))
-      put(e, "sale.price", "Укажите цену продажи");
-    put(e, "sale.saleDate", validateDate(s.saleDate, "дату продажи"));
-    // Год декларации выбирается на первом шаге, и человек про это уже забыл:
-    // без подсказки «дата должна быть в 2025 году» — тупик для того, кто
-    // продал в 2024-м.
-    if (!e["sale.saleDate"] && String(s.saleDate).slice(0, 4) !== String(draft.year))
-      put(
-        e,
-        "sale.saleDate",
-        `Декларация подаётся за ${draft.year} год, поэтому дата продажи должна быть в ${draft.year} году. ` +
-          "Продали в другом году — вернитесь на шаг «Ситуация» и выберите его."
-      );
-    if (realty) {
-      // Кадастровый номер и стоимость нужны для «Расчёта к Приложению 1»
-      // (сверка по правилу кадастр × 0,7) — в XML все поля обязательны.
-      put(e, "sale.cadastralNumber", validateCadastral(s.cadastralNumber));
-      put(e, "sale.cadastralValue", validateMoney(s.cadastralValue, "кадастровую стоимость"));
-      if (!e["sale.cadastralValue"] && !positive(s.cadastralValue))
-        put(e, "sale.cadastralValue", "Укажите кадастровую стоимость (можно узнать на сайте Росреестра)");
-      // Дата приобретения — для проверки срока владения.
-      put(e, "sale.acquireDate", validateDate(s.acquireDate, "дату приобретения"));
-      if (!e["sale.acquireDate"] && !e["sale.saleDate"] && s.acquireDate > s.saleDate)
-        put(e, "sale.acquireDate", "Дата приобретения не может быть позже даты продажи");
-    }
-    put(e, "sale.buyerName", validateName(s.buyerName, "покупателя"));
-    if (s.deductionKind === "expenses") {
-      put(e, "sale.expenses", validateMoney(s.expenses, "расходы на покупку"));
-      if (!e["sale.expenses"] && !positive(s.expenses))
-        put(e, "sale.expenses", "Укажите расходы на покупку");
-    }
-    const binn = digits(s.buyerInn);
-    if (binn && binn.length !== 10 && binn.length !== 12)
-      put(e, "sale.buyerInn", "ИНН — 12 цифр (физлицо) или оставьте пустым");
+    // Объектов может быть несколько — ошибки нумеруем: sale.<индекс>.<поле>.
+    const items = Array.isArray(draft.sales)
+      ? draft.sales
+      : draft.sale && typeof draft.sale === "object"
+        ? [draft.sale]
+        : [];
+    items.forEach((s, i) => {
+      const key = (f) => `sale.${i}.${f}`;
+      const realty = (s.objectKind || (s.kind === "realty" ? "flat" : "auto")) !== "auto";
+      put(e, key("price"), validateMoney(s.price, "цену продажи"));
+      if (!e[key("price")] && !positive(s.price)) put(e, key("price"), "Укажите цену продажи");
+      put(e, key("saleDate"), validateDate(s.saleDate, "дату продажи"));
+      if (!e[key("saleDate")] && String(s.saleDate).slice(0, 4) !== String(draft.year))
+        put(
+          e,
+          key("saleDate"),
+          `Декларация подаётся за ${draft.year} год, поэтому дата продажи должна быть в ${draft.year} году. ` +
+            "Продали в другом году — вернитесь на шаг «Ситуация» и выберите его."
+        );
+      if (realty) {
+        // Кадастровый номер и стоимость нужны для «Расчёта к Приложению 1»
+        // (сверка по правилу кадастр × 0,7) — в XML все поля обязательны.
+        put(e, key("cadastralNumber"), validateCadastral(s.cadastralNumber));
+        put(e, key("cadastralValue"), validateMoney(s.cadastralValue, "кадастровую стоимость"));
+        if (!e[key("cadastralValue")] && !positive(s.cadastralValue))
+          put(e, key("cadastralValue"), "Укажите кадастровую стоимость (можно узнать на сайте Росреестра)");
+        // Дата приобретения — для проверки срока владения.
+        put(e, key("acquireDate"), validateDate(s.acquireDate, "дату приобретения"));
+        if (!e[key("acquireDate")] && !e[key("saleDate")] && s.acquireDate > s.saleDate)
+          put(e, key("acquireDate"), "Дата приобретения не может быть позже даты продажи");
+      }
+      put(e, key("buyerName"), validateName(s.buyerName, "покупателя"));
+      if (s.deductionKind === "expenses") {
+        put(e, key("expenses"), validateMoney(s.expenses, "расходы на покупку"));
+        if (!e[key("expenses")] && !positive(s.expenses))
+          put(e, key("expenses"), "Укажите расходы на покупку");
+      }
+      const binn = digits(s.buyerInn);
+      if (binn && binn.length !== 10 && binn.length !== 12)
+        put(e, key("buyerInn"), "ИНН — 12 цифр (физлицо) или оставьте пустым");
+    });
   }
 
   return e;

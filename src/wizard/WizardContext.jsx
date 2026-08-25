@@ -52,10 +52,11 @@ export function initialDraft() {
     insurance: { amount: "" },
     sport: { amount: "" },
     bank: { bik: "", account: "" },
-    // Продажа имущества (ситуация prodazha_auto): доход, вычет/расходы,
-    // покупатель. Заполняется на шаге «Продажа»; в возвратной декларации
-    // не используется.
-    sale: emptySale(),
+    // Продажа имущества: СПИСОК проданных объектов — за год человек мог
+    // продать и машину, и квартиру, и всё это идёт одной декларацией.
+    // Заполняется на шаге «Продажа»; в возвратной декларации не используется.
+    // Старые черновики хранили один объект в поле sale — см. loadDraft.
+    sales: [emptySale()],
     order: null, // { id, provider, amount, status, confirmationUrl?, draftHash? }
     // Оплаченные комплекты: { id, provider, amount, paidAt, draftHash, snapshot }.
     // Одна оплата = один комплект для одного состояния анкеты (draftHash);
@@ -105,6 +106,20 @@ function reducer(state, action) {
           : [...state.types, action.slug],
       };
     }
+    case "ADD_SALE":
+      return { ...state, sales: [...(state.sales || []), emptySale()] };
+    case "REMOVE_SALE": {
+      const rest = (state.sales || []).filter((_, i) => i !== action.index);
+      // Пустой список сломал бы шаг «Продажа» — держим хотя бы один объект.
+      return { ...state, sales: rest.length ? rest : [emptySale()] };
+    }
+    case "PATCH_SALE":
+      return {
+        ...state,
+        sales: (state.sales || []).map((s, i) =>
+          i === action.index ? { ...s, ...action.patch } : s
+        ),
+      };
     case "ADD_INCOME":
       return { ...state, incomes: [...state.incomes, emptyIncome()] };
     case "REMOVE_INCOME":
@@ -192,9 +207,13 @@ export function loadDraft() {
     }
     if (draft?.v !== 2) return null;
     if (!Array.isArray(draft.purchases)) draft.purchases = [];
-    // Черновики до появления продажи не имеют секции sale — добавляем дефолт,
-    // чтобы reducer PATCH("sale", …) и шаг «Продажа» работали.
-    if (!draft.sale) draft.sale = emptySale();
+    // Продажа: раньше объект был один (поле sale), теперь их список. Старый
+    // черновик переносим в первый элемент, чтобы человек не потерял введённое.
+    // Само поле sale не трогаем: снимки оплаченных комплектов
+    // (purchases[].snapshot) хранят именно его, и документы по ним обязаны
+    // собираться по-прежнему — расчёт умеет читать оба вида (см. calc.js).
+    if (!Array.isArray(draft.sales))
+      draft.sales = [draft.sale && typeof draft.sale === "object" ? draft.sale : emptySale()];
     // Черновики до появления уточнёнки: первичная декларация.
     if (draft.correction === undefined) draft.correction = 0;
     // Черновики до появления вычета за спорт.

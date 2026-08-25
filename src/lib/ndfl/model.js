@@ -73,22 +73,38 @@ export function buildDeclarationModel(draft) {
   const saleIncomeCode = calc.sale ? saleCodes.income : "";
   const sale = calc.sale
     ? {
-        kind: calc.sale.kind, // "auto" | "realty"
-        objectKind: calc.sale.objectKind, // вид объекта недвижимости (flat/house/…)
+        // Суммарные величины — для Раздела 2 и Приложения 6: и налоговая база,
+        // и вычет там ОДНИ на все проданные за год объекты.
         price: calc.sale.price,
-        cadastral: calc.sale.cadastral, // кадастровая стоимость (недвижимость)
-        cadastralTaxable: calc.sale.cadastralTaxable, // кадастр × 0,7
-        cadastralNumber: trim(calc.sale.cadastralNumber),
-        byCadastral: calc.sale.byCadastral, // доход исчислен по кадастру
         taxable: calc.sale.taxable,
-        deductionKind: calc.sale.deductionKind, // "standard" | "expenses"
         deduction: calc.sale.deduction,
         base: calc.sale.base,
         tax: calc.sale.tax,
-        buyer: {
-          name: trim(calc.sale.buyer.name),
-          inn: digits(calc.sale.buyer.inn),
-        },
+        // Приложение 6 разводит вычет по двум пунктам: жильё и земля — свой,
+        // иное имущество (авто) — свой. Отсюда и признаки «по расходам».
+        dedRealtyStandard: calc.sale.dedRealtyStandard,
+        dedRealtyExpenses: calc.sale.dedRealtyExpenses,
+        dedOtherStandard: calc.sale.dedOtherStandard,
+        dedOtherExpenses: calc.sale.dedOtherExpenses,
+        hasRealty: calc.sale.hasRealty,
+        hasOther: calc.sale.hasOther,
+        // Пообъектные данные — для Приложения 1 (по источнику дохода на
+        // объект) и «Расчёта к Приложению 1» (по объекту недвижимости).
+        items: calc.sale.items.map((o) => ({
+          kind: o.kind, // "auto" | "realty"
+          objectKind: o.objectKind, // вид объекта недвижимости (flat/house/…)
+          price: o.price,
+          cadastral: o.cadastral, // кадастровая стоимость (недвижимость)
+          cadastralTaxable: o.cadastralTaxable, // кадастр × 0,7
+          cadastralNumber: trim(o.cadastralNumber),
+          byCadastral: o.byCadastral, // доход исчислен по кадастру
+          taxable: o.taxable,
+          deductionKind: o.deductionKind, // "standard" | "expenses"
+          deduction: o.deduction,
+          base: o.base,
+          tax: o.tax,
+          buyer: { name: trim(o.buyer.name), inn: digits(o.buyer.inn) },
+        })),
         groupCode: saleCodes.group, // Раздел 2, строка 001
         incomeCode: saleIncomeCode, // Приложение 1, строка 010
       }

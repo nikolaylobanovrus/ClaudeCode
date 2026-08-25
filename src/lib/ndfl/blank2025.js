@@ -35,7 +35,9 @@ export async function buildOfficialPdf2025(model) {
   if (refundSide)
     for (const part of chunk(model.incomes, 3))
       sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
-  if (sale) sheets.push({ tpl: PG.app1, fill: fillApp1Sale });
+  if (sale)
+    for (const part of chunk(sale.items, 3))
+      sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1Sale(pen, part) });
   if (model.social) {
     sheets.push({ tpl: PG.app5a, fill: fillApp5a });
     sheets.push({ tpl: PG.app5b, fill: fillApp5b });
@@ -43,8 +45,10 @@ export async function buildOfficialPdf2025(model) {
   if (sale) sheets.push({ tpl: PG.app6, fill: fillApp6 });
   if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   // Недвижимость: лист «Расчёт к Приложению 1» — сверка дохода с кадастровой
-  // стоимостью (ст. 214.10 НК).
-  if (sale && sale.kind === "realty") sheets.push({ tpl: PG.raschet, fill: fillRaschet });
+  // стоимостью (ст. 214.10 НК), по листу на каждый проданный объект.
+  if (sale)
+    for (const o of sale.items.filter((x) => x.kind === "realty"))
+      sheets.push({ tpl: PG.raschet, fill: (pen) => fillRaschet(pen, o) });
   const total = sheets.length;
 
   return assembleOnBlank({ blankUrl, person, sheets });
@@ -134,18 +138,28 @@ export async function buildOfficialPdf2025(model) {
     });
   }
 
-  // --- Приложение 1 (продажа): источник дохода — покупатель --------------------
+  // --- Приложение 1 (продажа): покупатели как источники дохода -----------------
+  // По объекту на источник, до трёх на листе — та же сетка, что у зарплаты.
   // Код вида дохода «018» (продажа иного имущества), ставка 13 %, ОКТМО — по
   // месту жительства продавца; ИНН пишем только для физлица (12 цифр).
-  function fillApp1Sale(pen) {
-    const b = sale.buyer;
-    pen.left(sale.incomeCode, 119.3, 714, 3); // 010 код вида дохода
-    pen.right(String(model.ratePercent), 527.5, 714, 2); // ставка
-    if (b.inn.length === 12) pen.left(b.inn, 14.5, 678, 12); // ИНН физлица
-    pen.left(person.oktmo, 400.0, 678, 11); // ОКТМО по месту жительства
-    fillRows(pen, b.name || "Физическое лицо", 14.5, [642, 618, 595, 572], 40);
-    pen.money(sale.price, 14.5, 533, 13); // 070 сумма дохода
-    pen.int(0, 297.9, 533, 13); // 080 налог удержан — 0
+  function fillApp1Sale(pen, items) {
+    const codeY = [714, 498, 283];
+    const idY = [678, 462, 247];
+    const nameY = [
+      [642, 618, 595, 572],
+      [426, 403, 380, 356],
+      [211, 187, 164, 141],
+    ];
+    const sumY = [533, 318, 102];
+    items.forEach((o, i) => {
+      pen.left(sale.incomeCode, 119.3, codeY[i], 3); // 010 код вида дохода
+      pen.right(String(model.ratePercent), 527.5, codeY[i], 2); // ставка
+      if (o.buyer.inn.length === 12) pen.left(o.buyer.inn, 14.5, idY[i], 12); // ИНН физлица
+      pen.left(person.oktmo, 400.0, idY[i], 11); // ОКТМО по месту жительства
+      fillRows(pen, o.buyer.name || "Физическое лицо", 14.5, nameY[i], 40);
+      pen.money(o.price, 14.5, sumY[i], 13); // 070 сумма дохода
+      pen.int(0, 297.9, sumY[i], 13); // 080 налог удержан — 0
+    });
   }
 
   // --- Приложение 6: имущественный вычет по доходам от продажи -----------------
@@ -155,14 +169,13 @@ export async function buildOfficialPdf2025(model) {
   // ЛИБО 080 (расходы).
   function fillApp6(pen) {
     const X = 422.7;
-    const expenses = sale.deductionKind === "expenses";
-    if (sale.kind === "realty") {
-      if (expenses) pen.money(sale.deduction, X, 652.9, 8); // 020 расходы
-      else pen.money(sale.deduction, X, 678.4, 8); // 010 вычет 1 млн
-    } else {
-      if (expenses) pen.money(sale.deduction, X, 468.7, 8); // 080 расходы
-      else pen.money(sale.deduction, X, 494.2, 8); // 070 вычет 250 тыс
-    }
+    // Суммы годовые и общие на все объекты класса; вычет и расходы стоят в
+    // разных строках, поэтому «одну машину по вычету, другую по расходам»
+    // бланк выражает без потерь.
+    if (sale.dedRealtyStandard > 0) pen.money(sale.dedRealtyStandard, X, 678.4, 8); // 010 вычет 1 млн
+    if (sale.dedRealtyExpenses > 0) pen.money(sale.dedRealtyExpenses, X, 652.9, 8); // 020 расходы
+    if (sale.dedOtherStandard > 0) pen.money(sale.dedOtherStandard, X, 494.2, 8); // 070 вычет 250 тыс
+    if (sale.dedOtherExpenses > 0) pen.money(sale.dedOtherExpenses, X, 468.7, 8); // 080 расходы
     pen.money(sale.deduction, X, 64.9, 8); // 160 общая сумма вычетов
   }
 
@@ -171,13 +184,13 @@ export async function buildOfficialPdf2025(model) {
   // номер; 030 — кадастровая стоимость (ст. 214.10); 040 — доход по цене
   // договора; 050 — кадастр × коэффициент 0,7; 060 — доход к налогообложению
   // (большее из 040 и 050). Кадастровую стоимость требуем на шаге «Продажа».
-  function fillRaschet(pen) {
+  function fillRaschet(pen, o) {
     pen.left("1", 17.3, 685, 1); // 010 признак — отчуждение
-    pen.left(sale.cadastralNumber, 14.2, 645, 40); // 020 кадастровый номер
-    pen.money(sale.cadastral, 14.2, 558.8, 13); // 030 кадастровая стоимость
-    pen.money(sale.price, 334.8, 558.8, 13); // 040 доход по цене договора
-    pen.money(sale.cadastralTaxable, 14.2, 501.1, 13); // 050 кадастр × 0,7
-    pen.money(sale.taxable, 334.8, 501.1, 13); // 060 доход к налогообложению
+    pen.left(o.cadastralNumber, 14.2, 645, 40); // 020 кадастровый номер
+    pen.money(o.cadastral, 14.2, 558.8, 13); // 030 кадастровая стоимость
+    pen.money(o.price, 334.8, 558.8, 13); // 040 доход по цене договора
+    pen.money(o.cadastralTaxable, 14.2, 501.1, 13); // 050 кадастр × 0,7
+    pen.money(o.taxable, 334.8, 501.1, 13); // 060 доход к налогообложению
   }
 
   // --- Приложение 5, лист 1: соц. вычеты без ограничения + своё обучение -------

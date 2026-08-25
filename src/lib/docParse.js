@@ -306,16 +306,37 @@ export function mergePatch(draft, patch) {
     dateAct: "дата акта приёма-передачи",
     interestPaid: "проценты по ипотеке",
   });
-  mergeSection("sale", {
-    price: "цена продажи",
-    saleDate: "дата продажи",
-    buyerName: "покупатель",
-    buyerInn: "ИНН покупателя",
-    expenses: "расходы на покупку",
-    cadastralNumber: "кадастровый номер",
-    cadastralValue: "кадастровая стоимость",
-    acquireDate: "дата приобретения",
-  });
+  // Продажа: сервер распознаёт ОДИН договор за заход, поэтому распознанное
+  // кладём в первый объект списка. Второй договор человек загружает вторым
+  // заходом и вписывает во вторую карточку — иначе мы бы затирали первую.
+  const saleSrc = patch?.sale;
+  if (saleSrc?.found) {
+    const list = Array.isArray(draft.sales)
+      ? draft.sales
+      : draft.sale && typeof draft.sale === "object"
+        ? [draft.sale]
+        : [];
+    const target = { ...(list[0] || {}) };
+    let touched = false;
+    const SALE_LABELS = {
+      price: "цена продажи",
+      saleDate: "дата продажи",
+      buyerName: "покупатель",
+      buyerInn: "ИНН покупателя",
+      expenses: "расходы на покупку",
+      cadastralNumber: "кадастровый номер",
+      cadastralValue: "кадастровая стоимость",
+      acquireDate: "дата приобретения",
+    };
+    for (const [field, label] of Object.entries(SALE_LABELS)) {
+      if (filled(saleSrc[field]) && !filled(target[field])) {
+        target[field] = String(saleSrc[field]).trim();
+        applied.push(label);
+        touched = true;
+      }
+    }
+    if (touched) draftPatch.sales = [target, ...list.slice(1)];
+  }
   mergeSection("medical", { ordinary: "лечение", expensive: "дорогостоящее лечение" });
   mergeSection("iis", { contribution: "взносы на ИИС" });
   mergeSection("insurance", { amount: "страхование жизни" });
