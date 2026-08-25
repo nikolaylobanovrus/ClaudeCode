@@ -221,6 +221,9 @@ export default function StepDocuments({ onUnpaid }) {
     (y) => y !== filedYear && refundDeadlineYear(y) >= thisYear
   );
   const oldestYear = pastYears.length ? Math.min(...pastYears) : null;
+  // Год, по которому срок возврата истекает именно в этом году: это уже не
+  // «когда-нибудь потом», и говорить о нём надо в заголовке, а не в сноске.
+  const burningYear = pastYears.find((y) => refundDeadlineYear(y) === thisYear) ?? null;
 
   // Клиенты регулярно возвращаются за декларациями прошлых лет — предлагаем
   // сами, пока паспорт, ИНН и счёт под рукой (RESET_KEEP_PERSONAL их хранит).
@@ -300,6 +303,43 @@ export default function StepDocuments({ onUnpaid }) {
         </p>
       )}
 
+      {pastYears.length > 0 && (
+        <div className="wiz__again">
+          <h3 className="wiz__subhead">
+            {burningYear
+              ? `За ${burningYear} год вернуть налог можно только до конца этого года`
+              : "А за прошлые годы вычет заявляли?"}
+          </h3>
+          <p>
+            Вычет не сгорает сразу: налог возвращают за три последних года. Если
+            в {pastYears.map((y, i) => (i ? `, ${y}` : String(y))).join("")} вы
+            платили за лечение, лекарства, обучение, спорт или страхование,
+            покупали жильё или платили проценты по ипотеке — за эти годы деньги
+            тоже можно вернуть.
+          </p>
+          <div className="doc-actions">
+            {pastYears.map((y) => (
+              <button
+                key={y}
+                type="button"
+                className={"btn " + (y === burningYear ? "btn--primary" : "btn--ghost")}
+                onClick={() => startYear(y)}
+              >
+                Декларация за {y} год
+                {y === burningYear ? " — срок истекает" : ""}
+              </button>
+            ))}
+          </div>
+          <p className="wiz__note">
+            Паспорт, ИНН и реквизиты счёта уже сохранены — останется отметить
+            вычеты и вписать суммы. Каждый год — отдельная декларация и отдельная
+            оплата 199 ₽. Крайний срок по самому старому году: за {oldestYear}{" "}
+            — до 31 декабря {refundDeadlineYear(oldestYear)} года.
+          </p>
+        </div>
+      )}
+
+
       <h3 className="wiz__subhead">Что дальше</h3>
       <ol className="wiz__next">
         <li>
@@ -336,37 +376,6 @@ export default function StepDocuments({ onUnpaid }) {
         <Link to="/deklaraciya/instrukciya">подробная инструкция всех трёх способов</Link>{" "}
         (она же лежит PDF-файлом в вашем комплекте).
       </p>
-
-      {pastYears.length > 0 && (
-        <div className="wiz__again">
-          <h3 className="wiz__subhead">А за прошлые годы вычет заявляли?</h3>
-          <p>
-            Вычет не сгорает сразу: налог возвращают за три последних года. Если
-            в {pastYears.map((y, i) => (i ? `, ${y}` : String(y))).join("")} вы
-            платили за лечение, лекарства, обучение, спорт или страхование,
-            покупали жильё или платили проценты по ипотеке — за эти годы деньги
-            тоже можно вернуть.
-          </p>
-          <div className="doc-actions">
-            {pastYears.map((y) => (
-              <button
-                key={y}
-                type="button"
-                className="btn btn--primary"
-                onClick={() => startYear(y)}
-              >
-                Декларация за {y} год
-              </button>
-            ))}
-          </div>
-          <p className="wiz__note">
-            Паспорт, ИНН и реквизиты счёта уже сохранены — останется отметить
-            вычеты и вписать суммы. Каждый год — отдельная декларация и отдельная
-            оплата 199 ₽. Крайний срок по самому старому году: за {oldestYear}{" "}
-            — до 31 декабря {refundDeadlineYear(oldestYear)} года.
-          </p>
-        </div>
-      )}
 
       <div className="doc-actions" style={{ marginTop: 18 }}>
         <button

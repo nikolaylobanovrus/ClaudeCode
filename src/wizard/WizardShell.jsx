@@ -21,6 +21,7 @@ import StepReview from "./steps/StepReview.jsx";
 import StepPayment from "./steps/StepPayment.jsx";
 import StepDocuments from "./steps/StepDocuments.jsx";
 import DocAutofill from "./DocAutofill.jsx";
+import TurnkeyOffer from "./TurnkeyOffer.jsx";
 
 // Кнопка «Продолжить на другом устройстве»: share-меню на мобильных,
 // копирование ссылки на десктопе. Подпись подтверждает результат.
@@ -205,6 +206,13 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
             onPaid={() => goto(DOCUMENTS_STEP)}
             onUnpaid={() => goto(PAYMENT_STEP)}
           />
+
+          {/* Предложение «под ключ» — на шагах, где люди упираются в стену
+              реквизитов, и на экране оплаты. Не на первом шаге (там ещё нечего
+              бросать) и не на «Документах» (там уже всё сделано). */}
+          {["income", "details", "personal", "sale", "payment"].includes(step.key) && (
+            <TurnkeyOffer stepKey={step.key} />
+          )}
 
           {step.key !== "documents" && step.key !== "payment" && (
             <div className="wiz__nav">
