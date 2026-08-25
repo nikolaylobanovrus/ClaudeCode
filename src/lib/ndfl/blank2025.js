@@ -15,34 +15,36 @@ export async function buildOfficialPdf2025(model) {
   const ap = calc.applied;
   const sale = model.sale;
 
-  // Продажа: без заявления о возврате (Приложение к Разделу 1), Приложение 1 —
-  // покупатель как источник дохода, добавляется Приложение 6. Возврат: как было.
-  const sheets = sale
-    ? [
-        { tpl: PG.title, fill: fillTitle },
-        { tpl: PG.r1, fill: fillR1 },
-        { tpl: PG.r2, fill: fillR2 },
-        { tpl: PG.app1, fill: fillApp1Sale },
-        { tpl: PG.app6, fill: fillApp6 },
-        // Недвижимость: лист «Расчёт к Приложению 1» — сверка дохода с
-        // кадастровой стоимостью (ст. 214.10 НК).
-        ...(sale.kind === "realty" ? [{ tpl: PG.raschet, fill: fillRaschet }] : []),
-      ]
-    : [
-        { tpl: PG.title, fill: fillTitle },
-        { tpl: PG.r1, fill: fillR1 },
-        { tpl: PG.r1app, fill: fillR1App },
-        { tpl: PG.r2, fill: fillR2 },
-      ];
-  if (!sale) {
+  // Возвратная сторона (зарплата, вычеты, заявление о возврате) есть у обычной
+  // декларации и у комбинированной; у чистой продажи её нет.
+  const refundSide = model.mode !== "sale";
+
+  // Листы собираются по слагаемым, а не по «одному из двух сценариев»: в
+  // комбинированной декларации Раздел 1 и Раздел 2 печатаются ДВАЖДЫ — по
+  // блоку на каждый КБК и на каждую налоговую базу (зарплата «01» и доход от
+  // продажи «02»). Форма это допускает: и Раздел 1, и Раздел 2 заполняются
+  // на нескольких страницах, когда сумм несколько.
+  const sheets = [{ tpl: PG.title, fill: fillTitle }];
+  if (sale) sheets.push({ tpl: PG.r1, fill: (pen) => fillR1(pen, "sale") });
+  if (refundSide) sheets.push({ tpl: PG.r1, fill: (pen) => fillR1(pen, "refund") });
+  // Заявление о возврате (Приложение к Разделу 1) — везде, где есть возвратная
+  // сторона, как и раньше. При чистой продаже возвращать нечего, лист не нужен.
+  if (refundSide) sheets.push({ tpl: PG.r1app, fill: fillR1App });
+  if (refundSide) sheets.push({ tpl: PG.r2, fill: (pen) => fillR2(pen, "refund") });
+  if (sale) sheets.push({ tpl: PG.r2, fill: (pen) => fillR2(pen, "sale") });
+  if (refundSide)
     for (const part of chunk(model.incomes, 3))
       sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
-    if (model.social) {
-      sheets.push({ tpl: PG.app5a, fill: fillApp5a });
-      sheets.push({ tpl: PG.app5b, fill: fillApp5b });
-    }
-    if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
+  if (sale) sheets.push({ tpl: PG.app1, fill: fillApp1Sale });
+  if (model.social) {
+    sheets.push({ tpl: PG.app5a, fill: fillApp5a });
+    sheets.push({ tpl: PG.app5b, fill: fillApp5b });
   }
+  if (sale) sheets.push({ tpl: PG.app6, fill: fillApp6 });
+  if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
+  // Недвижимость: лист «Расчёт к Приложению 1» — сверка дохода с кадастровой
+  // стоимостью (ст. 214.10 НК).
+  if (sale && sale.kind === "realty") sheets.push({ tpl: PG.raschet, fill: fillRaschet });
   const total = sheets.length;
 
   return assembleOnBlank({ blankUrl, person, sheets });
@@ -66,12 +68,15 @@ export async function buildOfficialPdf2025(model) {
     pen.left("1", 34.3, 216, 1); // достоверность подтверждает налогоплательщик
   }
 
-  // --- Раздел 1: налог к уплате (продажа) или к возврату ----------------------
-  function fillR1(pen) {
-    pen.left(model.kbk, 295.1, 672, 20); // 020 КБК
+  // --- Раздел 1: лист на каждый КБК -------------------------------------------
+  // kind = "sale" — налог к уплате по ст. 228 (КБК ...02030);
+  // kind = "refund" — возврат налога, удержанного агентом (КБК ...02010).
+  function fillR1(pen, kind) {
+    const paying = kind === "sale";
+    pen.left(paying ? model.kbkSale : model.kbkRefund, 295.1, 672, 20); // 020 КБК
     pen.left(person.oktmo, 295.1, 645, 11); // 030 ОКТМО
-    pen.int(sale ? model.owed : 0, 295.1, 619, 13); // 040 к уплате
-    pen.int(sale ? 0 : model.refund, 295.1, 592, 13); // 050 к возврату
+    pen.int(paying ? model.owed : 0, 295.1, 619, 13); // 040 к уплате
+    pen.int(paying ? 0 : model.refund, 295.1, 592, 13); // 050 к возврату
   }
 
   // --- Приложение к Разделу 1: заявление о возврате (ст. 79 НК) ---------------
@@ -84,25 +89,26 @@ export async function buildOfficialPdf2025(model) {
   // --- Раздел 2: налоговая база и сумма налога ---------------------------------
   // Продажа: группа доходов «02», база = доход − вычет Приложения 6, налог
   // печатается в строку 150 «к уплате». Возврат: как раньше (строка 160).
-  function fillR2(pen) {
+  function fillR2(pen, kind) {
     const X = 351.8;
-    const income = sale ? sale.taxable : calc.totalIncome;
-    pen.left(sale ? sale.groupCode : "01", X, 710, 2); // 001 код группы доходов
+    const s = kind === "sale";
+    const income = s ? sale.taxable : calc.totalIncome;
+    pen.left(s ? sale.groupCode : "01", X, 710, 2); // 001 код группы доходов
     pen.money(income, X, 683, 13); // 010 доходы
     pen.money(0, X, 659, 13); // 020 не облагаемые
     pen.money(income, X, 630, 13); // 030 облагаемые
-    pen.money(sale ? sale.deduction : calc.totalDeduction, X, 602, 13); // 040 вычеты
+    pen.money(s ? sale.deduction : calc.totalDeduction, X, 602, 13); // 040 вычеты
     pen.money(0, X, 573, 13); // 050 расходы
-    pen.money(sale ? sale.base : calc.taxBase, X, 548, 13); // 060 налоговая база
-    pen.int(sale ? sale.tax : calc.assessed, X, 495, 13); // 070 исчислено
-    pen.int(sale ? 0 : calc.totalWithheld, X, 470, 13); // 080 удержано
+    pen.money(s ? sale.base : calc.taxBase, X, 548, 13); // 060 налоговая база
+    pen.int(s ? sale.tax : calc.assessed, X, 495, 13); // 070 исчислено
+    pen.int(s ? 0 : calc.totalWithheld, X, 470, 13); // 080 удержано
     pen.int(0, X, 445, 13); // 090 матвыгода
     pen.int(0, X, 416, 13); // 100 торговый сбор
     pen.int(0, X, 388, 13); // 120 авансовые
     pen.int(0, X, 348, 13); // 130 за рубежом
     pen.int(0, X, 319, 13); // 140 патент
-    pen.int(sale ? model.owed : 0, X, 290, 13); // 150 к уплате
-    pen.int(sale ? 0 : model.refund, X, 265, 13); // 160 к возврату
+    pen.int(s ? model.owed : 0, X, 290, 13); // 150 к уплате
+    pen.int(s ? 0 : model.refund, X, 265, 13); // 160 к возврату
     pen.int(0, X, 241, 13); // 170 упрощённый вычет
   }
 

@@ -8,16 +8,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "./WizardContext.jsx";
-import { isSaleDraft, saleKindOf } from "../data/wizard.js";
+import { hasSale, saleKindOf } from "../data/wizard.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { parseDocuments, mergePatch, DocParseError, MAX_FILES } from "../lib/docParse.js";
 import { ymGoal } from "../lib/metrika.js";
 
 const ACCEPT = "image/*,.pdf,.heic,.heif";
 
-export default function DocAutofill() {
+// stepKey — шаг, на котором стоит блок («income» или «sale»). В комбинированной
+// декларации есть оба, и просить надо разное: на «Продаже» — договор, на
+// «Доходах» — справку о доходах и чеки. Раньше признак брался из черновика, но
+// теперь наличие продажи больше не означает, что человек стоит на её шаге.
+export default function DocAutofill({ stepKey = "income" }) {
   const { draft, dispatch } = useWizard();
-  const sale = isSaleDraft(draft);
+  const sale = hasSale(draft) && stepKey === "sale";
   const saleRealty = sale && saleKindOf(draft) === "realty";
   const enabled = useFeatureFlag("doc_autofill");
   const [open, setOpen] = useState(false);

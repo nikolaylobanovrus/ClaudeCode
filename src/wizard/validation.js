@@ -151,10 +151,14 @@ export function validateMoney(value, label = "сумму") {
 }
 
 const positive = (v) => Number(v) > 0;
-// Продажа имущества: свой маршрут без шага «Доходы» (дубль isSaleDraft из
-// data/wizard.js — импорт оттуда сделал бы цикл модулей).
-const isSale = (draft) =>
-  (draft?.types || []).some((t) => ["prodazha_auto", "prodazha_realty"].includes(t));
+// Режимы декларации — дубль modeOf из data/wizard.js (импорт оттуда сделал бы
+// цикл модулей). Важно именно «ЧИСТАЯ продажа»: у неё нет шага «Доходы», а у
+// комбинированной он есть, и реквизиты работодателей там обязательны.
+const SALE_TYPES = ["prodazha_auto", "prodazha_realty"];
+const isPureSale = (draft) => {
+  const types = draft?.types || [];
+  return types.some((t) => SALE_TYPES.includes(t)) && !types.some((t) => !SALE_TYPES.includes(t));
+};
 
 // --- Пошаговая валидация ------------------------------------------------------
 // Возвращает объект { имяПоля: текстОшибки } — пустой объект, если всё в порядке.
@@ -225,7 +229,7 @@ export function validateStep(stepKey, draft) {
 
   // Шаг «Проверка» возвратной декларации: здесь реквизиты доходов становятся
   // обязательными — дальше формируются документы, ФНС требует все поля.
-  if (stepKey === "review" && !isSale(draft)) {
+  if (stepKey === "review" && !isPureSale(draft)) {
     const list = draft.incomes || [];
     if (!list.length) e.incomes = "Добавьте хотя бы одного работодателя";
     list.forEach((inc, i) => {

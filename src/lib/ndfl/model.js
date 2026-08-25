@@ -4,7 +4,8 @@
 import { computeDeclaration } from "./calc.js";
 import {
   CODES,
-  kbkFor,
+  KBK_AGENT,
+  KBK_SELF_228,
   RATE,
   SALE_CODES,
   propertyObjectCode,
@@ -101,12 +102,22 @@ export function buildDeclarationModel(draft) {
     person,
     incomes,
     calc,
-    kbk: kbkFor(Boolean(sale)),
+    // Режим декларации — то же деление, что и в маршруте мастера:
+    //   refund — только вычеты, sale — только продажа, mixed — и то, и другое.
+    mode: sale ? (calc.mixed ? "mixed" : "sale") : "refund",
+    // КБК строки 020 Раздела 1. В комбинированной декларации их ДВА: налог с
+    // продажи человек платит сам (ст. 228), а возвращает удержанный агентом.
+    // Схема ФНС это допускает — СумНалПуИскл227 объявлен unbounded.
+    kbk: sale && !calc.mixed ? KBK_SELF_228 : KBK_AGENT,
+    kbkSale: KBK_SELF_228,
+    kbkRefund: KBK_AGENT,
     ratePercent: Math.round(RATE * 100),
     refund: calc.refund,
     // Продажа: null для обычной (возвратной) декларации.
     sale,
     owed: calc.owed,
+    // Итог для человека: плюс — вернут, минус — доплатить (см. calc.net).
+    net: calc.net,
     bank: { bik: digits(b.bik), account: digits(b.account), kind: CODES.accountKind },
     // Приложение 7 (имущественный) — только если выбран соответствующий вычет
     property:

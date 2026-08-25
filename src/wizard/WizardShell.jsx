@@ -6,7 +6,7 @@ import { useWizard } from "./WizardContext.jsx";
 import { company } from "../data/content.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
 import { ymGoal } from "../lib/metrika.js";
-import { stepsFor, stepIndexIn, isSaleDraft, potentialRefund } from "../data/wizard.js";
+import { stepsFor, stepIndexIn, modeOf, potentialRefund } from "../data/wizard.js";
 import { shareDraftLink } from "../lib/draftLink.js";
 import { validateStep } from "./validation.js";
 import { computeDeclaration } from "../lib/ndfl/calc.js";
@@ -74,7 +74,8 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const STEPS = stepsFor(draft);
   const PAYMENT_STEP = stepIndexIn(STEPS, "payment");
   const DOCUMENTS_STEP = stepIndexIn(STEPS, "documents");
-  const sale = isSaleDraft(draft);
+  const mode = modeOf(draft);
+  const sale = mode === "sale";
   const step = STEPS[draft.step] || STEPS[0];
   const Step = COMPONENTS[step.key];
   // Для навигации «оплачено» = есть хоть одна покупка или оплаченный заказ.
@@ -195,7 +196,9 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
               («Доходы»): справка 2-НДФЛ логично грузится именно здесь, а
               распознанное заполняет и последующие шаги (паспорт, расходы).
               Показывается только при включённом серверном флаге. */}
-          {(step.key === "income" || step.key === "sale") && <DocAutofill />}
+          {(step.key === "income" || step.key === "sale") && (
+            <DocAutofill stepKey={step.key} />
+          )}
           <Step
             errors={errors}
             calc={calc}
@@ -276,6 +279,25 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
                   {calc.sale?.price > 0
                     ? "Налог с дохода от продажи, 13%"
                     : "Посчитаем на шаге «Продажа»"}
+                </div>
+              </>
+            ) : mode === "mixed" ? (
+              // Комбинированная декларация: две налоговые базы, но человеку
+              // важен один итог. Показываем сальдо и обе половины под ним —
+              // иначе цифра выглядит взятой с потолка.
+              <>
+                <div className="calc__result-label">
+                  {calc.net >= 0 ? "Итого к возврату" : "Итого к доплате"}
+                </div>
+                <div className="calc__result-value">
+                  {calc.sale?.price > 0 || calc.refund > 0
+                    ? fmtRub(Math.abs(calc.net))
+                    : "—"}
+                </div>
+                <div className="calc__result-hint">
+                  {calc.sale?.price > 0 || calc.refund > 0
+                    ? `Вычеты вернут ${fmtRub(calc.refund)}, налог с продажи — ${fmtRub(calc.owed)}`
+                    : "Посчитаем на шагах «Продажа», «Доходы» и «Расходы»"}
                 </div>
               </>
             ) : (

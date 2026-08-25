@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
 import { company } from "../../data/content.js";
-import { isSaleDraft } from "../../data/wizard.js";
+import { hasSale, hasRefund, modeOf } from "../../data/wizard.js";
 import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
@@ -75,8 +75,10 @@ export default function StepDocuments({ onUnpaid }) {
             import("../../lib/ndfl/instrukciya.js"),
           ]);
         const model = buildDeclarationModel(source);
-        const sale = isSaleDraft(source);
-        // Продажа: налог к уплате — заявления о возврате нет.
+        const mode = modeOf(source);
+        const sale = mode === "sale"; // чистая продажа: возвращать нечего
+        // Продажа: налог к уплате — заявления о возврате нет. В комбинированной
+        // декларации возврат есть, значит есть и заявление.
         const [declPdf, appPdf, instrPdf] = await Promise.all([
           buildDeclarationPdf(model),
           sale ? Promise.resolve(null) : buildRefundApplicationPdf(model),
@@ -92,9 +94,12 @@ export default function StepDocuments({ onUnpaid }) {
               (Number(source.correction) > 0
                 ? ` (уточнённая, корректировка № ${source.correction})`
                 : ""),
-            note: sale
-              ? "Напечатана на официальном бланке ФНС. Внутри — Приложение 6 (расчёт по продаже) и налог к уплате в Разделах 1 и 2."
-              : "Напечатана на официальном бланке ФНС за выбранный год — как из программы налоговой. Заявление о возврате уже внутри (Приложение к Разделу 1).",
+            note:
+              mode === "sale"
+                ? "Напечатана на официальном бланке ФНС. Внутри — Приложение 6 (расчёт по продаже) и налог к уплате в Разделах 1 и 2."
+                : mode === "mixed"
+                  ? "Напечатана на официальном бланке ФНС. Внутри и продажа (Приложение 6, налог к уплате), и вычеты (заявление о возврате — в Приложении к Разделу 1). Это одна декларация за год, как и требует налоговая."
+                  : "Напечатана на официальном бланке ФНС за выбранный год — как из программы налоговой. Заявление о возврате уже внутри (Приложение к Разделу 1).",
             filename: `Декларация 3-НДФЛ ${source.year}.pdf`,
             bytes: declPdf,
             mime: PDF_MIME,
@@ -316,12 +321,13 @@ export default function StepDocuments({ onUnpaid }) {
         </li>
         <li>Прикрепите подтверждающие документы (договоры, справки, чеки).</li>
         <li>Подпишите неквалифицированной ЭП (создаётся там же) и отправьте.</li>
-        {isSaleDraft(draft) ? (
+        {hasSale(draft) && (
           <li>
             Заплатите начисленный налог до 15 июля {Number(draft.year) + 1} года —
             по реквизитам вашей инспекции или через ЛК ФНС.
           </li>
-        ) : (
+        )}
+        {hasRefund(draft) && (
           <li>Возврат придёт на ваш счёт после камеральной проверки — до 3 месяцев.</li>
         )}
       </ol>

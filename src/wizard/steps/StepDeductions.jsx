@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { useWizard } from "../WizardContext.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
-import { wizardDeductions, HINTS, SALE_SLUGS, isSaleDraft, saleKindOf } from "../../data/wizard.js";
-import { YEARS, refundDeadlineYear, saleYearsFor, saleSupportedFor } from "../../lib/ndfl/refs.js";
+import { wizardDeductions, HINTS, SALE_SLUGS, modeOf, saleKindOf } from "../../data/wizard.js";
+import {
+  YEARS,
+  refundDeadlineYear,
+  saleYearsFor,
+  saleSupportedFor,
+  MIXED_YEARS,
+  mixedSupported,
+} from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
 import { ymGoal } from "../../lib/metrika.js";
 
@@ -35,7 +42,9 @@ function yearNote(year, pensionerTransfer) {
 
 export default function StepDeductions({ errors }) {
   const { draft, dispatch } = useWizard();
-  const saleActive = isSaleDraft(draft);
+  const mode = modeOf(draft);
+  const saleActive = mode === "sale";
+  const mixed = mode === "mixed";
   // «Уточнёнка» — тихая опция: свёрнута в одну строку, основной флоу не
   // нагружает. Раскрыта, если уже включена (correction > 0 или deep-link).
   const [corrOpen, setCorrOpen] = useState(Number(draft.correction) > 0);
@@ -47,38 +56,67 @@ export default function StepDeductions({ errors }) {
   const pensionerTransfer =
     Boolean(draft.property?.pensioner) &&
     (draft.types.includes("kvartira") || draft.types.includes("ipoteka"));
+  // При чистой продаже возвращать нечего — подпись про срок возврата не нужна.
   const note = saleActive ? null : yearNote(draft.year, pensionerTransfer);
 
-  // Продажа и возврат — разные декларации, вместе не заявляются: выбор одного
-  // очищает другой. Продажу декларируем только за поддержанные годы (2025).
+  // За год подаётся ОДНА декларация, поэтому продажа и вычеты уживаются в ней
+  // вместе. Плитки друг друга больше не гасят: снимается только то, что
+  // человек снял сам, плюс вторая продажа (авто и недвижимость в одной
+  // декларации мы пока не считаем).
+  //
+  // Год приходится подстраивать: продажу поддерживаем не за все годы, а
+  // комбинацию — только с 2025-го, когда форма развела налоговые базы.
+  const fixYear = (types) => {
+    const sale = types.filter((t) => SALE_SLUGS.includes(t));
+    if (!sale.length) return;
+    const kind = types.includes("prodazha_realty") ? "realty" : "auto";
+    const both = types.some((t) => !SALE_SLUGS.includes(t));
+    if (both) {
+      if (!mixedSupported(draft.year))
+        dispatch({ type: "SET", key: "year", value: MIXED_YEARS[0] });
+    } else if (!saleSupportedFor(kind, draft.year)) {
+      dispatch({ type: "SET", key: "year", value: saleYearsFor(kind)[0] });
+    }
+  };
+
   const toggleRefund = (slug) => {
-    const cur = draft.types.filter((t) => !SALE_SLUGS.includes(t));
-    const on = cur.includes(slug);
-    const next = on ? cur.filter((t) => t !== slug) : [...cur, slug];
+    const on = draft.types.includes(slug);
+    const next = on
+      ? draft.types.filter((t) => t !== slug)
+      : [...draft.types, slug];
     // Разрез воронки по ситуациям: без параметра невозможно понять, какие
     // ситуации доходят до оплаты, а какие тонут (цель «situation»).
     if (!on) ymGoal("situation", { situation: slug });
     dispatch({ type: "SET", key: "types", value: next });
+    fixYear(next);
   };
-  // Продажа авто и недвижимости — разные декларации, взаимоисключающие и с
-  // возвратом несовместимы. Повторный клик по активной плитке снимает продажу.
-  // Список поддержанных лет зависит от типа продажи (у недвижимости уже).
+
+  // Продажа авто и недвижимости взаимоисключающие: две продажи в одной
+  // декларации мы пока не считаем. Повторный клик по активной плитке снимает
+  // продажу, оставляя выбранные вычеты на месте.
   const toggleSale = (slug) => {
+    const rest = draft.types.filter((t) => !SALE_SLUGS.includes(t));
     if (draft.types.includes(slug)) {
-      dispatch({ type: "SET", key: "types", value: [] });
+      dispatch({ type: "SET", key: "types", value: rest });
+      fixYear(rest);
       return;
     }
     const kind = slug === "prodazha_realty" ? "realty" : "auto";
+    const next = [...rest, slug];
     ymGoal("situation", { situation: slug });
-    dispatch({ type: "SET", key: "types", value: [slug] });
+    dispatch({ type: "SET", key: "types", value: next });
     dispatch({ type: "PATCH", section: "sale", patch: { kind } });
-    if (!saleSupportedFor(kind, draft.year))
-      dispatch({ type: "SET", key: "year", value: saleYearsFor(kind)[0] });
+    fixYear(next);
   };
 
-  // При продаже год ограничен поддержанными формами (у недвижимости — уже).
+  // Список лет: при продаже он ограничен поддержанными формами, при
+  // комбинации — годами, где базы разведены.
   const saleYears = saleYearsFor(saleKindOf(draft));
-  const years = saleActive ? [...YEARS].filter((y) => saleYears.includes(y)) : YEARS;
+  const years = mixed
+    ? [...YEARS].filter((y) => MIXED_YEARS.includes(y))
+    : saleActive
+      ? [...YEARS].filter((y) => saleYears.includes(y))
+      : YEARS;
 
   return (
     <div>
@@ -105,6 +143,15 @@ export default function StepDeductions({ errors }) {
             Продажу декларируем за{" "}
             {[...saleYears].sort((a, b) => a - b).join(", ")} год — выберите
             нужный. За более ранние годы напишите в поддержку.
+          </div>
+        )}
+        {mixed && (
+          <div className="doc-note doc-note--ok" style={{ marginTop: 10 }}>
+            Продажу и вычеты вместе считаем за{" "}
+            {[...MIXED_YEARS].sort((a, b) => a - b).join(", ")} год: с этого
+            года форма разводит доход от продажи и зарплату по разным
+            налоговым базам. За более ранние годы подайте их по отдельности
+            или напишите в поддержку.
           </div>
         )}
         {note && (
@@ -210,8 +257,10 @@ export default function StepDeductions({ errors }) {
 
       <p className="wiz__note">
         {saleActive
-          ? "Продажа имущества — отдельная декларация с налогом к уплате. Её нельзя объединить с вычетами на возврат."
-          : "Все выбранные вычеты попадут в одну декларацию — так требует налоговая: одна 3-НДФЛ на один год."}
+          ? "Продажа имущества — декларация с налогом к уплате. Если за этот же год вы хотите заявить вычет, отметьте его выше: всё уйдёт одной декларацией."
+          : mixed
+            ? "Продажа и вычеты попадут в ОДНУ декларацию — так и требует налоговая: одна 3-НДФЛ на год. Налог с продажи и возврат по вычетам она сведёт между собой."
+            : "Все выбранные вычеты попадут в одну декларацию — так требует налоговая: одна 3-НДФЛ на один год."}
       </p>
       {!saleActive && <AutofillTeaser />}
     </div>

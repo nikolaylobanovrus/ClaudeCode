@@ -3,6 +3,13 @@
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
 import { yearRules, SALE_DEDUCTION, SALE_REALTY_OBJECTS } from "../../lib/ndfl/refs.js";
+
+// Что именно продали — одной строкой. Нужен и чистой продаже, и смешанной
+// декларации, поэтому вынесен из ветки.
+const saleObjectLabel = (sale) =>
+  sale.kind === "realty"
+    ? SALE_REALTY_OBJECTS.find((o) => o.value === sale.objectKind)?.label || "Недвижимость"
+    : "Автомобиль (иное имущество)";
 import { fmtRub } from "../../lib/format.js";
 import { ymGoal } from "../../lib/metrika.js";
 
@@ -17,14 +24,14 @@ export default function StepReview({ calc, errors = {} }) {
     (k) => k.startsWith("income.") || k === "incomes"
   );
 
-  // Продажа имущества: сводка и налог к уплате (Приложение 6), без возврата.
-  if (calc.sale) {
+  // Чистая продажа: сводка и налог к уплате (Приложение 6), без возврата.
+  // У комбинированной декларации разметка возвратная — продажа в ней идёт
+  // отдельным блоком ниже, потому что вычеты и счёт тоже надо показать.
+  if (calc.sale && !calc.mixed) {
     const s = calc.sale;
     const expenses = s.deductionKind === "expenses";
     const realty = s.kind === "realty";
-    const objectLabel = realty
-      ? SALE_REALTY_OBJECTS.find((o) => o.value === s.objectKind)?.label || "Недвижимость"
-      : "Автомобиль (иное имущество)";
+    const objectLabel = saleObjectLabel(s);
     const saleRows = [
       ["Отчётный год", draft.year, "types"],
       ["Что продали", objectLabel, "sale"],
@@ -107,6 +114,12 @@ export default function StepReview({ calc, errors = {} }) {
     ["Инспекция / ОКТМО", `${p.ifns} / ${p.oktmo}`, "personal"],
     ["Доход за год", fmtRub(calc.totalIncome), "income"],
     ["Налог удержан", fmtRub(calc.totalWithheld), "income"],
+    ...(calc.mixed
+      ? [
+          ["Продали", saleObjectLabel(calc.sale), "sale"],
+          ["Цена продажи", fmtRub(calc.sale.price), "sale"],
+        ]
+      : []),
     ["Счёт для возврата", `${draft.bank.bik} / ${draft.bank.account}`, "bank"],
   ];
 
@@ -199,12 +212,52 @@ export default function StepReview({ calc, errors = {} }) {
         )}
       </div>
 
+      {/* Комбинированная декларация: доход от продажи — своя налоговая база,
+          вычеты к ней не применяются. Поэтому расчёт показываем отдельным
+          блоком, а внизу сводим одной строкой — человеку важен именно итог. */}
+      {calc.mixed && (
+        <div className="wiz__calc">
+          <h3 className="wiz__subhead">Расчёт налога с продажи</h3>
+          <div className="wiz__calc-row">
+            <span>Доход от продажи</span>
+            <span>{fmtRub(calc.sale.taxable)}</span>
+          </div>
+          <div className="wiz__calc-row">
+            <span>
+              {calc.sale.deductionKind === "expenses"
+                ? "Расходы на покупку"
+                : `Вычет ${fmtRub(
+                    calc.sale.kind === "realty"
+                      ? SALE_DEDUCTION.realty
+                      : SALE_DEDUCTION.other
+                  )}`}
+            </span>
+            <span>−{fmtRub(calc.sale.deduction)}</span>
+          </div>
+          <div className="wiz__calc-row wiz__calc-row--total">
+            <span>Налог к уплате</span>
+            <span>{fmtRub(calc.owed)}</span>
+          </div>
+          <div className="wiz__calc-row wiz__calc-row--total">
+            <span>{calc.net >= 0 ? "Итого вам вернут" : "Итого доплатить"}</span>
+            <span>{fmtRub(Math.abs(calc.net))}</span>
+          </div>
+          <p className="wiz__note">
+            Зарплата и доход от продажи — разные налоговые базы, вычеты к доходу
+            от продажи не применяются. В декларации обе суммы стоят рядом:
+            {" "}{fmtRub(calc.refund)} к возврату и {fmtRub(calc.owed)} к уплате.
+            Сводит их налоговая на едином налоговом счёте — доплатить нужно
+            только разницу, до 15 июля {Number(draft.year) + 1} года.
+          </p>
+        </div>
+      )}
+
       {calc.warnings.map((w) => (
         <div className="doc-note doc-note--err" key={w}>
           {w}
         </div>
       ))}
-      {calc.refund <= 0 && (
+      {calc.refund <= 0 && !calc.mixed && (
         <div className="doc-note doc-note--err">
           По введённым данным возврат равен нулю. Проверьте суммы дохода,
           удержанного налога и расходов.

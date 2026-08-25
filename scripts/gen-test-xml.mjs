@@ -4,7 +4,7 @@
 import { writeFileSync } from "node:fs";
 import { buildDeclarationXml } from "../src/lib/ndfl/xml3ndfl.js";
 import { buildDeclarationModel } from "../src/lib/ndfl/model.js";
-import { YEARS, SALE_YEARS } from "../src/lib/ndfl/refs.js";
+import { YEARS, SALE_YEARS, MIXED_YEARS } from "../src/lib/ndfl/refs.js";
 const personal = {
   lastName: "Иванов", firstName: "Пётр", middleName: "Сергеевич",
   inn: "500100732259", birthDate: "1985-04-12", birthPlace: "г. Челябинск",
@@ -34,6 +34,14 @@ for (const year of YEARS) {
       const d = { year, types: [sale.kind === "realty" ? "prodazha_realty" : "prodazha_auto"], personal, incomes: [], sale };
       const { bytes: b } = buildDeclarationXml(buildDeclarationModel(d));
       writeFileSync(`${out}/sale-${tag}-${year}.xml`, b);
+      // Комбинированная декларация (продажа + вычеты) — только за годы, где
+      // форма разводит налоговые базы: в ней два блока Раздела 1, две НалБаза
+      // и оба источника дохода, и всё это должно пройти форматный контроль.
+      if (MIXED_YEARS.includes(year)) {
+        const m = { ...base(year), types: [...base(year).types, sale.kind === "realty" ? "prodazha_realty" : "prodazha_auto"], sale };
+        const { bytes: mb } = buildDeclarationXml(buildDeclarationModel(m));
+        writeFileSync(`${out}/mixed-${tag}-${year}.xml`, mb);
+      }
     }
   }
 }

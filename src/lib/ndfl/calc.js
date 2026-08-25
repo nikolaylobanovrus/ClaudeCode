@@ -36,6 +36,10 @@ function holdingYears(acquireIso, saleIso) {
   return years;
 }
 
+// Ситуации продажи имущества. Здесь свой список, а не импорт из data/wizard:
+// расчётное ядро не должно зависеть от слоя интерфейса.
+const SALE_TYPES = ["prodazha_auto", "prodazha_realty"];
+
 // Продажа имущества → Приложение 6, налог К УПЛАТЕ (пп. 1 п. 2 ст. 220 НК).
 // Возвращает null, если ситуация продажи не выбрана. Для авто (иного имущества)
 // доход = цена договора; для недвижимости доход = max(цена, кадастр × 0,7).
@@ -125,10 +129,12 @@ export function computeDeclaration(draft) {
   const rules = yearRules(draft.year);
   const warnings = [];
 
-  // Продажа имущества — отдельная декларация с налогом к уплате (Приложение 6).
-  // Считаем первой: для чистой продажи предупреждения о сроке ВОЗВРАТА ниже
-  // неуместны (возврата нет), поэтому они под флагом !sale.
+  // Продажа имущества → Приложение 6, налог к уплате. Считаем первой.
   const sale = computeSale(draft, warnings);
+  // Возвратная сторона декларации — любая ситуация, кроме продажи. При
+  // комбинированной декларации (продажа + вычет) она есть, и предупреждения
+  // о сроке возврата ниже уместны; при чистой продаже возвращать нечего.
+  const refundSide = types.some((t) => !SALE_TYPES.includes(t));
 
   // Срок возврата: налог за год X возвращают при подаче до конца года X+3.
   // Исключение — пенсионер с переносом остатка имущественного вычета
@@ -136,7 +142,7 @@ export function computeDeclaration(draft) {
   const pensionerTransfer =
     Boolean(draft.property?.pensioner) && (has("kvartira") || has("ipoteka"));
   const nowYear = new Date().getFullYear();
-  if (!sale && nowYear > refundDeadlineYear(draft.year)) {
+  if (refundSide && nowYear > refundDeadlineYear(draft.year)) {
     if (!pensionerTransfer) {
       warnings.push(
         `Срок возврата налога за ${draft.year} год истёк (вернуть можно только за три последних года). Декларацию сформируем, но налоговая, скорее всего, откажет в возврате. Исключение — пенсионеры по имущественному вычету: если это ваш случай, отметьте «Я пенсионер» на шаге «Расходы» в блоке «Жильё».`
@@ -146,7 +152,7 @@ export function computeDeclaration(draft) {
         `Как пенсионер вы можете вернуть налог за ${draft.year} год по имущественному вычету (перенос остатка, п. 10 ст. 220 НК). Но по остальным вычетам в этой декларации (лечение, обучение, ИИС, страхование, спорт) срок возврата за ${draft.year} год уже истёк.`
       );
     }
-  } else if (!sale && nowYear === refundDeadlineYear(draft.year)) {
+  } else if (refundSide && nowYear === refundDeadlineYear(draft.year)) {
     warnings.push(
       `${nowYear} — последний год, когда можно вернуть налог за ${draft.year}. Подайте декларацию до конца года.`
     );
@@ -278,6 +284,12 @@ export function computeDeclaration(draft) {
     // Продажа имущества: sale — разбивка (или null), owed — налог к уплате.
     sale,
     owed: sale ? sale.tax : 0,
+    // Комбинированная декларация: две налоговые базы живут отдельно (зарплата
+    // и доход от продажи), вычеты к чужой базе не применяются. Но человеку
+    // важен один итог — его и считаем: плюс значит «вернут», минус — «доплатить».
+    // Сальдирует эти суммы налоговая на ЕНС, нам достаточно честно показать.
+    net: refund - (sale ? sale.tax : 0),
+    mixed: Boolean(sale) && refundSide,
     carryover,
     warnings,
   };

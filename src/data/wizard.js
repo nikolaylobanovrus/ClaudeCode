@@ -19,14 +19,27 @@ export const STEPS = [
   { key: "documents", title: "Документы", heading: "Ваши документы готовы" },
 ];
 
-// Продажа имущества — отдельная декларация с налогом К УПЛАТЕ (Приложение 6),
-// у неё свой, более короткий маршрут: без «Доходов» (зарплаты) и «Счёта»
-// (возврата нет). Список шагов выбирается по типу декларации (stepsFor);
-// переключение возможно только на первом шаге, где выбирается ситуация,
-// поэтому индекс draft.step остаётся согласованным.
+// За год подаётся ОДНА декларация 3-НДФЛ: в ней и доходы от продажи, и
+// заявленные вычеты. Поэтому у мастера три режима, а не два:
+//
+//   refund — только вычеты: налог к возврату (как было);
+//   sale   — только продажа: налог к уплате, короткий маршрут без «Доходов»
+//            (зарплата не нужна) и «Счёта» (возвращать нечего);
+//   mixed  — и то, и другое: полный маршрут плюс шаг «Продажа».
+//
+// Режим определяется набором выбранных ситуаций и меняется только на первом
+// шаге, поэтому индекс draft.step остаётся согласованным со списком шагов.
 export const SALE_SLUGS = ["prodazha_auto", "prodazha_realty"];
-export const isSaleDraft = (draft) =>
+export const hasSale = (draft) =>
   (draft?.types || []).some((t) => SALE_SLUGS.includes(t));
+export const hasRefund = (draft) =>
+  (draft?.types || []).some((t) => !SALE_SLUGS.includes(t));
+export const modeOf = (draft) =>
+  hasSale(draft) ? (hasRefund(draft) ? "mixed" : "sale") : "refund";
+// «Чистая продажа» — короткий маршрут. Осталось от времён, когда продажа и
+// вычет были несовместимы; теперь это ровно один из трёх режимов.
+export const isSaleDraft = (draft) => modeOf(draft) === "sale";
+export const isMixedDraft = (draft) => modeOf(draft) === "mixed";
 // Тип продажи по выбранной ситуации: недвижимость или иное имущество (авто).
 export const saleKindOf = (draft) =>
   (draft?.types || []).includes("prodazha_realty") ? "realty" : "auto";
@@ -40,7 +53,22 @@ export const SALE_STEPS = [
   { key: "documents", title: "Документы", heading: "Ваши документы готовы" },
 ];
 
-export const stepsFor = (draft) => (isSaleDraft(draft) ? SALE_STEPS : STEPS);
+// Смешанный маршрут — возвратный, в который после «Ситуации» вставлена
+// «Продажа». Порядок тот же: сначала деньги, потом паспорт.
+export const MIXED_STEPS = [
+  { key: "types", title: "Ситуация", heading: "Что будем декларировать?" },
+  { key: "sale", title: "Продажа", heading: "Что вы продали" },
+  { key: "income", title: "Доходы", heading: "Ваши доходы за год" },
+  { key: "details", title: "Расходы", heading: "Детали по вычетам" },
+  { key: "personal", title: "О вас", heading: "Данные налогоплательщика" },
+  { key: "bank", title: "Счёт", heading: "Куда перечислить возврат" },
+  { key: "review", title: "Проверка", heading: "Проверьте данные и расчёт" },
+  { key: "payment", title: "Оплата", heading: "Оплата услуги" },
+  { key: "documents", title: "Документы", heading: "Ваши документы готовы" },
+];
+
+const STEPS_BY_MODE = { refund: STEPS, sale: SALE_STEPS, mixed: MIXED_STEPS };
+export const stepsFor = (draft) => STEPS_BY_MODE[modeOf(draft)];
 export const stepIndexIn = (steps, key) => steps.findIndex((s) => s.key === key);
 
 // Индексы ключевых шагов — единственное место, где они вычисляются:

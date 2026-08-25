@@ -12,7 +12,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildDeclarationXml } from "../src/lib/ndfl/xml3ndfl.js";
 import { buildDeclarationModel } from "../src/lib/ndfl/model.js";
-import { YEARS, SALE_YEARS } from "../src/lib/ndfl/refs.js";
+import { YEARS, SALE_YEARS, MIXED_YEARS } from "../src/lib/ndfl/refs.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemaDir = join(root, "docs", "fns-schemas");
@@ -91,17 +91,47 @@ const saleDraft = (year, sale) => ({
   sale: { ...sale, saleDate: sale.saleDate ? `${year}-06-10` : sale.saleDate },
 });
 
+// Комбинированная декларация: продажа + вычет за один год. Проверяем годы из
+// MIXED_YEARS — там, где форма разводит налоговые базы (зарплата «01», доход
+// от продажи «02»). Черновик берём полный (все вычеты) и добавляем продажу:
+// в XML должны появиться ДВА блока Раздела 1 с разными КБК, ДВЕ НалБаза и
+// оба источника дохода в Приложении 1.
+const mixedScenarios = [
+  {
+    tag: "вычеты + продажа авто",
+    sale: { kind: "auto", price: "600000", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" },
+  },
+  {
+    tag: "вычеты + продажа квартиры",
+    sale: { kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1234", cadastralValue: "3000000", price: "4000000", acquireDate: "2023-01-10", realtyBasis: "purchase", deductionKind: "standard", buyerName: "Петров Пётр Петрович", buyerInn: "" },
+  },
+];
+const mixedDraft = (year, sale) => {
+  const d = sampleDraft(year);
+  return {
+    ...d,
+    types: [...d.types, sale.kind === "realty" ? "prodazha_realty" : "prodazha_auto"],
+    sale: { ...sale, saleDate: `${year}-06-10` },
+  };
+};
+
 const tmp = mkdtempSync(join(tmpdir(), "ndfl-xml-"));
 // КБК (строка 020 Раздела 1) схемой не проверяется: оба кода формально
 // валидны, а разносятся налоговой по-разному. Возврат — налог, удержанный
 // агентом (...02010), продажа — налог, который человек платит сам по
 // ст. 228 (...02030). Проверяем явно, иначе подмена кода пройдёт незаметно.
-const KBK_EXPECT = { refund: "18210102010011000110", sale: "18210102030011000110" };
+const KBK_EXPECT = {
+  refund: ["18210102010011000110"],
+  sale: ["18210102030011000110"],
+  // Комбинированная: сначала блок уплаты (ст. 228), затем блок возврата.
+  mixed: ["18210102030011000110", "18210102010011000110"],
+};
 function checkKbk(bytes, kind, label) {
   const text = Buffer.from(bytes).toString("latin1");
-  const found = (text.match(/182101020\d{11}/) || [])[0];
-  if (found === KBK_EXPECT[kind]) return true;
-  console.log(`✗ ${label}: КБК ${found || "не найден"}, ожидался ${KBK_EXPECT[kind]}`);
+  const found = text.match(/182101020\d{11}/g) || [];
+  const want = KBK_EXPECT[kind];
+  if (found.length === want.length && want.every((k, i) => found[i] === k)) return true;
+  console.log(`✗ ${label}: КБК [${found.join(", ") || "не найдено"}], ожидалось [${want.join(", ")}]`);
   return false;
 }
 
@@ -139,6 +169,35 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
       failed++;
       console.log(`✗ ${year} (${sc.tag}): XML НЕ прошёл схему:`);
       console.log(String(e.stderr || e.message).trim().split("\n").map((l) => "    " + l).join("\n"));
+    }
+  }
+  if (MIXED_YEARS.includes(year)) {
+    for (const [i, sc] of mixedScenarios.entries()) {
+      const model = buildDeclarationModel(mixedDraft(year, sc.sale));
+      const { filename, bytes } = buildDeclarationXml(model);
+      const xmlPath = join(tmp, `m${i}-${filename}`);
+      writeFileSync(xmlPath, bytes);
+      if (!checkKbk(bytes, "mixed", `${year} (${sc.tag})`)) failed++;
+      // Схема схемой, но смысл комбинированной декларации — две налоговые
+      // базы и оба источника дохода. Проверяем явно: если сборка снова
+      // схлопнется в «или-или», xmllint этого не заметит.
+      const text = Buffer.from(bytes).toString("latin1");
+      const bases = (text.match(/<\xcd\xe0\xeb\xc1\xe0\xe7\xe0 /g) || []).length;
+      const sources = (text.match(/<\xc4\xee\xf5\xee\xe4\xc8\xf1\xf2\xd0\xd4 /g) || []).length;
+      if (bases !== 2 || sources !== 2) {
+        failed++;
+        console.log(`✗ ${year} (${sc.tag}): налоговых баз ${bases} (нужно 2), источников дохода ${sources} (нужно 2)`);
+      }
+      try {
+        execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
+          stdio: ["ignore", "ignore", "pipe"],
+        });
+        console.log(`✓ ${year} (${sc.tag}): OK — XML соответствует схеме ФНС`);
+      } catch (e) {
+        failed++;
+        console.log(`✗ ${year} (${sc.tag}): XML НЕ прошёл схему:`);
+        console.log(String(e.stderr || e.message).trim().split("\n").map((l) => "    " + l).join("\n"));
+      }
     }
   }
   if (SALE_YEARS.includes(year)) {

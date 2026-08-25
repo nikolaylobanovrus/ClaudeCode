@@ -91,6 +91,15 @@ export const saleSupported = (year) => SALE_YEARS.includes(Number(year));
 // врезан в бланки 2023/2024/2025 (лист 2023 — из официальной машиночитаемой
 // формы ФНС v5.18, штрихкод 0332 0150).
 export const SALE_REALTY_YEARS = [2023, 2024, 2025];
+
+// Комбинированная декларация (продажа + вычет в одном году) возможна только
+// там, где форма РАЗВОДИТ налоговые базы. С 2025 года зарплата — группа «01»,
+// доход от продажи — «02», и они считаются отдельно. В формах 2023–2024 обе
+// суммы лежат в одной основной базе (ВидДоход «10»), их пришлось бы
+// складывать и делить вычеты между ними — это другая арифметика, и пока мы
+// её не поддерживаем: за старые годы продажа и вычет остаются раздельными.
+export const MIXED_YEARS = SALE_YEARS.filter((y) => SALE_CODES[y]?.group !== "10");
+export const mixedSupported = (year) => MIXED_YEARS.includes(Number(year));
 export const saleYearsFor = (kind) =>
   kind === "realty" ? SALE_REALTY_YEARS : SALE_YEARS;
 export const saleSupportedFor = (kind, year) =>
@@ -155,7 +164,6 @@ export const refundDeadlineYear = (year) => year + 3;
 // продаже уезжали с чужим КБК.
 export const KBK_AGENT = "18210102010011000110";
 export const KBK_SELF_228 = "18210102030011000110";
-export const kbkFor = (isSale) => (isSale ? KBK_SELF_228 : KBK_AGENT);
 
 // Коды титульного листа
 export const CODES = {
