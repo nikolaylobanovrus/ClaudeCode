@@ -18,6 +18,26 @@ export function ymGoal(name, params) {
   vkGoal(name, params?.amount);
 }
 
+// Цель, которую нужно засчитать один раз за визит, а не при каждом
+// монтировании компонента. Так было с «шагом оплаты»: цель стояла в
+// useEffect, и возврат «Назад → Далее» накручивал её повторно — отчёт
+// показывал вдвое больше дошедших до оплаты, чем было людей.
+// sessionStorage, а не переменная модуля: перезагрузка вкладки не должна
+// начинать счёт заново.
+const fired = new Set();
+export function ymGoalOnce(name, params) {
+  const key = "ymOnce:" + name;
+  try {
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+  } catch {
+    // Приватный режим или отключённое хранилище — держим флаг в памяти.
+    if (fired.has(name)) return;
+    fired.add(name);
+  }
+  ymGoal(name, params);
+}
+
 // Просмотр страницы в SPA: роутер меняет URL без перезагрузки, без этого
 // Метрика видит только первый экран сессии.
 export function ymHit(url) {

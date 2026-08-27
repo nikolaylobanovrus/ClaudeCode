@@ -25,8 +25,15 @@ import TurnkeyOffer from "./TurnkeyOffer.jsx";
 
 // Кнопка «Продолжить на другом устройстве»: share-меню на мобильных,
 // копирование ссылки на десктопе. Подпись подтверждает результат.
+//
+// Показывается, только когда переносить УЖЕ есть что. Раньше она висела с
+// первой секунды и на телефоне была единственной кнопкой в первых двух
+// экранах — человек, который ничего не начинал, видел предложение это
+// «продолжить».
 function ShareDraftButton({ draft }) {
   const [done, setDone] = useState(null); // "share" | "copy" | null
+  // Ранний выход — после хука: порядок хуков должен быть неизменным.
+  if (!(draft.step > 0 || (draft.types || []).length > 0)) return null;
   return (
     <div style={{ marginTop: 10 }}>
       <button
@@ -87,6 +94,61 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
 
   const calc = useMemo(() => computeDeclaration(draft), [draft]);
 
+  // Сумма для человека — одним расчётом на два места: большая карточка в
+  // боковой колонке и компактная строка над формой на узких экранах.
+  const money = useMemo(() => {
+    if (sale) {
+      const has = calc.sale?.price > 0;
+      return {
+        label: "Налог к уплате",
+        value: has ? fmtRub(calc.owed) : "—",
+        hint: has ? "Налог с дохода от продажи, 13%" : "Посчитаем на шаге «Продажа»",
+      };
+    }
+    // Комбинированная декларация: две налоговые базы, но человеку важен один
+    // итог. Показываем сальдо, а обе половины — подписью, иначе цифра
+    // выглядит взятой с потолка.
+    if (mode === "mixed") {
+      const has = calc.sale?.price > 0 || calc.refund > 0;
+      return {
+        label: calc.net >= 0 ? "Итого к возврату" : "Итого к доплате",
+        value: has ? fmtRub(Math.abs(calc.net)) : "—",
+        hint: has
+          ? `Вычеты вернут ${fmtRub(calc.refund)}, налог с продажи — ${fmtRub(calc.owed)}`
+          : "Посчитаем на шагах «Продажа», «Доходы» и «Расходы»",
+      };
+    }
+    // Живой личный потолок: как только введён удержанный налог, абстрактное
+    // «до N ₽» превращается в цифру ИЗ ДАННЫХ пользователя (вернуть больше
+    // удержанного НДФЛ нельзя). Пока расчёта нет, «Вы вернёте 0 ₽»
+    // демотивирует — показываем потенциал вычета.
+    const withheldSum = (draft.incomes || []).reduce(
+      (acc, i) => acc + (Number(i.withheld) || 0),
+      0
+    );
+    const personalCap =
+      calc.refund <= 0 && withheldSum > 0
+        ? Math.min(withheldSum, potentialRefund(draft.types))
+        : 0;
+    if (calc.refund > 0)
+      return {
+        label: "Вы вернёте",
+        value: fmtRub(calc.refund),
+        hint: "Расчёт обновляется по мере заполнения",
+      };
+    if (personalCap > 0)
+      return {
+        label: "Ваш возврат",
+        value: `до ${fmtRub(personalCap)}`,
+        hint: "Посчитано по вашему удержанному налогу — уточнится после «Расходов»",
+      };
+    return {
+      label: "Вернуть можно",
+      value: `до ${fmtRub(potentialRefund(draft.types))}`,
+      hint: "Ваша сумма посчитается на шагах «Доходы» и «Расходы»",
+    };
+  }, [calc, draft.incomes, draft.types, mode, sale]);
+
   // Живая перепроверка: после «Далее» с ошибками каждое изменение анкеты
   // пересчитывает валидацию шага — исправленное поле сразу теряет красную
   // рамку, а не держит её до следующего клика. Пока ошибок нет, ничего не
@@ -133,6 +195,13 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
       if (filled < total) ymGoal("income_skip", { filled, total });
     }
     if (Object.keys(e).length) {
+      // Цель Метрики: «Далее» не пустило дальше. Нужна прежде всего на первом
+      // шаге: без неё «полистал и ушёл» и «нажал Далее, получил ошибку»
+      // выглядят в отчётах одинаково, а лечатся по-разному.
+      ymGoal("wizard_step_blocked", {
+        step: step.key,
+        fields: Object.keys(e).slice(0, 3).join(",") || "-",
+      });
       // На телефоне ошибки остаются за экраном выше кнопки «Далее» —
       // без скролла клик выглядит как «ничего не произошло».
       requestAnimationFrame(() =>
@@ -189,6 +258,16 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
           </li>
         ))}
       </ol>
+
+      {/* Узкие экраны: сайдбар уезжает ПОД форму, а сумма остаётся наверху
+          одной строкой. Раньше сюда целиком уезжала боковая колонка (карточка
+          + дисклеймер + кнопка переноса черновика) — 423 px, из-за которых
+          первый вопрос анкеты начинался на 1049-й точке при экране 844.
+          С телефонов дальше первого шага уходили 14% против 42% с ПК. */}
+      <div className="wiz__money">
+        <span className="wiz__money-label">{money.label}</span>
+        <strong className="wiz__money-value">{money.value}</strong>
+      </div>
 
       <div className="wiz__grid">
         <div className="wiz__main">
@@ -274,78 +353,10 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
         </div>
 
         <aside className="wiz__aside">
-          {/* Пока расчёта нет, «Вы вернёте 0 ₽» демотивирует (на мобильном
-              карточка стоит НАД формой) — показываем потенциал вычета. */}
           <div className="calc__result wiz__aside-card">
-            {sale ? (
-              <>
-                <div className="calc__result-label">Налог к уплате</div>
-                <div className="calc__result-value">
-                  {calc.sale?.price > 0 ? fmtRub(calc.owed) : "—"}
-                </div>
-                <div className="calc__result-hint">
-                  {calc.sale?.price > 0
-                    ? "Налог с дохода от продажи, 13%"
-                    : "Посчитаем на шаге «Продажа»"}
-                </div>
-              </>
-            ) : mode === "mixed" ? (
-              // Комбинированная декларация: две налоговые базы, но человеку
-              // важен один итог. Показываем сальдо и обе половины под ним —
-              // иначе цифра выглядит взятой с потолка.
-              <>
-                <div className="calc__result-label">
-                  {calc.net >= 0 ? "Итого к возврату" : "Итого к доплате"}
-                </div>
-                <div className="calc__result-value">
-                  {calc.sale?.price > 0 || calc.refund > 0
-                    ? fmtRub(Math.abs(calc.net))
-                    : "—"}
-                </div>
-                <div className="calc__result-hint">
-                  {calc.sale?.price > 0 || calc.refund > 0
-                    ? `Вычеты вернут ${fmtRub(calc.refund)}, налог с продажи — ${fmtRub(calc.owed)}`
-                    : "Посчитаем на шагах «Продажа», «Доходы» и «Расходы»"}
-                </div>
-              </>
-            ) : (
-              (() => {
-                // Живой личный потолок: как только введён удержанный налог,
-                // абстрактное «до N ₽» превращается в цифру ИЗ ДАННЫХ
-                // пользователя (вернуть больше удержанного НДФЛ нельзя).
-                const withheldSum = (draft.incomes || []).reduce(
-                  (s, i) => s + (Number(i.withheld) || 0),
-                  0
-                );
-                const personalCap =
-                  calc.refund <= 0 && withheldSum > 0
-                    ? Math.min(withheldSum, potentialRefund(draft.types))
-                    : 0;
-                return (
-                  <>
-                    <div className="calc__result-label">
-                      {calc.refund > 0
-                        ? "Вы вернёте"
-                        : personalCap > 0
-                          ? "Ваш возврат"
-                          : "Вернуть можно"}
-                    </div>
-                    <div className="calc__result-value">
-                      {calc.refund > 0
-                        ? fmtRub(calc.refund)
-                        : `до ${fmtRub(personalCap || potentialRefund(draft.types))}`}
-                    </div>
-                    <div className="calc__result-hint">
-                      {calc.refund > 0
-                        ? "Расчёт обновляется по мере заполнения"
-                        : personalCap > 0
-                          ? "Посчитано по вашему удержанному налогу — уточнится после «Расходов»"
-                          : "Ваша сумма посчитается на шагах «Доходы» и «Расходы»"}
-                    </div>
-                  </>
-                );
-              })()
-            )}
+            <div className="calc__result-label">{money.label}</div>
+            <div className="calc__result-value">{money.value}</div>
+            <div className="calc__result-hint">{money.hint}</div>
           </div>
           {/* При включённом автозаполнении «не отправляются на сервер» —
               уже не вся правда: загруженные файлы распознаются на сервере. */}

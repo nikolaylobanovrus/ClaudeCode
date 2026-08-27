@@ -2465,6 +2465,28 @@ h4 {
   position: sticky;
   top: 90px;
 }
+/* Компактная сумма над формой. Показывается только там, где боковая колонка
+   уходит под форму (<= 900px), — см. медиазапрос ниже. */
+.wiz__money {
+  display: none;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--blue-600);
+  color: #fff;
+}
+.wiz__money-label {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.wiz__money-value {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .wiz__aside-card {
   margin-bottom: 12px;
 }
@@ -2898,9 +2920,18 @@ h4 {
   .wiz__grid {
     grid-template-columns: 1fr;
   }
+  /* Боковая колонка идёт ПОД формой. Раньше здесь стоял order: -1, и её
+     423 px (карточка с суммой, дисклеймер про черновик и кнопка «Продолжить
+     на другом устройстве») отодвигали первый вопрос анкеты за пределы
+     первого экрана. Сумма при этом не теряется — она в .wiz__money сверху. */
   .wiz__aside {
     position: static;
-    order: -1;
+  }
+  .wiz__aside-card {
+    display: none;
+  }
+  .wiz__money {
+    display: flex;
   }
   .wiz__dot-label {
     display: none;
@@ -3326,4 +3357,25 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Анкета на узких экранах: шапка страницы ужимается, чтобы первый вопрос
+   попадал в первый экран. На остальных страницах шапка не меняется —
+   там она несёт SEO-нагрузку и не мешает действию. */
+@media (max-width: 900px) {
+  .page-hero--compact {
+    padding: 20px 0 18px;
+  }
+  .page-hero--compact .breadcrumbs {
+    display: none;
+  }
+  .page-hero--compact .hero__eyebrow {
+    display: none;
+  }
+  .page-hero--compact .page-hero__title {
+    font-size: 24px;
+  }
+  .page-hero--compact .page-hero__subtitle {
+    display: none;
+  }
 }

@@ -193,6 +193,7 @@ export default function Wizard() {
         title="Анкета для декларации 3-НДФЛ"
         subtitle="Отвечайте на вопросы — мы считаем вычет и формируем документы. Черновик сохраняется автоматически."
         crumbs={["Заполнить самому"]}
+        compact
       />
       <section className="section">
         <div className="container">

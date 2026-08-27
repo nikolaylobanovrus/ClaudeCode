@@ -20,7 +20,7 @@ import {
   isTestPayment,
 } from "../../lib/payments.js";
 import { getOperatorToken } from "../../lib/supabase.js";
-import { ymGoal, ymPurchase } from "../../lib/metrika.js";
+import { ymGoal, ymGoalOnce, ymPurchase } from "../../lib/metrika.js";
 
 export default function StepPayment({ onPaid, calc }) {
   const { draft, dispatch, flushDraft } = useWizard();
@@ -43,8 +43,10 @@ export default function StepPayment({ onPaid, calc }) {
   const paidOrder = order?.status === "paid";
 
   // Цель Метрики: клиент дошёл до шага оплаты (низ воронки перед деньгами).
+  // Один раз за визит: шаг монтируется заново на каждом «Назад → Далее»,
+  // и обычная цель насчитывала вдвое больше дошедших, чем было людей.
   useEffect(() => {
-    ymGoal("wizard_payment_step");
+    ymGoalOnce("wizard_payment_step");
   }, []);
 
   // Заказ оплачен (поллинг или возврат с ЮKassa) → фиксируем покупку.
@@ -189,6 +191,9 @@ export default function StepPayment({ onPaid, calc }) {
       const paidMock = await payMockOrder(current);
       dispatch({ type: "SET_ORDER", order: paidMock });
     } catch (e) {
+      // Цель Метрики: платёж не создался. Без неё сбой ЮKassa или edge-функции
+      // виден только пользователю — в отчётах он выглядит как «передумал».
+      ymGoal("pay_error", { reason: String(e?.message || e).slice(0, 80) });
       setError(
         "Не получилось создать оплату. Проверьте интернет и попробуйте ещё раз." +
           (import.meta.env.DEV ? ` (${e.message})` : "")
