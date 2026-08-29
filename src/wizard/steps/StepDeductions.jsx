@@ -46,8 +46,14 @@ export default function StepDeductions({ errors }) {
   const saleActive = mode === "sale";
   const mixed = mode === "mixed";
   // «Уточнёнка» — тихая опция: свёрнута в одну строку, основной флоу не
-  // нагружает. Раскрыта, если уже включена (correction > 0 или deep-link).
-  const [corrOpen, setCorrOpen] = useState(Number(draft.correction) > 0);
+  // нагружает. Раскрыта, если корректировка уже выбрана или человек пришёл
+  // по рекламной ссылке про уточнёнку (?korr=…): блок объясняет, что это,
+  // но номер НЕ проставляется — см. комментарий в pages/Wizard.jsx.
+  const [corrOpen, setCorrOpen] = useState(
+    () =>
+      Number(draft.correction) > 0 ||
+      Boolean(new URLSearchParams(window.location.search).get("korr"))
+  );
   const corr = Number(draft.correction) || 0;
   const setCorr = (n) => {
     if (n > 0 && corr === 0) ymGoal("correction_on", { n });
