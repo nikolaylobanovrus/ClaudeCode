@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Footer from "./Footer.jsx";
@@ -24,21 +24,8 @@ export default function Layout() {
     vkHit();
   }, [pathname]);
 
-  // Пролистан ли первый экран. Раньше от этого зависела и липкая панель,
-  // но владелец решил вернуть её на первый экран — теперь флаг управляет
-  // только круглой кнопкой чата, которая на телефонах 360×740 и 390×844
-  // приходилась ровно на кнопки первого экрана.
-  const [pastHero, setPastHero] = useState(false);
-  useEffect(() => {
-    const onScroll = () =>
-      setPastHero(window.scrollY > window.innerHeight * 0.6);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [pathname]);
-
   return (
-    <div className={"site" + (pastHero ? " is-past-hero" : "")}>
+    <div className="site">
       <Navbar />
       <main className="site__main">
         <Outlet />
