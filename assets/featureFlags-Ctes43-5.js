@@ -1,0 +1,1 @@
+import{r as s,d as c}from"./index-CrcvPc-R.js";const t=new Map;function f(e){if(!t.has(e)){const a=c("feature_enabled",{p_key:e}).then(r=>r===!0).catch(()=>(t.delete(e),!1));t.set(e,a)}return t.get(e)}function l(e){const[a,r]=s.useState(!1);return s.useEffect(()=>{let n=!0;return f(e).then(u=>n&&r(u)),()=>{n=!1}},[e]),a}export{l as u};
