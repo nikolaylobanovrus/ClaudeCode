@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
 import Footer from "./Footer.jsx";
@@ -24,8 +24,21 @@ export default function Layout() {
     vkHit();
   }, [pathname]);
 
+  // Липкая панель показывается, только когда первый экран уже пролистан.
+  // Пока он на виду, панель дублировала кнопку страницы («Заполнить» =
+  // «Начать заполнение») и на телефонах 360×640…390×844 накрывала её
+  // собой — вместе с круглой кнопкой чата, висевшей в том же углу.
+  const [pastHero, setPastHero] = useState(false);
+  useEffect(() => {
+    const onScroll = () =>
+      setPastHero(window.scrollY > window.innerHeight * 0.6);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pathname]);
+
   return (
-    <div className="site">
+    <div className={"site" + (pastHero ? " is-past-hero" : "")}>
       <Navbar />
       <main className="site__main">
         <Outlet />
@@ -41,7 +54,7 @@ export default function Layout() {
           страницу, «Позвонить» уводил из воронки, а на шаге оплаты панель
           соседствовала с настоящей кнопкой «Оплатить». */}
       {!pathname.startsWith("/situaciya") && pathname !== "/deklaraciya/anketa" && (
-        <div className="mobile-cta">
+        <div className={"mobile-cta" + (pastHero ? " is-visible" : "")}>
           <a href={`tel:${company.phoneRaw}`} className="btn btn--ghost">
             Позвонить
           </a>
