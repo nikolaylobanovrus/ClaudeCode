@@ -56,6 +56,15 @@ def patch_index(t):
     t = rsub(t, r'<script async src="https://www\.googletagmanager\.com/gtag/js\?id=UA-208621522-1"></script><script>.*?gtag\(\'config\', \'UA-208621522-1\'\);</script>',
              "", label="gtag")
     t = sub(t, "<html lang=en>", "<html lang=ru>", label="lang")
+    # Три карточки тарифов одной высоты: цена и кнопка прижаты к низу, заголовок
+    # с чипом «-10%» в одну строку (при трёх колонках он переносился).
+    t = sub(t, "</style>",
+            "#pricing .card.v-card{height:100%;display:flex;flex-direction:column}"
+            "#pricing .card.v-card>p:last-child{margin-top:auto}"
+            "#pricing .card h1{font-size:24px;white-space:nowrap}"
+            "#pricing .card h1 .v-chip{margin:0 0 0 4px!important;height:26px;font-size:13px;padding:0 8px}"
+            "#pricing .row{justify-content:center}"
+            "</style>", label="pricing css")
     return t
 
 
@@ -73,7 +82,7 @@ def patch_app(t):
                             subtitle: "Самый популярный выбор. Срок — до 2 рабочих дней.",
                             description: "Декларация, заявление и консультация по подаче",
                             enabledOption: ["Гарантия качества услуг", "Декларация 3-НДФЛ", "Заявление на возврат налога", "Консультация по подаче в ФНС"],
-                            disableOption: ["Иные документы в зависимости от вашей ситуации", "Подача документов в налоговую инспекцию"],
+                            disableOption: ["Подача документов в налоговую инспекцию"],
                             price: "1 210 ₽",
                             priceValue: "1210",
                             crossedPrice: "1 340 ₽",
@@ -84,13 +93,14 @@ def patch_app(t):
     t = sub(t, '''{
                             img: s("1f1e"),
                             title: "Премиум",''', optimal, count=2, label="optimal card")
-    # Сетка карточек: три в ряд на десктопе вместо двух.
+    # Сетка карточек: три в ряд на широких экранах (lg+), две на средних (md), одна на телефоне.
     t = sub(t, '''                            xs: "6",
                             md: "6",
                             xl: "6"
                         }
                     }, [s("v-hover"''', '''                            xs: "6",
-                            md: "4",
+                            md: "6",
+                            lg: "4",
                             xl: "4"
                         }
                     }, [s("v-hover"''', label="price grid")
