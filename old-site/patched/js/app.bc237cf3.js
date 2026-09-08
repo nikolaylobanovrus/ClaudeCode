@@ -1446,7 +1446,9 @@
                         md: "9",
                         xl: "9"
                     }
-                }, [s("v-row", t._l(t.panels, (function(e, a) {
+                }, [s("v-row", {
+                    staticClass: "messenger-panels"
+                }, t._l(t.panels, (function(e, a) {
                     return s("v-col", {
                         key: a,
                         staticClass: "expert-panel",
@@ -1497,12 +1499,12 @@
                     return {
                         panels: [{
                             href: "https://t.me/+79208379193",
-                            img: s("a20f"),
+                            img: s("1791"),
                             text: "Написать в Telegram",
                             textStyle: "color: #095e82"
                         }, {
                             href: "https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA",
-                            img: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%236c5ce7'/><text x='32' y='40' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='700' font-size='22' fill='%23fff'>MAX</text></svg>",
+                            img: "/img/max-logo.svg",
                             text: "Написать в Max",
                             textStyle: "color: #6c5ce7"
                         }]
@@ -2633,7 +2635,9 @@
                     }
                 }, [t._v("+7 (920) 837-91-93")])])]), a("p", [a("span", {
                     staticClass: "title"
-                }, [a("v-icon", [t._v("mdi-message-reply-text-outline")]), t._v(" Мессенджеры:")], 1)]), a("div", [a("a", {
+                }, [a("v-icon", [t._v("mdi-message-reply-text-outline")]), t._v(" Мессенджеры:")], 1)]), a("div", {
+                    staticClass: "messengers-row"
+                }, [a("a", {
                     staticClass: "d-inline-block pa-2",
                     attrs: {
                         href: "https://t.me/+79208379193"
@@ -2652,7 +2656,7 @@
                     }
                 }, [a("v-img", {
                     attrs: {
-                        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%236c5ce7'/><text x='32' y='40' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='700' font-size='22' fill='%23fff'>MAX</text></svg>",
+                        src: "/img/max-logo.svg",
                         width: "50px",
                         title: "Написать в Max"
                     }

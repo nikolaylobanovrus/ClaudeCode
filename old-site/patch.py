@@ -24,16 +24,9 @@ TG = f"https://t.me/{PHONE}"
 MAX = "https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA"
 OFFER_DATE = "&laquo;07&raquo; сентября 2026 г."
 
-# Иконка Max: у старого сайта нет такой картинки, а класть новый файл в img/ —
-# лишний шаг при загрузке. SVG прямо в атрибуте src: фиолетовый круг, как
-# кнопка Max на новом сайте.
-MAX_ICON = (
-    "data:image/svg+xml;utf8,"
-    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>"
-    "<circle cx='32' cy='32' r='32' fill='%236c5ce7'/>"
-    "<text x='32' y='40' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' "
-    "font-weight='700' font-size='22' fill='%23fff'>MAX</text></svg>"
-)
+# Иконка Max — официальная (favicon.svg с max.ru, векторная, 72 КБ), кладём
+# файлом img/max-logo.svg рядом с логотипом Telegram; в бандле только путь.
+MAX_ICON = "/img/max-logo.svg"
 
 
 def sub(text, old, new, count=1, label=""):
@@ -64,6 +57,9 @@ def patch_index(t):
             "#pricing .card h1{font-size:24px;white-space:nowrap}"
             "#pricing .card h1 .v-chip{margin:0 0 0 4px!important;height:26px;font-size:13px;padding:0 8px}"
             "#pricing .row{justify-content:center}"
+            ".messenger-panels{justify-content:center}"
+            ".messengers-row{text-align:center}"
+            "@media (max-width:959px){.messenger-panels .expert-panel{flex:0 0 50%;max-width:50%}}"
             "</style>", label="pricing css")
     return t
 
@@ -115,7 +111,7 @@ def patch_app(t):
     t = rsub(t, r'panels: \[\{\s*href: "https://t\.me/\+79127916470",.*?text: "Написать в WhatsApp",\s*textStyle: "color: #0c893b"\s*\}\]',
              'panels: [{\n'
              f'                            href: "{TG}",\n'
-             '                            img: s("a20f"),\n'
+             '                            img: s("1791"),\n'  # логотип Telegram; a20f был QR-кодом на старый номер 912
              '                            text: "Написать в Telegram",\n'
              '                            textStyle: "color: #095e82"\n'
              '                        }, {\n'
@@ -150,6 +146,24 @@ def patch_app(t):
     # 4. Срок в FAQ — по тарифам.
     t = sub(t, "Срок подготовки документов – в течение 3 рабочих дней с момента получения всех запрошенных документов.",
             "Срок подготовки документов – от 1 до 3 рабочих дней в зависимости от тарифа, с момента получения всех запрошенных документов.", label="faq term")
+
+    # Панели «Написать в Telegram / Max» и иконки в контактах — по центру,
+    # а не прижаты к левому краю (после удаления WhatsApp и Viber их стало две).
+    t = sub(t, '''                        xl: "9"
+                    }
+                }, [s("v-row", t._l(t.panels, (function(e, a) {
+                    return s("v-col", {
+                        key: a,
+                        staticClass: "expert-panel",''', '''                        xl: "9"
+                    }
+                }, [s("v-row", {
+                    staticClass: "messenger-panels"
+                }, t._l(t.panels, (function(e, a) {
+                    return s("v-col", {
+                        key: a,
+                        staticClass: "expert-panel",''', label="panels row class")
+    t = sub(t, 't._v(" Мессенджеры:")], 1)]), a("div", [a("a", {',
+            't._v(" Мессенджеры:")], 1)]), a("div", {\n                    staticClass: "messengers-row"\n                }, [a("a", {', label="contacts icons row class")
 
     for leftover in ("79127916470", "wa.me", "viber://"):
         if leftover in t:
@@ -203,4 +217,7 @@ if __name__ == "__main__":
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(out, encoding="utf-8")
         print(f"{rel}: {len(src)} → {len(out)} байт, sha256 {hashlib.sha256(out.encode()).hexdigest()[:16]}…")
+    (DST / "img").mkdir(exist_ok=True)
+    (DST / "img" / "max-logo.svg").write_bytes((ROOT / "assets" / "max-logo.svg").read_bytes())
+    print("img/max-logo.svg скопирован")
     print("Готово:", DST)
