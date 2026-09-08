@@ -2463,6 +2463,12 @@ h4 {
 .wiz__resume p {
   margin: 0;
 }
+.wiz__resume-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--ink-500);
+}
 .wiz__progress {
   display: flex;
   gap: 4px;
