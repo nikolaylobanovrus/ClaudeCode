@@ -16,7 +16,6 @@ import { paymentStepFor, SALE_SLUGS } from "../data/wizard.js";
 import { SALE_REALTY_BASES, SALE_OBJECTS } from "../lib/ndfl/refs.js";
 import { decodeDraftLink } from "../lib/draftLink.js";
 import { ymGoal } from "../lib/metrika.js";
-import { deductions } from "../data/content.js";
 
 // Ситуации, которые объявление может передать в ссылке (?s=… до решётки):
 // клик по «вычет за лечение» открывает анкету с уже выбранной плиткой —
@@ -32,11 +31,6 @@ const PRESELECT_SLUGS = [
 // хранит анкета; даты валидируем по формату, чтобы мусор из ссылки не попал в
 // поле типа date.
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-// Название плитки для плашки «мы уже отметили …» — как она подписана в анкете.
-const SLUG_TITLES = Object.fromEntries(deductions.map((d) => [d.slug, d.title]));
-SLUG_TITLES.prodazha_auto = "Продал автомобиль";
-SLUG_TITLES.prodazha_realty = "Продал недвижимость";
 
 function saleFromParams(params, kind) {
   const patch = {};
@@ -68,10 +62,6 @@ function saleFromParams(params, kind) {
 function WizardBody() {
   const { dispatch } = useWizard();
   const [resumeOffer, setResumeOffer] = useState(null);
-  // Ситуация из ссылки, отмеченная поверх плашки о старом черновике.
-  const [resumeHint, setResumeHint] = useState(null);
-  const linkSlugRef = useRef(null);
-  const applySlugRef = useRef(() => {});
   // Плашка вычета на лендинге передаёт свой slug через state роутера —
   // анкета открывается с уже проставленной галочкой.
   const preselect = useLocation().state?.deduction;
@@ -108,24 +98,22 @@ function WizardBody() {
       window.history.replaceState(null, "", window.location.pathname + window.location.hash);
       return;
     }
-    // Ситуация из объявления (?s=lechenie) или с плашки лендинга (state).
-    //
-    // ?korr=1 из рекламы «ошиблись в декларации» НЕ проставляет номер
-    // корректировки — он только раскрывает блок про уточнёнку на первом
-    // шаге (StepDeductions читает параметр сам).
-    //
-    // Почему так: по этой ссылке идёт группа 19_Уточнённая_декларация, а
-    // автотаргетинг Директа (отключить его нельзя) приводит туда обычные
-    // запросы «как заполнить 3 ндфл» — 28.08 такими были 4 клика из 4.
-    // Проставленная корректировка означала бы, что человек, подающий
-    // ПЕРВИЧНУЮ декларацию, получит её с номером корректировки на титуле,
-    // и ФНС такую не примет. Пусть номер выбирает тот, кому он нужен.
-    const s = params.get("s");
-    const slug = preselect || (PRESELECT_SLUGS.includes(s) ? s : null);
-    linkSlugRef.current = slug;
-    const applySlug = () => {
-      if (!slug) return;
-      if (SALE_SLUGS.includes(slug)) {
+    const saved = loadDraft();
+    if (!saved) {
+      // ?korr=1 из рекламы «ошиблись в декларации» НЕ проставляет номер
+      // корректировки — он только раскрывает блок про уточнёнку на первом
+      // шаге (StepDeductions читает параметр сам).
+      //
+      // Почему так: по этой ссылке идёт группа 19_Уточнённая_декларация, а
+      // автотаргетинг Директа (отключить его нельзя) приводит туда обычные
+      // запросы «как заполнить 3 ндфл» — 28.08 такими были 4 клика из 4.
+      // Проставленная корректировка означала бы, что человек, подающий
+      // ПЕРВИЧНУЮ декларацию, получит её с номером корректировки на титуле,
+      // и ФНС такую не примет. Пусть номер выбирает тот, кому он нужен.
+      // Ситуация из объявления (?s=lechenie) или с плашки лендинга (state).
+      const s = params.get("s");
+      const slug = preselect || (PRESELECT_SLUGS.includes(s) ? s : null);
+      if (slug && SALE_SLUGS.includes(slug)) {
         // Свежий черновик стартует с года YEARS[0] (2025) — он поддержан
         // и для авто, и для недвижимости, менять год не нужно.
         const kind = slug === "prodazha_realty" ? "realty" : "auto";
@@ -136,14 +124,9 @@ function WizardBody() {
           index: 0,
           patch: { kind, ...saleFromParams(params, kind) },
         });
-      } else {
+      } else if (slug) {
         dispatch({ type: "TOGGLE_TYPE", slug });
       }
-    };
-    applySlugRef.current = applySlug;
-    const saved = loadDraft();
-    if (!saved) {
-      applySlug();
       return;
     }
     // Легаси-черновики: paid-заказ времён до появления покупок превращаем
@@ -183,35 +166,20 @@ function WizardBody() {
         : "прошлого визита";
       setResumeOffer(when);
     }
-    // Человек пришёл по ссылке с ситуацией, а у него есть старый черновик.
-    // Раньше ссылка молча игнорировалась: пустой первый шаг, плашка про
-    // черновик, и «Далее» упиралось в «выберите хотя бы один вычет» (данные
-    // 28.08–07.09: 5 из 32 таких блокировок — вернувшиеся с черновиком).
-    // Теперь плитка из ссылки отмечена сразу, а плашка объясняет, что старую
-    // анкету можно продолжить, а можно идти дальше с новой.
-    if (slug) {
-      applySlug();
-      setResumeHint(SLUG_TITLES[slug] || null);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <WizardShell
       resumeOffer={resumeOffer}
-      resumeHint={resumeHint}
       onResume={() => {
         if (savedRef.current) dispatch({ type: "RESTORE", draft: savedRef.current });
         setResumeOffer(null);
-        setResumeHint(null);
       }}
       onRestart={() => {
         clearDraft();
         dispatch({ type: "RESET" });
-        // «Начать заново» не должно терять ситуацию из ссылки.
-        if (linkSlugRef.current) applySlugRef.current();
         setResumeOffer(null);
-        setResumeHint(null);
       }}
     />
   );

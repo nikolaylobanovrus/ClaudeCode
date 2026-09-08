@@ -73,7 +73,7 @@ const COMPONENTS = {
   documents: StepDocuments,
 };
 
-export default function WizardShell({ resumeOffer, resumeHint, onResume, onRestart }) {
+export default function WizardShell({ resumeOffer, onResume, onRestart }) {
   const { draft, dispatch } = useWizard();
   const autofillOn = useFeatureFlag("doc_autofill");
   const [errors, setErrors] = useState({});
@@ -227,12 +227,6 @@ export default function WizardShell({ resumeOffer, resumeHint, onResume, onResta
           <p>
             У вас есть незаконченная анкета от {resumeOffer}. Продолжить с того же
             места?
-            {resumeHint && (
-              <span className="wiz__resume-hint">
-                Или начните новую: «{resumeHint}» из вашей ссылки уже отмечено ниже —
-                просто нажмите «Далее».
-              </span>
-            )}
           </p>
           <div className="doc-actions">
             <button type="button" className="btn btn--primary" onClick={onResume}>
