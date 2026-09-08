@@ -2629,19 +2629,39 @@ h4 {
   border-color: var(--blue-600);
   background: var(--blue-50);
 }
-/* Крупная подпись над плитками: это вопрос, а не подпись к полю. */
 /* Отступ от блока года со ссылкой про уточнёнку: иначе ссылка и вопрос
    про ситуации читались одним блоком (замечание владельца 08.09). */
 .wiz__types-field.wiz__types-field {
   margin-top: 30px;
 }
-.wiz__types-label.wiz__types-label {
+/* Крупные вопросы шага («За какой год…», «Выберите ситуации») — одним
+   шрифтом, с синей полосой; это вопросы, а не подписи к полям. */
+.form__field .wiz__q {
   font-size: 17px;
   font-weight: 800;
   margin-bottom: 10px;
   padding-left: 12px;
   border-left: 4px solid var(--blue-600);
   line-height: 1.25;
+}
+.wiz__q .wiz__hint-wrap {
+  vertical-align: middle;
+}
+/* На узком экране 17px ровно заполняют строку, и кружок «?» уезжал на
+   отдельную строку. */
+@media (max-width: 480px) {
+  .form__field .wiz__q {
+    font-size: 16px;
+  }
+}
+/* Подпись переключателя «Первичная / Уточнённая» — рангом ниже вопросов. */
+.form__field .wiz__q-sub {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.wiz__corr {
+  margin-top: 18px;
 }
 /* «Далее» без выбора: сетка мигает синим, а не только строка ошибки. */
 .wiz__types.is-attention {

@@ -1,6 +1,5 @@
 // Шаг 1: отчётный год и виды вычетов. Несколько вычетов объединяются
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
-import { useState } from "react";
 import { useWizard } from "../WizardContext.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
 import { wizardDeductions, HINTS, SALE_SLUGS, modeOf, saleKindOf } from "../../data/wizard.js";
@@ -45,15 +44,11 @@ export default function StepDeductions({ errors }) {
   const mode = modeOf(draft);
   const saleActive = mode === "sale";
   const mixed = mode === "mixed";
-  // «Уточнёнка» — тихая опция: свёрнута в одну строку, основной флоу не
-  // нагружает. Раскрыта, если корректировка уже выбрана или человек пришёл
-  // по рекламной ссылке про уточнёнку (?korr=…): блок объясняет, что это,
-  // но номер НЕ проставляется — см. комментарий в pages/Wizard.jsx.
-  const [corrOpen, setCorrOpen] = useState(
-    () =>
-      Number(draft.correction) > 0 ||
-      Boolean(new URLSearchParams(window.location.search).get("korr"))
-  );
+  // Первичная / уточнённая — переключатель с дефолтом «Первичная».
+  // Блок с номером корректировки раскрыт ровно тогда, когда выбрана
+  // уточнённая (correction > 0). Рекламный параметр ?korr больше ничего
+  // не делает: по нему приходил случайный трафик автотаргетинга, а номер
+  // корректировки у первичной декларации ФНС не принимает.
   const corr = Number(draft.correction) || 0;
   const setCorr = (n) => {
     if (n > 0 && corr === 0) ymGoal("correction_on", { n });
@@ -133,7 +128,7 @@ export default function StepDeductions({ errors }) {
   return (
     <div>
       <div className="form__field">
-        <label>
+        <label className="wiz__q">
           {saleActive ? "За какой год декларируем продажу" : "За какой год возвращаем налог"}
           <Hint text={HINTS.year} />
         </label>
@@ -172,41 +167,56 @@ export default function StepDeductions({ errors }) {
           </div>
         )}
 
-        {/* Уточнённая (корректирующая) декларация — свёрнутая опция. */}
-        <div style={{ marginTop: 10 }}>
-          {!corrOpen && corr === 0 ? (
-            <button
-              type="button"
-              className="wiz__edit"
-              onClick={() => setCorrOpen(true)}
-            >
-              Подаёте уточнённую (корректирующую) декларацию?
-            </button>
-          ) : (
-            <div className="doc-note doc-note--ok">
-              <strong>Уточнённая декларация.</strong> Если вы уже подавали
-              3-НДФЛ за {draft.year} год и нашли ошибку — подаётся уточнённая:
-              та же декларация, заполненная заново <strong>целиком</strong> (все
-              данные, а не только исправленное), с номером корректировки на
-              титульном листе. Номер = сколько уточнёнок вы уже подавали + 1.
-              <div className="calc__types" style={{ marginTop: 8 }}>
-                {[0, 1, 2, 3].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={"calc__chip" + (corr === n ? " is-active" : "")}
-                    onClick={() => setCorr(n)}
-                  >
-                    {n === 0 ? "Первичная" : `Корректировка ${n}`}
-                  </button>
-                ))}
-              </div>
-              {errors.correction && (
-                <div className="form__error">{errors.correction}</div>
-              )}
-            </div>
-          )}
+      </div>
+
+      {/* Первичная или уточнённая: переключатель, по умолчанию «Первичная». */}
+      <div className="form__field wiz__corr">
+        <label className="wiz__q-sub">
+          Декларация
+          <Hint text={HINTS.correction} />
+        </label>
+        <div className="calc__types" role="radiogroup" aria-label="Первичная или уточнённая декларация">
+          <button
+            type="button"
+            className={"calc__chip" + (corr === 0 ? " is-active" : "")}
+            aria-pressed={corr === 0}
+            onClick={() => setCorr(0)}
+          >
+            Первичная
+          </button>
+          <button
+            type="button"
+            className={"calc__chip" + (corr > 0 ? " is-active" : "")}
+            aria-pressed={corr > 0}
+            onClick={() => corr === 0 && setCorr(1)}
+          >
+            Уточнённая
+          </button>
         </div>
+        {corr > 0 && (
+          <div className="doc-note doc-note--ok" style={{ marginTop: 10 }}>
+            <strong>Уточнённая декларация.</strong> Если вы уже подавали
+            3-НДФЛ за {draft.year} год и нашли ошибку — подаётся уточнённая:
+            та же декларация, заполненная заново <strong>целиком</strong> (все
+            данные, а не только исправленное), с номером корректировки на
+            титульном листе. Номер = сколько уточнёнок вы уже подавали + 1.
+            <div className="calc__types" style={{ marginTop: 8 }}>
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={"calc__chip" + (corr === n ? " is-active" : "")}
+                  onClick={() => setCorr(n)}
+                >
+                  Корректировка {n}
+                </button>
+              ))}
+            </div>
+            {errors.correction && (
+              <div className="form__error">{errors.correction}</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Записи Вебвизора (08.09): на десктопе люди жмут «Далее», не выбрав
@@ -214,7 +224,7 @@ export default function StepDeductions({ errors }) {
           плитки пустой кружок-чекбокс, подпись крупнее, а при ошибке сетка
           подсвечивается и страница к ней прокручивается. */}
       <div className={"form__field wiz__types-field" + (errors.types ? " has-error" : "")}>
-        <label className="wiz__types-label">Выберите одну или несколько ситуаций</label>
+        <label className="wiz__q">Выберите одну или несколько ситуаций</label>
         <div className={"wiz__types" + (errors.types ? " is-attention" : "")}>
           {wizardDeductions.map((d) => {
             const active = draft.types.includes(d.slug);
