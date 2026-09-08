@@ -2630,6 +2630,11 @@ h4 {
   background: var(--blue-50);
 }
 /* Крупная подпись над плитками: это вопрос, а не подпись к полю. */
+/* Отступ от блока года со ссылкой про уточнёнку: иначе ссылка и вопрос
+   про ситуации читались одним блоком (замечание владельца 08.09). */
+.wiz__types-field.wiz__types-field {
+  margin-top: 30px;
+}
 .wiz__types-label.wiz__types-label {
   font-size: 17px;
   font-weight: 800;
@@ -2773,7 +2778,7 @@ h4 {
   background: none;
   border: 0;
   color: var(--blue-600);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
