@@ -2614,9 +2614,39 @@ h4 {
   cursor: pointer;
   font: inherit;
 }
+@media (hover: hover) {
+  .wiz__type:hover {
+    border-color: var(--blue-500);
+    background: var(--blue-50);
+    box-shadow: 0 4px 14px rgba(27, 98, 224, 0.12);
+    transform: translateY(-1px);
+  }
+  .wiz__type:hover .wiz__type-check {
+    border-color: var(--blue-500);
+  }
+}
 .wiz__type.is-active {
   border-color: var(--blue-600);
   background: var(--blue-50);
+}
+/* Крупная подпись над плитками: это вопрос, а не подпись к полю. */
+.wiz__types-label.wiz__types-label {
+  font-size: 17px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  padding-left: 12px;
+  border-left: 4px solid var(--blue-600);
+  line-height: 1.25;
+}
+/* «Далее» без выбора: сетка мигает синим, а не только строка ошибки. */
+.wiz__types.is-attention {
+  border-radius: 16px;
+  animation: wiz-attention 1.4s ease-out 2;
+}
+@keyframes wiz-attention {
+  0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55); }
+  60% { box-shadow: 0 0 0 10px rgba(229, 72, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
 }
 .wiz__type-icon {
   font-size: 24px;
@@ -2631,12 +2661,28 @@ h4 {
   font-size: 12px;
   color: var(--ink-500);
 }
+/* Кружок-чекбокс: пустой у невыбранной плитки, синий с галочкой у выбранной.
+   Без него плитки читаются как информационные карточки, а не как выбор. */
 .wiz__type-check {
   margin-left: auto;
-  color: var(--blue-600);
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #b9c7dd;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
   font-weight: 700;
-  font-size: 16px;
-  width: 18px;
+  font-size: 14px;
+  line-height: 1;
+  background: #fff;
+  transition: background 0.15s, border-color 0.15s;
+}
+.wiz__type.is-active .wiz__type-check {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
 }
 .wiz__hint-wrap {
   position: relative;

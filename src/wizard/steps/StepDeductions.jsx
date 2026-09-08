@@ -209,9 +209,13 @@ export default function StepDeductions({ errors }) {
         </div>
       </div>
 
-      <div className="form__field">
-        <label>Выберите одну или несколько ситуаций</label>
-        <div className="wiz__types">
+      {/* Записи Вебвизора (08.09): на десктопе люди жмут «Далее», не выбрав
+          ситуацию, — плитки читались как справочные карточки. Поэтому у каждой
+          плитки пустой кружок-чекбокс, подпись крупнее, а при ошибке сетка
+          подсвечивается и страница к ней прокручивается. */}
+      <div className={"form__field wiz__types-field" + (errors.types ? " has-error" : "")}>
+        <label className="wiz__types-label">Выберите одну или несколько ситуаций</label>
+        <div className={"wiz__types" + (errors.types ? " is-attention" : "")}>
           {wizardDeductions.map((d) => {
             const active = draft.types.includes(d.slug);
             return (
