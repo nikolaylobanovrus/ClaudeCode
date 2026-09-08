@@ -58,7 +58,6 @@ def patch_index(t):
             "#pricing .card h1 .v-chip{margin:0 0 0 4px!important;height:26px;font-size:13px;padding:0 8px}"
             "#pricing .row{justify-content:center}"
             ".messenger-panels{justify-content:center}"
-            ".messengers-row{text-align:center}"
             "@media (max-width:959px){.messenger-panels .expert-panel{flex:0 0 50%;max-width:50%}}"
             "</style>", label="pricing css")
     return t
@@ -147,8 +146,10 @@ def patch_app(t):
     t = sub(t, "Срок подготовки документов – в течение 3 рабочих дней с момента получения всех запрошенных документов.",
             "Срок подготовки документов – от 1 до 3 рабочих дней в зависимости от тарифа, с момента получения всех запрошенных документов.", label="faq term")
 
-    # Панели «Написать в Telegram / Max» и иконки в контактах — по центру,
-    # а не прижаты к левому краю (после удаления WhatsApp и Viber их стало две).
+    # Панели «Написать в Telegram / Max» — по центру (после удаления WhatsApp и
+    # Viber их стало две и они прижимались к левому краю). Иконки в контактах
+    # остаются под подписью слева: центрировать их пробовали 08.09, владелец
+    # вернул — подписи «Колл-центр», «Мессенджеры» выровнены по левому краю.
     t = sub(t, '''                        xl: "9"
                     }
                 }, [s("v-row", t._l(t.panels, (function(e, a) {
