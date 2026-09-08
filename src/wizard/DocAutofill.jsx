@@ -67,7 +67,7 @@ export default function DocAutofill({ stepKey = "income" }) {
         types: draft.types,
       });
       if (!alive.current) return;
-      const { draftPatch, applied: done, skipped } = mergePatch(draft, patch);
+      const { draftPatch, applied: done, skipped, busy } = mergePatch(draft, patch);
       if (Object.keys(draftPatch).length)
         dispatch({ type: "APPLY_PATCH", patch: draftPatch });
       setApplied(done);
@@ -82,16 +82,29 @@ export default function DocAutofill({ stepKey = "income" }) {
       setFiles([]);
       setDropped(0);
       if (done.length) ymGoal("wizard_autofill", { fields: done.length });
-      // Распознали, но подставить нечего (в документах нет данных для пустых
-      // полей) — для воронки это тоже неудача, фиксируем причину. Заодно
-      // пишем, какие секции вернул сервер: «none» значит модель не нашла в
-      // документах вообще ничего (плохое фото, не тот документ), а список
-      // секций — что нашла, но все эти поля человек уже заполнил сам. Лечится
-      // это по-разному, а в статистике до сих пор было неразличимо.
+      // Распознали, но подставить нечего. Для воронки это неудача, но причины
+      // две и лечатся по-разному:
+      //   found=none  — модель не прочитала ни одной секции (плохое фото, не
+      //                 тот документ, скан вверх ногами);
+      //   found=…, busy>0 — прочитала, но эти поля человек уже заполнил сам,
+      //                 то есть по сути ложная тревога.
+      // Прежний параметр sections был бесполезен: модель всегда возвращает
+      // ВСЕ секции схемы, просто с found:false, поэтому список ключей был
+      // одинаковым в обоих случаях. Считаем именно found:true.
       else
         ymGoal("autofill_fail", {
           reason: "empty_patch",
-          sections: Object.keys(patch || {}).join("|") || "none",
+          // Секции приходят двух видов: объект с флагом found (паспорт, счёт)
+          // и массив записей (доходы, продажи) — у массива признак «нашли» это
+          // непустая длина.
+          found:
+            Object.entries(patch || {})
+              .filter(([, v]) =>
+                Array.isArray(v) ? v.length > 0 : v && typeof v === "object" && v.found
+              )
+              .map(([k]) => k)
+              .join("|") || "none",
+          busy,
         });
     } catch (e) {
       if (!alive.current) return;

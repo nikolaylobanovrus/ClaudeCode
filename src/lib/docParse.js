@@ -249,6 +249,11 @@ export function mergePatch(draft, patch) {
   const applied = [];
   const skipped = []; // распознано, но не прошло проверку — вписать вручную
   const draftPatch = {};
+  // Сколько распознанных значений не подставили только потому, что человек
+  // уже заполнил это поле сам. Нужно, чтобы отличать «модель ничего не
+  // прочитала» от «прочитала, но всё уже было заполнено»: в статистике оба
+  // случая выглядели как неудача, а лечатся по-разному.
+  let busy = 0;
 
   // Реквизиты с контрольной суммой/фиксированной длиной подставляем ТОЛЬКО
   // если они корректны: в бланках ФНС цифры стоят по клеткам, и модель
@@ -275,12 +280,15 @@ export function mergePatch(draft, patch) {
     const target = { ...draft[key] };
     let touched = false;
     for (const [field, label] of Object.entries(labels)) {
-      if (filled(src[field]) && !filled(target[field])) {
-        if (!valid(`${key}.${field}`, src[field])) continue;
-        target[field] = String(src[field]).trim();
-        applied.push(label);
-        touched = true;
+      if (!filled(src[field])) continue;
+      if (filled(target[field])) {
+        busy += 1;
+        continue;
       }
+      if (!valid(`${key}.${field}`, src[field])) continue;
+      target[field] = String(src[field]).trim();
+      applied.push(label);
+      touched = true;
     }
     if (touched) draftPatch[key] = target;
   };
@@ -441,5 +449,5 @@ export function mergePatch(draft, patch) {
     }
   }
 
-  return { draftPatch, applied, skipped };
+  return { draftPatch, applied, skipped, busy };
 }
