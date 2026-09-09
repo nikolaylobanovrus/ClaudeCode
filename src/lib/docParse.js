@@ -274,9 +274,14 @@ export function mergePatch(draft, patch) {
     return false;
   };
 
+  // found модель ставит сама, и ошибается она в обе стороны: встречается
+  // секция с заполненными полями и found=false. Раньше такой ответ мы
+  // выбрасывали целиком, а в статистике он выглядел как «модель ничего не
+  // прочитала» — то есть о потере нельзя было даже узнать. Флаг больше ни на
+  // что не влияет: пустые поля отсекает filled(), мусор в реквизитах — valid().
   const mergeSection = (key, labels) => {
     const src = patch?.[key];
-    if (!src?.found) return;
+    if (!src || typeof src !== "object") return;
     const target = { ...draft[key] };
     let touched = false;
     for (const [field, label] of Object.entries(labels)) {
@@ -320,7 +325,7 @@ export function mergePatch(draft, patch) {
   // кладём в первый объект списка. Второй договор человек загружает вторым
   // заходом и вписывает во вторую карточку — иначе мы бы затирали первую.
   const saleSrc = patch?.sale;
-  if (saleSrc?.found) {
+  if (saleSrc && typeof saleSrc === "object") {
     const list = Array.isArray(draft.sales)
       ? draft.sales
       : draft.sale && typeof draft.sale === "object"
@@ -339,11 +344,21 @@ export function mergePatch(draft, patch) {
       acquireDate: "дата приобретения",
     };
     for (const [field, label] of Object.entries(SALE_LABELS)) {
-      if (filled(saleSrc[field]) && !filled(target[field])) {
-        target[field] = String(saleSrc[field]).trim();
-        applied.push(label);
-        touched = true;
+      if (!filled(saleSrc[field])) continue;
+      if (filled(target[field])) {
+        busy += 1;
+        continue;
       }
+      target[field] = String(saleSrc[field]).trim();
+      applied.push(label);
+      touched = true;
+      // Расходы на покупку учитываются в расчёте, только если выбран вид
+      // вычета «по расходам»: без этого переключателя распознанная цена
+      // покупки лежит в поле, но налог считается по лимиту 250 000 /
+      // 1 000 000 ₽ — человек видит завышенный налог. Переключаем только
+      // когда расходы подставили МЫ: свой выбор человека не трогаем.
+      // Так же поступает калькулятор продажи (Wizard.jsx, saleFromParams).
+      if (field === "expenses") target.deductionKind = "expenses";
     }
     if (touched) draftPatch.sales = [target, ...list.slice(1)];
   }
@@ -372,16 +387,20 @@ export function mergePatch(draft, patch) {
   // education: self — как обычное поле; children заполняем только если
   // у пользователя список детей пуст.
   const edu = patch?.education;
-  if (edu?.found) {
+  if (edu && typeof edu === "object") {
     const target = { ...draft.education };
     let touched = false;
-    if (filled(edu.self) && !filled(target.self)) {
-      target.self = String(edu.self).trim();
-      applied.push("своё обучение");
-      touched = true;
+    if (filled(edu.self)) {
+      if (filled(target.self)) busy += 1;
+      else {
+        target.self = String(edu.self).trim();
+        applied.push("своё обучение");
+        touched = true;
+      }
     }
     const kids = (edu.children || []).filter((c) => filled(c?.amount));
-    if (kids.length && !(draft.education.children || []).length) {
+    if (kids.length && (draft.education.children || []).length) busy += 1;
+    else if (kids.length) {
       target.children = kids.map((c) => ({ amount: String(c.amount).trim() }));
       applied.push(`обучение детей (${kids.length})`);
       touched = true;
@@ -435,10 +454,13 @@ export function mergePatch(draft, patch) {
         }
         used.add(idx);
         for (const f of ["name", "inn", "kpp", "oktmo", "income", "withheld"]) {
-          if (filled(rec[f]) && !filled(next[idx][f])) {
-            next[idx][f] = rec[f];
-            touched++;
+          if (!filled(rec[f])) continue;
+          if (filled(next[idx][f])) {
+            busy += 1;
+            continue;
           }
+          next[idx][f] = rec[f];
+          touched++;
         }
       }
       if (touched || extra.length) {

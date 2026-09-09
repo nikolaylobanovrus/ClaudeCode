@@ -29,6 +29,10 @@ export default function DocAutofill({ stepKey = "income" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [applied, setApplied] = useState(null); // string[] — что подставили
+  // Почему подставить было нечего: { busy, skipped }. Нужен, чтобы не писать
+  // «в документах не нашлось данных», когда данные как раз нашлись, но поля
+  // уже заполнены человеком или реквизит не сошёлся по контрольной сумме.
+  const [outcome, setOutcome] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [dropped, setDropped] = useState(0); // сколько файлов не влезло в лимит
   const alive = useRef(true);
@@ -59,15 +63,18 @@ export default function DocAutofill({ stepKey = "income" }) {
     setBusy(true);
     setError("");
     setApplied(null);
+    setOutcome(null);
     setWarnings([]);
     ymGoal("autofill_try", { files: files.length });
     try {
-      const { patch, warnings: w } = await parseDocuments(files, {
+      const { patch, warnings: w, noDataReason } = await parseDocuments(files, {
         year: draft.year,
         types: draft.types,
       });
       if (!alive.current) return;
-      const { draftPatch, applied: done, skipped, busy } = mergePatch(draft, patch);
+      // busyFields, а не busy: busy — это состояние «идёт распознавание».
+      const { draftPatch, applied: done, skipped, busy: busyFields } = mergePatch(draft, patch);
+      setOutcome({ busy: busyFields, skipped: skipped.length });
       if (Object.keys(draftPatch).length)
         dispatch({ type: "APPLY_PATCH", patch: draftPatch });
       setApplied(done);
@@ -94,17 +101,32 @@ export default function DocAutofill({ stepKey = "income" }) {
       else
         ymGoal("autofill_fail", {
           reason: "empty_patch",
-          // Секции приходят двух видов: объект с флагом found (паспорт, счёт)
-          // и массив записей (доходы, продажи) — у массива признак «нашли» это
-          // непустая длина.
+          // Секции приходят двух видов: объект с полями (паспорт, счёт) и
+          // массив записей (доходы) — «нашли» значит, что есть хоть одно
+          // непустое поле. На флаг found не смотрим: модель ставит его
+          // неаккуратно, а нам важно, было ли что подставлять.
           found:
             Object.entries(patch || {})
               .filter(([, v]) =>
-                Array.isArray(v) ? v.length > 0 : v && typeof v === "object" && v.found
+                Array.isArray(v)
+                  ? v.length > 0
+                  : v &&
+                    typeof v === "object" &&
+                    Object.entries(v).some(
+                      ([f, x]) => f !== "found" && x !== null && String(x ?? "").trim() !== ""
+                    )
               )
               .map(([k]) => k)
               .join("|") || "none",
-          busy,
+          // Прочитано, но поле уже заполнено человеком (ложная тревога).
+          busy: busyFields,
+          // Прочитано, но не прошло контрольную сумму (ИНН, ОКТМО, КПП).
+          skipped: skipped.length,
+          // Почему модель ничего не нашла — её собственный код из закрытого
+          // списка (unreadable / wrong_year / not_a_document / no_such_data).
+          // Текст предупреждений в аналитику не уходит: там бывают ФИО и
+          // названия организаций.
+          why: noDataReason || "none",
         });
     } catch (e) {
       if (!alive.current) return;
@@ -244,14 +266,33 @@ export default function DocAutofill({ stepKey = "income" }) {
           )}
 
           {applied && (
-            <div className={"doc-note " + (applied.length ? "doc-note--ok" : "doc-note--err")}>
+            <div
+              className={
+                "doc-note " +
+                (applied.length || outcome?.busy ? "doc-note--ok" : "doc-note--err")
+              }
+            >
               {applied.length ? (
                 <>
                   Заполнили: {applied.join(", ")}. Проверьте значения по
                   документам — поля можно поправить вручную.
                 </>
+              ) : outcome?.busy ? (
+                /* Данные прочитаны, но все эти поля человек уже заполнил сам.
+                   Раньше здесь висело красное «в документах не нашлось
+                   данных» — человек считал, что распознавание сломалось. */
+                <>Всё, что нашлось в документах, у вас уже заполнено — менять нечего.</>
+              ) : outcome?.skipped ? (
+                <>
+                  Данные в документах нашлись, но реквизиты не сошлись по
+                  контрольной сумме — впишите их вручную.
+                </>
               ) : (
-                <>В документах не нашлось данных для пустых полей анкеты.</>
+                <>
+                  В документах не нашлось данных для пустых полей анкеты.
+                  Проверьте, что снимок не смазан и виден целиком, а документы
+                  — за {draft.year} год.
+                </>
               )}
               {warnings.length > 0 && (
                 <ul className="autofill__warnings">

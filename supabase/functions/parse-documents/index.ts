@@ -68,7 +68,7 @@ const section = (props: Record<string, unknown>, description: string) => ({
 const EXTRACT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["personal", "incomes", "property", "sale", "medical", "education", "iis", "insurance", "sport", "bank", "warnings"],
+  required: ["personal", "incomes", "property", "sale", "medical", "education", "iis", "insurance", "sport", "bank", "warnings", "noDataReason"],
   properties: {
     personal: section(
       {
@@ -176,6 +176,17 @@ const EXTRACT_SCHEMA = {
       type: "array",
       items: { type: "string" },
       description: "Короткие предупреждения по-русски: нечитаемые места, сомнительные цифры, документы не за тот год",
+    },
+    // Причина пустого результата — единственный способ узнать, ПОЧЕМУ
+    // распознавание ничего не дало: содержимое файлов и текст предупреждений
+    // мы не логируем и не отправляем в аналитику (там могут быть ФИО и
+    // названия организаций), а короткий код из закрытого списка безопасен.
+    // Уходит в цель Метрики autofill_fail параметром why.
+    noDataReason: {
+      type: "string",
+      enum: ["", "unreadable", "wrong_year", "not_a_document", "no_such_data"],
+      description:
+        "Заполняй ТОЛЬКО если ни одного поля не удалось извлечь (все секции found=false и incomes пуст); иначе пустая строка. unreadable — снимок нечитаем (смазан, обрезан, тёмный, перевёрнут); wrong_year — документы за другой год; not_a_document — приложено не то (посторонний файл, чек из магазина, скриншот экрана); no_such_data — документ читается, но нужных для декларации данных в нём нет",
     },
   },
 };
@@ -330,8 +341,12 @@ Deno.serve(async (req) => {
     `parsed files=${files.length} size=${Math.round(total / 1024)}KB model=${MODEL} ms=${Date.now() - started} in=${u.input_tokens ?? "?"} out=${u.output_tokens ?? "?"}`
   );
 
-  const { warnings = [], ...sections } = patch as Record<string, unknown> & { warnings?: string[] };
-  return json({ patch: sections, warnings });
+  const {
+    warnings = [],
+    noDataReason = "",
+    ...sections
+  } = patch as Record<string, unknown> & { warnings?: string[]; noDataReason?: string };
+  return json({ patch: sections, warnings, noDataReason });
 });
 
 function json(body: unknown, status = 200) {
