@@ -6,6 +6,7 @@
 import { CODES, yearRules } from "./refs.js";
 import { fmtDate as dateRu } from "./model.js";
 
+const digits = (v) => String(v ?? "").replace(/\D/g, "");
 const kop = (n) => (Math.max(0, Number(n) || 0)).toFixed(2);
 const rub = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
 
@@ -61,6 +62,7 @@ export function buildDeclarationXml(model) {
 
   const social = model.social;
   const ap = calc.applied;
+  const ct = model.contracts || {}; // реквизиты договоров для «Расчёта к Приложению 5»
   const pr = model.property;
   const sale = model.sale; // продажа имущества (налог к уплате, Приложение 6)
   // Возвратная сторона есть у обычной декларации и у комбинированной. У чистой
@@ -295,7 +297,10 @@ export function buildDeclarationXml(model) {
                 el("РасчВычСоц219.2", {
                   СумОбуч: calc.lines.educationSelf > 0 ? kop2(calc.lines.educationSelf) : undefined,
                   СумМедУсл: calc.lines.medicalOrdinary > 0 ? kop2(calc.lines.medicalOrdinary) : undefined,
-                  СумЛичСтрах: calc.lines.insurance > 0 ? kop2(calc.lines.insurance) : undefined,
+                  // Страхование жизни по пп. 4 п. 1 ст. 219 — это строка 160
+                  // (СумПенсСтрах), а не 150 (СумЛичСтрах, добровольное личное
+                  // страхование). Раньше PDF печатал в 160, а XML клал в 150.
+                  СумПенсСтрах: calc.lines.insurance > 0 ? kop2(calc.lines.insurance) : undefined,
                   СумФиз: calc.lines.sport > 0 ? kop2(calc.lines.sport) : undefined,
                   ОбщВычСоциал: kop2(grp219),
                 }),
@@ -411,6 +416,67 @@ export function buildDeclarationXml(model) {
             return is2025
               ? [el("ДохПродОНИ", {}, ...realty.map((o) => el("ДохОНИ", { ВидДох: "1", ...cad(o) })))]
               : realty.map((o) => el("ДохПродОНИ", cad(o)));
+          })(),
+          // --- Расчёт к Приложению 5 -------------------------------------------
+          // Лист-расчёт под строки 160 (взносы по договору страхования жизни) и
+          // 210 (взносы на ИИС) Приложения 5. По Порядку заполнения (п. 78, 106)
+          // эти строки берутся именно отсюда, поэтому без листа декларация
+          // неполна. Реквизиты организации (ИНН, КПП, наименование) обязательны
+          // по схеме — их спрашиваем на шаге «Расходы».
+          //
+          // Форма элемента менялась: до 2024 года блок ИИС ВЛОЖЕН в
+          // РасчПенсВзнос, который требует ОбщВзносВыч, а признаков ПрВыч и
+          // ПрОснВыч ещё нет. С 2024 года блок ИИС — самостоятельный, признаки
+          // появились. Обе формы проверены по официальным XSD.
+          ...(() => {
+            const ins = calc.lines.insurance > 0 && ct.insurance?.insurerInn ? ct.insurance : null;
+            const iis = ap.iis > 0 && ct.iis?.brokerInn ? ct.iis : null;
+            if (!ins && !iis) return [];
+            const legacy = model.year < 2024;
+            const psv =
+              ins &&
+              el(
+                "РасчПСВВыч",
+                { СумВзносУпл: kop2(calc.lines.insurance), ...(legacy ? {} : { ПрВыч: "0" }) },
+                el(
+                  "СведДогНПО",
+                  {
+                    // «3» — договор добровольного страхования жизни в целях
+                    // применения пп. 4 п. 1 ст. 219 НК (это наш вычет).
+                    ВидДоговор: "3",
+                    ДатаДогНПО: dateRu(ins.contractDate),
+                    НомДогНПО: ins.contractNumber,
+                  },
+                  el("СведИст", {
+                    Наим: ins.insurerName,
+                    ИННЮЛ: digits(ins.insurerInn),
+                    КПП: digits(ins.insurerKpp),
+                  })
+                )
+              );
+            const inv =
+              iis &&
+              el("РасчСумИнвВыч", {
+                // 1 — вычет по статье 219.1 НК (взносы на ИИС).
+                ...(legacy ? {} : { ПрОснВыч: "1" }),
+                ИННЮЛ: digits(iis.brokerInn),
+                КПП: digits(iis.brokerKpp),
+                НаимУч: iis.brokerName,
+                ДатаДог: dateRu(iis.contractDate),
+                НомДог: iis.contractNumber,
+                ДатаОткр: dateRu(iis.openDate),
+                ОбщСумВыч: kop2(ap.iis),
+                ПрВыч: "0",
+              });
+            return [
+              legacy
+                ? el(
+                    "ВычСоцИнв219",
+                    {},
+                    el("РасчПенсВзнос", { ОбщВзносВыч: kop2(calc.lines.insurance) }, psv, inv)
+                  )
+                : el("ВычСоцИнв219", {}, psv && el("РасчПенсВзнос", {}, psv), inv),
+            ];
           })()
         )
       )

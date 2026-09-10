@@ -8,7 +8,7 @@ import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-2025.pdf (порядок задан при нарезке бланка).
 // app6 — лист Приложения 6 (доходы от продажи), добавлен восьмой страницей.
-const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9 };
+const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9, raschet5: 10 };
 
 export async function buildOfficialPdf2025(model) {
   const { person, calc } = model;
@@ -42,6 +42,13 @@ export async function buildOfficialPdf2025(model) {
     sheets.push({ tpl: PG.app5a, fill: fillApp5a });
     sheets.push({ tpl: PG.app5b, fill: fillApp5b });
   }
+  // «Расчёт к Приложению 5» — обязателен, если заявлены взносы по договору
+  // страхования жизни (из него берётся строка 160) или взносы на ИИС
+  // (раздел 2 листа). Порядок заполнения, п. 78 и 106.
+  const hasInsurance = calc.lines.insurance > 0;
+  const hasIis = ap.iis > 0;
+  if (hasInsurance || hasIis)
+    sheets.push({ tpl: PG.raschet5, fill: (pen) => fillRaschet5(pen, hasInsurance, hasIis) });
   if (sale) sheets.push({ tpl: PG.app6, fill: fillApp6 });
   if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   // Недвижимость: лист «Расчёт к Приложению 1» — сверка дохода с кадастровой
@@ -224,6 +231,35 @@ export async function buildOfficialPdf2025(model) {
     pen.money(social, X, 377.4, 12); // 190 все социальные
     pen.money(social, X, 352.1, 12); // 200 стандартные + социальные
     if (ap.iis > 0) pen.money(ap.iis, X, 313.2, 12); // 210 ИИС (ст. 219.1)
+  }
+
+  // --- Расчёт к Приложению 5 ---------------------------------------------------
+  // Координаты сняты с официального шаблона 5.21000_28: у полосы знакомест
+  // берётся НИЖНЯЯ граница (откалибровано на Приложении 7, расхождение ≤ 0,9 pt).
+  function fillRaschet5(pen, insurance, iis) {
+    if (insurance) {
+      const ins = model.contracts?.insurance || {};
+      pen.left(digits(ins.insurerInn), 14.4, 596, 12); // 010 ИНН страховой
+      pen.left(digits(ins.insurerKpp), 187.0, 596, 9); // 020 КПП
+      pen.left("3", 357.0, 596, 1); // 021 — договор добровольного страхования жизни (пп. 4 п. 1 ст. 219)
+      fillRows(pen, ins.insurerName, 14.4, [511.1, 487.7, 464.3], 40); // 030
+      pen.date(ins.contractDate, 14.4, 425.8); // 040
+      pen.left(ins.contractNumber, 269.2, 425.8, 20); // 050
+      pen.money(calc.lines.insurance, 14.4, 379.0, 12); // 060 взносы к вычету
+      pen.left("0", 269.2, 379.0, 1); // 061 — вычет в упрощённом порядке не предоставлялся
+    }
+    if (iis) {
+      const iisC = model.contracts?.iis || {};
+      pen.left("1", 269.2, 287.0, 1); // 080 — основание: статья 219.1 НК
+      pen.left(digits(iisC.brokerInn), 14.4, 243.0, 12); // 090 ИНН брокера
+      pen.left(digits(iisC.brokerKpp), 269.2, 243.0, 9); // 100 КПП
+      fillRows(pen, iisC.brokerName, 14.4, [205.5, 182.5, 159.1], 40); // 110
+      pen.date(iisC.contractDate, 14.4, 112.3); // 120
+      pen.left(iisC.contractNumber, 269.2, 112.3, 20); // 130
+      pen.date(iisC.openDate, 283.6, 87.0); // 140 дата открытия счёта
+      pen.money(ap.iis, 14.4, 45.4, 12); // 150 внесено на ИИС
+      pen.left("0", 269.2, 45.4, 1); // 160
+    }
   }
 
   // --- Приложение 7: имущественный вычет ---------------------------------------

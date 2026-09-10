@@ -11,6 +11,42 @@ import {
 } from "../../lib/ndfl/refs.js";
 import { fmtRub } from "../../lib/format.js";
 
+// Реквизиты договора для листа «Расчёт к Приложению 5»: один и тот же набор
+// у страховой организации (раздел 1) и у брокера по ИИС (раздел 2). ИНН и КПП
+// обязательны по схеме ФНС — в декларации без них лист не примут.
+function Contract({ sec, keys, who, v, errors, dispatch }) {
+  const set = (patch) => dispatch({ type: "PATCH", section: sec, patch });
+  const err = (k) => errors[`${sec}.${k}`];
+  return (
+    <>
+      <Field label={`Название ${who}`} error={err(keys.name)}>
+        <TextInput value={v[keys.name]} error={err(keys.name)}
+          onChange={(x) => set({ [keys.name]: x })} />
+      </Field>
+      <div className="form__row">
+        <Field label="ИНН" error={err(keys.inn)}>
+          <TextInput value={v[keys.inn]} error={err(keys.inn)} inputMode="numeric"
+            onChange={(x) => set({ [keys.inn]: x.replace(/\D/g, "").slice(0, 12) })} />
+        </Field>
+        <Field label="КПП" error={err(keys.kpp)}>
+          <TextInput value={v[keys.kpp]} error={err(keys.kpp)} inputMode="numeric"
+            onChange={(x) => set({ [keys.kpp]: x.replace(/\D/g, "").slice(0, 9) })} />
+        </Field>
+      </div>
+      <div className="form__row">
+        <Field label="Дата договора" error={err("contractDate")}>
+          <DateInput value={v.contractDate} error={err("contractDate")}
+            onChange={(x) => set({ contractDate: x })} />
+        </Field>
+        <Field label="Номер договора" error={err("contractNumber")}>
+          <TextInput value={v.contractNumber} error={err("contractNumber")}
+            onChange={(x) => set({ contractNumber: x.slice(0, 40) })} />
+        </Field>
+      </div>
+    </>
+  );
+}
+
 export default function StepDetails({ errors }) {
   const { draft, dispatch } = useWizard();
   const has = (t) => draft.types.includes(t);
@@ -184,6 +220,16 @@ export default function StepDetails({ errors }) {
                 dispatch({ type: "PATCH", section: "iis", patch: { contribution: v } })
               } />
           </Field>
+          {/* Реквизиты договора: по ним заполняется раздел 2 листа «Расчёт к
+              Приложению 5». Без этого листа строка 210 остаётся без расчёта. */}
+          <p className="wiz__note">Данные из договора с брокером — они нужны в декларации.</p>
+          <Contract sec="iis" errors={errors} dispatch={dispatch} v={draft.iis}
+            who="брокера или управляющей компании"
+            keys={{ name: "brokerName", inn: "brokerInn", kpp: "brokerKpp" }} />
+          <Field label="Дата открытия счёта" error={errors["iis.openDate"]}>
+            <DateInput value={draft.iis.openDate} error={errors["iis.openDate"]}
+              onChange={(v) => dispatch({ type: "PATCH", section: "iis", patch: { openDate: v } })} />
+          </Field>
         </section>
       )}
 
@@ -197,6 +243,12 @@ export default function StepDetails({ errors }) {
                 dispatch({ type: "PATCH", section: "insurance", patch: { amount: v } })
               } />
           </Field>
+          {/* Реквизиты договора: по ним заполняется раздел 1 листа «Расчёт к
+              Приложению 5», из которого берётся строка 160 Приложения 5. */}
+          <p className="wiz__note">Данные из договора страхования — они нужны в декларации.</p>
+          <Contract sec="insurance" errors={errors} dispatch={dispatch} v={draft.insurance}
+            who="страховой организации"
+            keys={{ name: "insurerName", inn: "insurerInn", kpp: "insurerKpp" }} />
         </section>
       )}
 

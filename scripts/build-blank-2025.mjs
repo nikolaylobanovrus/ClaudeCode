@@ -11,11 +11,18 @@
 //     страницей официального шаблона целиком (растр 300 dpi).
 //     Координаты печати для него правятся в src/lib/ndfl/blank2025.js.
 //
+// Лист «Расчёт к Приложению 5» добавлен 10.09.2026: он обязателен для
+// строки 160 Приложения 5 (страхование жизни и пенсионное), которую сервис
+// заполняет с самого начала, — см. Порядок заполнения, п. 78.
+//
 // Вход: машиночитаемый шаблон ФНС 1151020_5.21000_28.tif (16 листов),
 // скачивается вручную — из облака format.nalog.ru отдаёт 503, см.
 // docs/fns-schemas/README.md. Путь передаётся первым аргументом.
 //
-// Запуск: node scripts/build-blank-2025.mjs <шаблон.tif|.pdf> [выход.pdf]
+// ВАЖНО: базовый ассет должен быть ИСХОДНЫМ векторным (до пересборки),
+// иначе штрихкоды наложатся повторно. Достать: git show <коммит>:<путь>.
+//
+// Запуск: node scripts/build-blank-2025.mjs <шаблон.tif|.pdf> [база.pdf] [выход.pdf]
 import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -41,6 +48,8 @@ const MAP = [
   { pg: 7, tpl: 13, name: "Приложение 7",          code: "0332 3137" },
   { pg: 8, tpl: 12, name: "Приложение 6",          code: "0332 3120" },
   { pg: 9, tpl: 15, name: "Расчёт к Приложению 1", code: "0332 3151" },
+  // Листа не было вовсе — берём из шаблона и дописываем в конец.
+  { pg: 10, tpl: 16, name: "Расчёт к Приложению 5", code: "0332 3168", full: true, append: true },
 ];
 
 // Зона штрихкода в пунктах PDF (замерена по самому бланку: штрихкод и
@@ -49,7 +58,7 @@ const BC = { x0: 42, x1: 126, y0: 786, y1: 832 };
 const PAGE_W = 595.275, PAGE_H = 841.889;
 
 async function main() {
-  const [tplPath, outPath = ASSET] = process.argv.slice(2);
+  const [tplPath, basePath = ASSET, outPath = ASSET] = process.argv.slice(2);
   if (!tplPath) {
     console.error("Укажите путь к шаблону ФНС (.tif или .pdf)");
     process.exit(1);
@@ -63,9 +72,11 @@ async function main() {
       await run("tiff2pdf", ["-o", tplPdf, tplPath]);
     }
 
-    const doc = await PDFDocument.load(await readFile(ASSET));
-    if (doc.getPageCount() !== MAP.length)
-      throw new Error(`в ассете ${doc.getPageCount()} стр., ожидалось ${MAP.length}`);
+    const doc = await PDFDocument.load(await readFile(basePath));
+    const expect = MAP.filter((m) => !m.append).length;
+    if (doc.getPageCount() !== expect)
+      throw new Error(`в базовом ассете ${doc.getPageCount()} стр., ожидалось ${expect}`);
+    const tplDoc = await PDFDocument.load(await readFile(tplPdf));
 
     for (const s of MAP) {
       if (s.full) continue; // страницу целиком меняем отдельно, ниже
@@ -88,18 +99,23 @@ async function main() {
       console.log(`  ${s.name}: штрихкод → ${s.code}`);
     }
 
-    // Приложение 5, лист 2 — страница из шаблона целиком (вёрстка изменилась).
-    // Копируем страницу как есть, не перегоняя через картинку: в шаблоне она
-    // лежит в CCITT G4 (~50 КБ), а растеризация в PNG раздувала ассет втрое.
-    const s2 = MAP.find((m) => m.full);
-    const tplDoc = await PDFDocument.load(await readFile(tplPdf));
-    const [copied] = await doc.copyPages(tplDoc, [s2.tpl - 1]);
-    doc.removePage(s2.pg);
-    doc.insertPage(s2.pg, copied);
-    // Размер страницы шаблона (595.2×841.92) на сотые доли пункта отличается
-    // от остальных листов — приводим к общему, иначе съедет печать.
-    doc.getPage(s2.pg).setSize(PAGE_W, PAGE_H);
-    console.log(`  ${s2.name}: страница заменена целиком, штрихкод → ${s2.code}`);
+    // Листы, которые берём из шаблона целиком. Копируем страницу как есть, не
+    // перегоняя через картинку: в шаблоне она лежит в CCITT G4 (~50 КБ), а
+    // растеризация в PNG раздувала ассет втрое.
+    for (const s of MAP.filter((m) => m.full)) {
+      const [copied] = await doc.copyPages(tplDoc, [s.tpl - 1]);
+      if (s.append) {
+        doc.addPage(copied);
+      } else {
+        doc.removePage(s.pg);
+        doc.insertPage(s.pg, copied);
+      }
+      // Размер страницы шаблона (595.2×841.92) на сотые доли пункта отличается
+      // от остальных листов — приводим к общему, иначе съедет печать.
+      doc.getPage(s.pg).setSize(PAGE_W, PAGE_H);
+      const what = s.append ? "лист добавлен" : "страница заменена целиком";
+      console.log(`  ${s.name}: ${what}, штрихкод → ${s.code}`);
+    }
 
     await writeFile(outPath, await doc.save());
     console.log(`\nГотово: ${outPath}`);

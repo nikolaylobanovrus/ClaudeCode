@@ -151,6 +151,7 @@ export function validateMoney(value, label = "сумму") {
 }
 
 const positive = (v) => Number(v) > 0;
+const filled = (v) => String(v ?? "").trim() !== "";
 // Режимы декларации — дубль modeOf из data/wizard.js (импорт оттуда сделал бы
 // цикл модулей). Важно именно «ЧИСТАЯ продажа»: у неё нет шага «Доходы», а у
 // комбинированной он есть, и реквизиты работодателей там обязательны.
@@ -275,10 +276,38 @@ export function validateStep(stepKey, draft) {
       if (!positive(ed.self) && !positive(childSum))
         e["education.self"] = "Укажите расходы на обучение — своё или детей";
     }
+    // Реквизиты договора обязательны: по ним заполняется лист «Расчёт к
+    // Приложению 5», без которого декларация неполна.
+    const contract = (on, sec, fields) => {
+      if (!on) return;
+      for (const [key, msg, check] of fields) {
+        const v = draft[sec]?.[key];
+        if (!filled(v)) e[`${sec}.${key}`] = msg;
+        else if (check) {
+          const err = check(v);
+          if (err) e[`${sec}.${key}`] = err;
+        }
+      }
+    };
     if (has("iis") && !positive(draft.iis?.contribution))
       e["iis.contribution"] = "Укажите сумму взносов на ИИС за год";
+    contract(has("iis"), "iis", [
+      ["brokerName", "Укажите название брокера или управляющей компании"],
+      ["brokerInn", "Укажите ИНН брокера", validateInnOrg],
+      ["brokerKpp", "Укажите КПП брокера", validateKpp],
+      ["contractDate", "Укажите дату договора на ведение ИИС"],
+      ["contractNumber", "Укажите номер договора"],
+      ["openDate", "Укажите дату открытия счёта"],
+    ]);
     if (has("strahovanie") && !positive(draft.insurance?.amount))
       e["insurance.amount"] = "Укажите взносы по договору страхования";
+    contract(has("strahovanie"), "insurance", [
+      ["insurerName", "Укажите название страховой организации"],
+      ["insurerInn", "Укажите ИНН страховой", validateInnOrg],
+      ["insurerKpp", "Укажите КПП страховой", validateKpp],
+      ["contractDate", "Укажите дату договора"],
+      ["contractNumber", "Укажите номер договора"],
+    ]);
     if (has("sport") && !positive(draft.sport?.amount))
       e["sport.amount"] = "Укажите расходы на физкультурно-оздоровительные услуги";
   }

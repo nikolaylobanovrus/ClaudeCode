@@ -35,8 +35,19 @@ const sampleDraft = (year) => ({
   property: { address: "г. Челябинск, ул. Ленина, д. 1, кв. 2", cadastral: "74:36:0000000:1234", cost: "2500000", dateAct: "", dateReg: "2024-03-15", priorDeduction: "", interestPaid: "250000", priorInterest: "" },
   medical: { ordinary: "60000", expensive: "0" },
   education: { self: "40000", children: [{ amount: "50000" }] },
-  iis: { contribution: "100000" },
-  insurance: { amount: "0" },
+  // Реквизиты договоров заполнены намеренно: без них не появляется лист
+  // «Расчёт к Приложению 5» (элемент ВычСоцИнв219), а именно он покрывает
+  // строки 160 и 210 Приложения 5.
+  iis: {
+    contribution: "100000",
+    brokerName: "АО «Брокер»", brokerInn: "7710140679", brokerKpp: "771001001",
+    contractDate: "2023-02-10", contractNumber: "ИИС-123456", openDate: "2023-02-12",
+  },
+  insurance: {
+    amount: "50000",
+    insurerName: "ООО «СК Жизнь»", insurerInn: "7702070139", insurerKpp: "770201001",
+    contractDate: "2020-05-14", contractNumber: "Ж-987654",
+  },
   sport: { amount: "30000" },
   bank: { bik: "047501711", account: "40702810007710002545" },
   order: null,

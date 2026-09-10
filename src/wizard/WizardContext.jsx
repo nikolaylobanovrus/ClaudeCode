@@ -48,8 +48,18 @@ export function initialDraft() {
     },
     medical: { ordinary: "", expensive: "" },
     education: { self: "", children: [] },
-    iis: { contribution: "" },
-    insurance: { amount: "" },
+    // Реквизиты договора нужны для листа «Расчёт к Приложению 5»: без него
+    // строки 160 и 210 Приложения 5 повисают без расчёта (Порядок, п. 78).
+    iis: {
+      contribution: "",
+      brokerName: "", brokerInn: "", brokerKpp: "",
+      contractDate: "", contractNumber: "", openDate: "",
+    },
+    insurance: {
+      amount: "",
+      insurerName: "", insurerInn: "", insurerKpp: "",
+      contractDate: "", contractNumber: "",
+    },
     sport: { amount: "" },
     bank: { bik: "", account: "" },
     // Продажа имущества: СПИСОК проданных объектов — за год человек мог

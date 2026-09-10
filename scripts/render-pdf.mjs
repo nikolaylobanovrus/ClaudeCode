@@ -47,8 +47,16 @@ const drafts = {
                 oktmo: "45380000", income: "1200000", withheld: "156000" }],
     medical: { ordinary: "80000", expensive: "150000" },
     education: { self: "60000", children: [{ amount: "50000" }] },
-    iis: { contribution: "400000" },
-    insurance: { amount: "40000" },
+    iis: {
+      contribution: "400000",
+      brokerName: "АО «Брокер Инвест»", brokerInn: "7710140679", brokerKpp: "771001001",
+      contractDate: "2023-02-10", contractNumber: "ИИС-123456", openDate: "2023-02-12",
+    },
+    insurance: {
+      amount: "40000",
+      insurerName: "ООО «Страховая компания Жизнь»", insurerInn: "7702070139",
+      insurerKpp: "770201001", contractDate: "2020-05-14", contractNumber: "Ж-987654",
+    },
     sport: { amount: "30000" },
   },
 };
