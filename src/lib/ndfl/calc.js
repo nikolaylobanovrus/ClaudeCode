@@ -339,13 +339,53 @@ export function computeDeclaration(draft) {
     sport: takeGroup(has("sport") ? num(draft.sport?.amount) : 0),
   };
 
+  // --- Стандартный вычет на детей (пп. 4 п. 1 ст. 218) -------------------------
+  // Вычет даётся помесячно, пока доход нарастающим итогом не превысил предел
+  // (350 000 ₽ до 2025 года, 450 000 ₽ с 2025). Помесячного дохода анкета не
+  // собирает, поэтому число месяцев оцениваем по среднему за год; человек может
+  // задать его сам — в справке о доходах видно точно.
+  const std = draft.standard || {};
+  const stdChildren = has("deti") ? std.children || [] : [];
+  const stdMonths = (() => {
+    const manual = Math.round(num(std.months));
+    if (manual > 0) return Math.min(12, manual);
+    if (totalIncome <= 0) return 12;
+    const perMonth = totalIncome / 12;
+    return Math.max(0, Math.min(12, Math.floor(rules.childLimit / perMonth)));
+  })();
+  const stdRates = rules.childDed || { first: 1400, second: 1400, third: 3000, disabled: 12000 };
+  const perOrder = (o) => (o === "3" ? stdRates.third : o === "2" ? stdRates.second : stdRates.first);
+  const stdDouble = Boolean(std.singleParent);
+  // Обычный вычет по очерёдности и вычет на инвалида складываются
+  // (п. 14 Обзора Президиума ВС РФ от 21.10.2015).
+  const stdOrdinaryMonthly = stdChildren.reduce((a, c) => a + perOrder(c.order), 0);
+  const stdDisabledMonthly = stdChildren.filter((c) => c.disabled).length * stdRates.disabled;
+  const k = stdDouble ? 2 : 1;
+  const standard = {
+    months: stdMonths,
+    double: stdDouble,
+    // Строки 030/040 — обычный вычет, 050/060 — на ребёнка-инвалида.
+    ordinary: stdOrdinaryMonthly * stdMonths * k,
+    disabled: stdDisabledMonthly * stdMonths * k,
+  };
+  standard.eligible = standard.ordinary + standard.disabled;
+  // Строка 070 — сколько уже дал работодатель, 071 — излишек, 080 — к заявлению.
+  standard.byAgent = has("deti") ? num(std.providedByAgent) : 0;
+  standard.excess = Math.max(0, standard.byAgent - standard.eligible);
+  standard.declared = Math.max(0, standard.eligible - standard.byAgent);
+
   const carryover = {
     property: propertyEligible - property,
     interest: interestEligible - interest,
   };
 
   // --- Итог -------------------------------------------------------------------
-  const totalDeduction = socialApplied + property + interest;
+  // Базу уменьшает ВСЯ положенная сумма стандартного вычета, включая уже
+  // предоставленную работодателем: та уже сидит в удержанном налоге из справки,
+  // и если её не учесть, исчисленный налог окажется завышенным, а возврат —
+  // заниженным. Ср. формулу строки 140 Приложения 7 в Порядке заполнения:
+  // стандартные вычеты там считаются как (070 + 080) − 071.
+  const totalDeduction = socialApplied + property + interest + standard.eligible;
   const taxBase = Math.max(0, totalIncome - totalDeduction);
   const assessed = Math.round(taxBase * RATE);
   const refund = Math.max(0, Math.min(Math.round(totalDeduction * RATE), totalWithheld));
@@ -365,6 +405,13 @@ export function computeDeclaration(draft) {
     totalIncome,
     totalWithheld,
     applied: { socialGroup, childEducation, expensiveMedical, iis, property, interest },
+    standard,
+    // Социальные вычеты, уже предоставленные агентом (181) и в упрощённом
+    // порядке (182): строка 190 считается как (120 + 180) − (181 + 182).
+    socialProvided: {
+      byAgent: num(draft.socialProvided?.byAgent),
+      simplified: num(draft.socialProvided?.simplified),
+    },
     lines,
     socialApplied,
     totalDeduction,

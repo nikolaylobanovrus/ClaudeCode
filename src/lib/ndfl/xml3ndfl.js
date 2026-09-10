@@ -63,6 +63,8 @@ export function buildDeclarationXml(model) {
   const social = model.social;
   const ap = calc.applied;
   const ct = model.contracts || {}; // реквизиты договоров для «Расчёта к Приложению 5»
+  const std = calc.standard || { ordinary: 0, disabled: 0, byAgent: 0, excess: 0, declared: 0, double: false };
+  const sp = calc.socialProvided || { byAgent: 0, simplified: 0 };
   const pr = model.property;
   const sale = model.sale; // продажа имущества (налог к уплате, Приложение 6)
   // Возвратная сторона есть у обычной декларации и у комбинированной. У чистой
@@ -72,7 +74,16 @@ export function buildDeclarationXml(model) {
   // вычетов — рубли с копейками (xs:decimal 15.2).
   const kop2 = (n) => kop(n);
   const grp219 = ap.socialGroup; // лечение обычное + своё обучение + страхование (лимит года)
-  const socialTotalApplied = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
+  // Строка 200 = строка 080 + строка 190 (Порядок заполнения, п. 80): к
+  // социальным вычетам, заявляемым по декларации, прибавляется стандартный,
+  // тоже заявляемый по декларации (то есть за вычетом данного работодателем).
+  const socialTotalApplied =
+    ap.socialGroup +
+    ap.childEducation +
+    ap.expensiveMedical -
+    Math.min(ap.socialGroup + ap.childEducation + ap.expensiveMedical,
+             (calc.socialProvided?.byAgent || 0) + (calc.socialProvided?.simplified || 0)) +
+    (calc.standard?.declared || 0);
 
   // Форма менялась по годам — три семейства схем (сверено с XSD ФНС):
   const isOld = year <= 2023; // 2022–2023: идентификация через СведФЛ1, Прил7 без ДатаРегОб
@@ -282,8 +293,17 @@ export function buildDeclarationXml(model) {
             el(
               "ВычСтандСоц",
               { ВычСтандСоц: kop2(socialTotalApplied) },
-              // Стандартные — у нас нет, но блок обязателен.
-              el("РасчВычСтанд", { ОбщВычСтандДекл: "0.00" }),
+              // Стандартные вычеты на детей. Блок обязателен всегда: когда
+              // детей не заявляли, в нём один нулевой итог.
+              el("РасчВычСтанд", {
+                ...(std.ordinary > 0 && !std.double ? { ВычСтРеб: kop2(std.ordinary) } : {}),
+                ...(std.ordinary > 0 && std.double ? { ВычСтРебЕд: kop2(std.ordinary) } : {}),
+                ...(std.disabled > 0 && !std.double ? { ВычСтРебИнв: kop2(std.disabled) } : {}),
+                ...(std.disabled > 0 && std.double ? { ВычСтРебИнвЕд: kop2(std.disabled) } : {}),
+                ...(std.byAgent > 0 ? { ОбщВычСтандПер: kop2(std.byAgent) } : {}),
+                ...(std.excess > 0 ? { ОбщВычИзл: kop2(std.excess) } : {}),
+                ОбщВычСтандДекл: kop2(std.declared),
+              }),
               // Соц. вычеты без ограничения (обучение детей, дорогостоящее лечение)
               (ap.childEducation > 0 || ap.expensiveMedical > 0) &&
                 el("РасчВычСоцБез219.2", {
@@ -302,6 +322,11 @@ export function buildDeclarationXml(model) {
                   // страхование). Раньше PDF печатал в 160, а XML клал в 150.
                   СумПенсСтрах: calc.lines.insurance > 0 ? kop2(calc.lines.insurance) : undefined,
                   СумФиз: calc.lines.sport > 0 ? kop2(calc.lines.sport) : undefined,
+                  // 181/182 — то, что уже вернул работодатель и упрощённый
+                  // порядок: строка 190 считается как (120 + 180) − (181 + 182).
+                  // Без них заявка завышается и налоговая её срежет.
+                  ...(sp.byAgent > 0 ? { ОбщСНВОтчПерНА: kop2(sp.byAgent) } : {}),
+                  ...(sp.simplified > 0 ? { ОбщСНВУпр: kop2(sp.simplified) } : {}),
                   ОбщВычСоциал: kop2(grp219),
                 }),
               // Инвестиционный вычет по взносам на ИИС (тип А)

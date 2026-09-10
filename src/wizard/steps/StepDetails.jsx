@@ -47,7 +47,7 @@ function Contract({ sec, keys, who, v, errors, dispatch }) {
   );
 }
 
-export default function StepDetails({ errors }) {
+export default function StepDetails({ errors, calc }) {
   const { draft, dispatch } = useWizard();
   const has = (t) => draft.types.includes(t);
   const setP = (patch) => dispatch({ type: "PATCH", section: "property", patch });
@@ -210,6 +210,58 @@ export default function StepDetails({ errors }) {
         </section>
       )}
 
+      {has("deti") && (
+        <section className="wiz__block">
+          <h3 className="wiz__subhead">👶 Вычет на детей</h3>
+          <p className="wiz__note">
+            С 2025 года работодатель обязан давать этот вычет сам, без заявления.
+            Если он дал его полностью — по декларации возвращать нечего, но
+            указать данные всё равно нужно: без них налоговая посчитает базу иначе.
+          </p>
+          {(draft.standard.children || []).map((c, i) => (
+            <div className="wiz__row" key={i}>
+              <Field label={`Ребёнок ${i + 1} — по счёту в семье`}>
+                <SelectInput value={c.order}
+                  onChange={(v) => dispatch({ type: "PATCH_STD_CHILD", index: i, patch: { order: v } })}
+                  options={[
+                    { value: "1", label: "Первый" },
+                    { value: "2", label: "Второй" },
+                    { value: "3", label: "Третий или последующий" },
+                  ]} />
+              </Field>
+              <Field label="Инвалидность">
+                <SelectInput value={c.disabled ? "1" : "0"}
+                  onChange={(v) =>
+                    dispatch({ type: "PATCH_STD_CHILD", index: i, patch: { disabled: v === "1" } })}
+                  options={[{ value: "0", label: "Нет" }, { value: "1", label: "Ребёнок-инвалид" }]} />
+              </Field>
+              <button type="button" className="btn btn--ghost"
+                onClick={() => dispatch({ type: "DROP_STD_CHILD", index: i })}>Убрать</button>
+            </div>
+          ))}
+          <button type="button" className="btn btn--ghost"
+            onClick={() => dispatch({ type: "ADD_STD_CHILD" })}>+ Добавить ребёнка</button>
+          <div className="wiz__row">
+            <Field label="Вычет уже предоставлен работодателем, ₽" hint={HINTS.stdProvided}
+              error={errors["standard.providedByAgent"]}>
+              <MoneyInput value={draft.standard.providedByAgent}
+                error={errors["standard.providedByAgent"]}
+                onChange={(v) => dispatch({ type: "PATCH", section: "standard", patch: { providedByAgent: v } })} />
+            </Field>
+            <Field label="Месяцев, за которые положен вычет" hint={HINTS.stdMonths}>
+              <TextInput value={draft.standard.months} inputMode="numeric"
+                placeholder={String(calc.standard?.months ?? "")}
+                onChange={(v) => dispatch({ type: "PATCH", section: "standard", patch: { months: v.replace(/\D/g, "").slice(0, 2) } })} />
+            </Field>
+          </div>
+          <label className="wiz__checkline">
+            <input type="checkbox" checked={Boolean(draft.standard.singleParent)}
+              onChange={(e) => dispatch({ type: "PATCH", section: "standard", patch: { singleParent: e.target.checked } })} />
+            <span>Я единственный родитель — вычет в двойном размере</span>
+          </label>
+        </section>
+      )}
+
       {has("iis") && (
         <section className="wiz__block">
           <h3 className="wiz__subhead">📈 ИИС</h3>
@@ -249,6 +301,27 @@ export default function StepDetails({ errors }) {
           <Contract sec="insurance" errors={errors} dispatch={dispatch} v={draft.insurance}
             who="страховой организации"
             keys={{ name: "insurerName", inn: "insurerInn", kpp: "insurerKpp" }} />
+        </section>
+      )}
+
+      {(has("lechenie") || has("obuchenie") || has("strahovanie") || has("sport")) && (
+        <section className="wiz__block">
+          <h3 className="wiz__subhead">🏢 Вычет через работодателя</h3>
+          <p className="wiz__note">
+            Заполняйте, только если часть вычета за лечение или обучение вам уже
+            вернули в течение года — через работодателя по уведомлению из налоговой
+            или упрощённым порядком. Если ничего такого не было, оставьте пустым.
+          </p>
+          <div className="wiz__row">
+            <Field label="Вернул работодатель за год, ₽" hint={HINTS.socialProvided}>
+              <MoneyInput value={draft.socialProvided.byAgent}
+                onChange={(v) => dispatch({ type: "PATCH", section: "socialProvided", patch: { byAgent: v } })} />
+            </Field>
+            <Field label="Получено в упрощённом порядке, ₽">
+              <MoneyInput value={draft.socialProvided.simplified}
+                onChange={(v) => dispatch({ type: "PATCH", section: "socialProvided", patch: { simplified: v } })} />
+            </Field>
+          </div>
         </section>
       )}
 

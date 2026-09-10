@@ -42,9 +42,14 @@ const drafts = {
   // приказом ЕД-1-11/333@ (см. scripts/build-blank-2025.mjs).
   social2025: {
     year: 2025,
-    types: ["lechenie", "obuchenie", "iis", "strahovanie", "sport"],
+    types: ["lechenie", "obuchenie", "iis", "strahovanie", "sport", "deti"],
     incomes: [{ name: "ООО «Ромашка»", inn: "7736050003", kpp: "773601001",
                 oktmo: "45380000", income: "1200000", withheld: "156000" }],
+    standard: {
+      children: [{ order: "1", disabled: false }, { order: "2", disabled: true }],
+      singleParent: false, providedByAgent: "8000", months: "4",
+    },
+    socialProvided: { byAgent: "", simplified: "" },
     medical: { ordinary: "80000", expensive: "150000" },
     education: { self: "60000", children: [{ amount: "50000" }] },
     iis: {

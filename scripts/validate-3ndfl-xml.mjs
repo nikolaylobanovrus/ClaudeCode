@@ -21,7 +21,7 @@ const schemaDir = join(root, "docs", "fns-schemas");
 // (Приложения 1, 5, 7), которые должна покрыть схема.
 const sampleDraft = (year) => ({
   year,
-  types: ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport"],
+  types: ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport", "deti"],
   personal: {
     lastName: "Иванов", firstName: "Пётр", middleName: "Сергеевич",
     inn: "500100732259", birthDate: "1985-04-12", birthPlace: "г. Челябинск",
@@ -33,6 +33,13 @@ const sampleDraft = (year) => ({
     { name: "ООО «Ромашка»", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "1200000", withheld: "156000" },
   ],
   property: { address: "г. Челябинск, ул. Ленина, д. 1, кв. 2", cadastral: "74:36:0000000:1234", cost: "2500000", dateAct: "", dateReg: "2024-03-15", priorDeduction: "", interestPaid: "250000", priorInterest: "" },
+  // Двое детей, у одного инвалидность, часть вычета уже дал работодатель —
+  // чтобы в XML появились строки 030/050/070/080 и не пустой РасчВычСтанд.
+  standard: {
+    children: [{ order: "1", disabled: false }, { order: "2", disabled: true }],
+    singleParent: false, providedByAgent: "8000", months: "4",
+  },
+  socialProvided: { byAgent: "5000", simplified: "" },
   medical: { ordinary: "60000", expensive: "0" },
   education: { self: "40000", children: [{ amount: "50000" }] },
   // Реквизиты договоров заполнены намеренно: без них не появляется лист

@@ -165,26 +165,35 @@ export const saleSupportedFor = (kind, year) =>
 //    № ЕД-1-11/333@ к приказу ЕД-7-11/913@). В схеме ВерсФорм — перечисление
 //    ровно из одного значения, поэтому файл со старым номером схему НЕ
 //    проходит. Проверять раздел форм на nalog.gov.ru при каждом приказе.
+//  - childDed / childLimit: стандартный вычет на детей (пп. 4 п. 1 ст. 218).
+//    С 2025 года выросли суммы на второго и последующих детей, а предельный
+//    доход поднят с 350 000 до 450 000 ₽ (ФЗ от 12.07.2024 № 176-ФЗ).
+//    Суммы даны для родителей и усыновителей; у опекунов вычет на
+//    ребёнка-инвалида вдвое меньше — этот случай анкета не разбирает.
 export const YEAR_RULES = {
   2022: {
     order: "Приказ ФНС от 29.09.2022 № ЕД-7-11/880@",
     socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000,
     xmlVersion: "5.17", xmlVerified: true,
+    childDed: { first: 1400, second: 1400, third: 3000, disabled: 12000 }, childLimit: 350000,
   },
   2023: {
     order: "Приказ ФНС от 15.10.2021 № ЕД-7-11/903@ (ред. от 11.09.2023 № ЕД-7-11/615@)",
     socialGroup: 120_000, childEducation: 50_000, progressiveThreshold: 5_000_000,
     xmlVersion: "5.18", xmlVerified: true,
+    childDed: { first: 1400, second: 1400, third: 3000, disabled: 12000 }, childLimit: 350000,
   },
   2024: {
     order: "Приказ ФНС от 19.09.2024 № ЕД-7-11/757@",
     socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 5_000_000,
     xmlVersion: "5.19", xmlVerified: true,
+    childDed: { first: 1400, second: 1400, third: 3000, disabled: 12000 }, childLimit: 350000,
   },
   2025: {
     order: "Приказ ФНС от 20.10.2025 № ЕД-7-11/913@ (в ред. от 25.05.2026 № ЕД-1-11/333@)",
     socialGroup: 150_000, childEducation: 110_000, progressiveThreshold: 2_400_000,
     xmlVersion: "5.21", xmlVerified: true,
+    childDed: { first: 1400, second: 2800, third: 6000, disabled: 12000 }, childLimit: 450000,
   },
 };
 

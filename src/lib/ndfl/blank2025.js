@@ -207,6 +207,23 @@ export async function buildOfficialPdf2025(model) {
   // --- Приложение 5, лист 1: соц. вычеты без ограничения + своё обучение -------
   function fillApp5a(pen) {
     const X = 365.9;
+    // Стандартные вычеты на детей (пп. 4 п. 1 ст. 218). Строки 030/040 —
+    // обычный вычет, 050/060 — на ребёнка-инвалида; «Ед» — единственному
+    // родителю (двойной). 070 — что уже дал работодатель, 071 — излишек,
+    // 080 — итог, заявляемый по декларации.
+    // Верхний раздел листа свёрстан иначе нижнего: ячейки начинаются с 450,6
+    // и рублёвых знакомест шесть, а не двенадцать. Координаты сняты с бланка.
+    const SX = 450.6, SN = 6;
+    const st = calc.standard;
+    if (st && st.eligible > 0) {
+      if (st.ordinary > 0) pen.money(st.ordinary, SX, st.double ? 590.0 : 622.4, SN); // 040 / 030
+      if (st.disabled > 0) pen.money(st.disabled, SX, st.double ? 483.8 : 547.1, SN); // 060 / 050
+    }
+    if (st && (st.byAgent > 0 || st.eligible > 0)) {
+      if (st.byAgent > 0) pen.money(st.byAgent, SX, 410.4, SN); // 070 дал работодатель
+      if (st.excess > 0) pen.money(st.excess, SX, 384.5, SN); // 071 излишне предоставлено
+      pen.money(st.declared, SX, 358.6, SN); // 080 заявляется по декларации
+    }
     if (ap.childEducation > 0) pen.money(ap.childEducation, X, 286, 12); // 100
     if (ap.expensiveMedical > 0) pen.money(ap.expensiveMedical, X, 199, 12); // 110
     pen.money(ap.childEducation + ap.expensiveMedical, X, 173, 12); // 120 итог

@@ -46,6 +46,19 @@ export function initialDraft() {
       interestPaid: "",
       priorInterest: "",
     },
+    // Стандартный вычет на детей (пп. 4 п. 1 ст. 218). С 2025 года работодатель
+    // даёт его сам, без заявления, поэтому чаще всего он уже в справке — тогда
+    // строка 080 выходит нулевой, а декларация просто отражает факт. Возвращать
+    // по декларации приходится тем, кому агент вычет не дал или дал не полностью.
+    standard: {
+      children: [],          // [{ order: "1"|"2"|"3", disabled: bool }]
+      singleParent: false,   // единственный родитель — вычет удваивается
+      providedByAgent: "",   // строка 070: сколько уже дал работодатель
+      months: "",            // за сколько месяцев положен (пусто — считаем по доходу)
+    },
+    // Социальные вычеты, уже предоставленные работодателем (строка 181) и в
+    // упрощённом порядке (182). Без них строка 190 завышается.
+    socialProvided: { byAgent: "", simplified: "" },
     medical: { ordinary: "", expensive: "" },
     education: { self: "", children: [] },
     // Реквизиты договора нужны для листа «Расчёт к Приложению 5»: без него
@@ -140,6 +153,32 @@ function reducer(state, action) {
         incomes: state.incomes.map((inc, i) =>
           i === action.index ? { ...inc, ...action.patch } : inc
         ),
+      };
+    case "ADD_STD_CHILD":
+      return {
+        ...state,
+        standard: {
+          ...state.standard,
+          children: [...(state.standard?.children || []), { order: "1", disabled: false }],
+        },
+      };
+    case "PATCH_STD_CHILD":
+      return {
+        ...state,
+        standard: {
+          ...state.standard,
+          children: (state.standard?.children || []).map((c, i) =>
+            i === action.index ? { ...c, ...action.patch } : c
+          ),
+        },
+      };
+    case "DROP_STD_CHILD":
+      return {
+        ...state,
+        standard: {
+          ...state.standard,
+          children: (state.standard?.children || []).filter((_, i) => i !== action.index),
+        },
       };
     case "ADD_CHILD":
       return {

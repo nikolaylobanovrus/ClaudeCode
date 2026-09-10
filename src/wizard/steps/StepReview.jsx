@@ -142,6 +142,9 @@ export default function StepReview({ calc, errors = {} }) {
     ["Обучение детей", calc.applied.childEducation],
     ["Дорогостоящее лечение", calc.applied.expensiveMedical],
     ["ИИС", calc.applied.iis],
+    // Стандартный вычет показываем целиком: базу уменьшает вся положенная
+    // сумма, даже если часть работодатель уже дал в течение года.
+    ["Вычет на детей", calc.standard?.eligible || 0],
   ].filter(([, v]) => v > 0);
 
   return (
