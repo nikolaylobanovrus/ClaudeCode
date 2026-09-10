@@ -276,10 +276,15 @@ export function computeDeclaration(draft) {
 
   const expensiveEligible = has("lechenie") ? num(draft.medical?.expensive) : 0;
 
-  const iisEligible = has("iis")
+  // Счёт, открытый с 2024 года, идёт не сюда, а в вычет на долгосрочные
+  // сбережения (строка 250) — иначе одна и та же сумма попала бы в две строки.
+  // За 2022–2023 вычета по 219.2 ещё нет, поэтому любой ИИС считается «старым»
+  // (инвестиционный вычет по ст. 219.1) — иначе сумма выпала бы из расчёта.
+  const iisOld = has("iis") && !(draft.iis?.newAccount && Number(draft.year) >= 2024);
+  const iisEligible = iisOld
     ? Math.min(num(draft.iis?.contribution), LIMITS.iis)
     : 0;
-  if (has("iis") && num(draft.iis?.contribution) > LIMITS.iis) {
+  if (iisOld && num(draft.iis?.contribution) > LIMITS.iis) {
     warnings.push(
       `Взносы на ИИС учитываются в пределах ${fmtRub(LIMITS.iis)} за год.`
     );
@@ -374,6 +379,56 @@ export function computeDeclaration(draft) {
   standard.excess = Math.max(0, standard.byAgent - standard.eligible);
   standard.declared = Math.max(0, standard.eligible - standard.byAgent);
 
+  // --- Вычет на долгосрочные сбережения (ст. 219.2) ----------------------------
+  // Строки 235 (ПДС), 240 (НПО), 250 (ИИС, открытый с 2024), 255 (страхование
+  // жизни от 10 лет, пп. 5 — добавлен приказом ЕД-1-11/333@), 260/270 — уже
+  // предоставленное, 280 — к заявлению.
+  const sv = draft.savings || {};
+  // Вычет введён ФЗ от 23.03.2024 № 58-ФЗ: за 2022–2023 его не существует.
+  // Подпункты 1 (НПО) и 5 (страхование жизни от 10 лет) применяются к
+  // договорам с 2025 года — в форме за 2024 таких строк просто нет.
+  const svYear = Number(draft.year) || 0;
+  const svOn = has("sberezheniya") && svYear >= 2024;
+  if (has("sberezheniya") && svYear < 2024)
+    warnings.push(
+      "Вычет на долгосрочные сбережения действует с 2024 года — за " +
+        `${draft.year} год он не заявляется, и мы его не учитывали.`
+    );
+  const svList = svOn ? sv.contracts || [] : [];
+  const svSum = (kind) => svList.filter((c) => c.kind === kind).reduce((a, c) => a + num(c.amount), 0);
+  // ИИС по 219.2 — это счёт, открытый с 2024 года; тогда взносы идут в строку
+  // 250, а не в 210 (инвестиционный вычет по 219.1).
+  const iis3 = svYear >= 2024 && has("iis") && draft.iis?.newAccount ? num(draft.iis?.contribution) : 0;
+  const SAVINGS_LIMIT = 400_000; // совокупно по пп. 1–3 п. 1 ст. 219.2
+  const svOld = svYear < 2025; // 2024: доступны только пп. 2 (ПДС) и пп. 3 (ИИС)
+  const svRaw = {
+    pds: svSum("pds"),
+    npo: svOld ? 0 : svSum("npo"),
+    iis3,
+    life10: svOld ? 0 : svSum("life10"),
+  };
+  if (svOld && (svSum("npo") > 0 || svSum("life10") > 0))
+    warnings.push(
+      "Вычет по договору НПО и по страхованию жизни от 10 лет применяется к " +
+        `договорам с 2025 года — в декларации за ${draft.year} год мы их не учли.`
+    );
+  const svGroup = svRaw.pds + svRaw.npo + svRaw.iis3;
+  if (svGroup > SAVINGS_LIMIT)
+    warnings.push(
+      `Вычет на долгосрочные сбережения по договорам ПДС, НПО и ИИС ограничен ${fmtRub(SAVINGS_LIMIT)} в год — учли максимум.`
+    );
+  const scale = svGroup > SAVINGS_LIMIT ? SAVINGS_LIMIT / svGroup : 1;
+  const savings = {
+    pds: Math.round(svRaw.pds * scale),
+    npo: Math.round(svRaw.npo * scale),
+    iis3: Math.round(svRaw.iis3 * scale),
+    life10: svRaw.life10,
+    byAgent: svOn ? num(sv.byAgent) : 0,
+    simplified: svOn ? num(sv.simplified) : 0,
+  };
+  savings.eligible = savings.pds + savings.npo + savings.iis3 + savings.life10;
+  savings.declared = Math.max(0, savings.eligible - savings.byAgent - savings.simplified);
+
   const carryover = {
     property: propertyEligible - property,
     interest: interestEligible - interest,
@@ -385,7 +440,7 @@ export function computeDeclaration(draft) {
   // и если её не учесть, исчисленный налог окажется завышенным, а возврат —
   // заниженным. Ср. формулу строки 140 Приложения 7 в Порядке заполнения:
   // стандартные вычеты там считаются как (070 + 080) − 071.
-  const totalDeduction = socialApplied + property + interest + standard.eligible;
+  const totalDeduction = socialApplied + property + interest + standard.eligible + savings.eligible;
   const taxBase = Math.max(0, totalIncome - totalDeduction);
   const assessed = Math.round(taxBase * RATE);
   const refund = Math.max(0, Math.min(Math.round(totalDeduction * RATE), totalWithheld));
@@ -406,6 +461,7 @@ export function computeDeclaration(draft) {
     totalWithheld,
     applied: { socialGroup, childEducation, expensiveMedical, iis, property, interest },
     standard,
+    savings,
     // Социальные вычеты, уже предоставленные агентом (181) и в упрощённом
     // порядке (182): строка 190 считается как (120 + 180) − (181 + 182).
     socialProvided: {

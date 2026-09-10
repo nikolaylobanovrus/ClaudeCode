@@ -56,6 +56,9 @@ export function initialDraft() {
       providedByAgent: "",   // строка 070: сколько уже дал работодатель
       months: "",            // за сколько месяцев положен (пусто — считаем по доходу)
     },
+    // Вычет на долгосрочные сбережения (ст. 219.2): договоры ПДС, НПО и
+    // страхования жизни от 10 лет. Строки 235–280 Приложения 5.
+    savings: { contracts: [], byAgent: "", simplified: "" },
     // Социальные вычеты, уже предоставленные работодателем (строка 181) и в
     // упрощённом порядке (182). Без них строка 190 завышается.
     socialProvided: { byAgent: "", simplified: "" },
@@ -67,6 +70,9 @@ export function initialDraft() {
       contribution: "",
       brokerName: "", brokerInn: "", brokerKpp: "",
       contractDate: "", contractNumber: "", openDate: "",
+      // Счёт, открытый с 2024 года, идёт по статье 219.2 (строка 250), а не
+      // по 219.1 (строка 210) — это разные вычеты с разными правилами.
+      newAccount: false,
     },
     insurance: {
       amount: "",
@@ -153,6 +159,32 @@ function reducer(state, action) {
         incomes: state.incomes.map((inc, i) =>
           i === action.index ? { ...inc, ...action.patch } : inc
         ),
+      };
+    case "ADD_SAVING":
+      return {
+        ...state,
+        savings: {
+          ...state.savings,
+          contracts: [...(state.savings?.contracts || []),
+            { kind: "pds", name: "", inn: "", kpp: "", date: "", number: "", amount: "" }],
+        },
+      };
+    case "PATCH_SAVING":
+      return {
+        ...state,
+        savings: {
+          ...state.savings,
+          contracts: (state.savings?.contracts || []).map((c, i) =>
+            i === action.index ? { ...c, ...action.patch } : c),
+        },
+      };
+    case "DROP_SAVING":
+      return {
+        ...state,
+        savings: {
+          ...state.savings,
+          contracts: (state.savings?.contracts || []).filter((_, i) => i !== action.index),
+        },
       };
     case "ADD_STD_CHILD":
       return {

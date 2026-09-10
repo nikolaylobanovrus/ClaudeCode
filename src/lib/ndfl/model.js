@@ -113,7 +113,13 @@ export function buildDeclarationModel(draft) {
     year: draft.year,
     // Реквизиты договоров (страхование жизни, ИИС) нужны листу «Расчёт к
     // Приложению 5» как есть — раскладывать их по модели незачем.
-    contracts: { insurance: draft.insurance || {}, iis: draft.iis || {} },
+    contracts: {
+      insurance: draft.insurance || {},
+      iis: draft.iis || {},
+      // Договоры долгосрочных сбережений: у каждого свой блок 1.1 на листе
+      // «Расчёт к Приложению 5», поэтому реквизиты нужны целиком.
+      savings: draft.savings?.contracts || [],
+    },
     // Номер корректировки: 0 — первичная, 1+ — уточнённая (НомКорр).
     correction: Number(draft.correction) || 0,
     types: draft.types || [],

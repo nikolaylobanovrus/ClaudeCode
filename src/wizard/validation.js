@@ -310,6 +310,26 @@ export function validateStep(stepKey, draft) {
     ]);
     if (has("sport") && !positive(draft.sport?.amount))
       e["sport.amount"] = "Укажите расходы на физкультурно-оздоровительные услуги";
+    // Долгосрочные сбережения (ст. 219.2): каждый договор — отдельная строка
+    // Приложения 5 и отдельный блок «Расчёта к Приложению 5», поэтому
+    // реквизиты обязательны так же, как у ИИС и страхования.
+    if (has("sberezheniya")) {
+      const list = draft.savings?.contracts || [];
+      if (!list.length)
+        e["savings.contracts"] = "Добавьте договор долгосрочных сбережений";
+      list.forEach((c, i) => {
+        const key = (f) => `savings.${i}.${f}`;
+        put(e, key("amount"), validateMoney(c.amount, "сумму взносов"));
+        if (!e[key("amount")] && !positive(c.amount))
+          put(e, key("amount"), "Укажите сумму взносов за год");
+        put(e, key("name"), validateName(c.name, "название НПФ, страховой или брокера"));
+        put(e, key("inn"), validateInnOrg(c.inn));
+        put(e, key("kpp"), validateKpp(c.kpp));
+        if (!filled(c.date)) put(e, key("date"), "Укажите дату договора");
+        else put(e, key("date"), validateDate(c.date, "дату договора"));
+        if (!filled(c.number)) put(e, key("number"), "Укажите номер договора");
+      });
+    }
   }
 
   if (stepKey === "bank") {

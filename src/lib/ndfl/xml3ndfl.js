@@ -65,6 +65,7 @@ export function buildDeclarationXml(model) {
   const ct = model.contracts || {}; // реквизиты договоров для «Расчёта к Приложению 5»
   const std = calc.standard || { ordinary: 0, disabled: 0, byAgent: 0, excess: 0, declared: 0, double: false };
   const sp = calc.socialProvided || { byAgent: 0, simplified: 0 };
+  const sv = calc.savings || { pds: 0, npo: 0, iis3: 0, life10: 0, byAgent: 0, simplified: 0, declared: 0, eligible: 0 };
   const pr = model.property;
   const sale = model.sale; // продажа имущества (налог к уплате, Приложение 6)
   // Возвратная сторона есть у обычной декларации и у комбинированной. У чистой
@@ -335,7 +336,39 @@ export function buildDeclarationXml(model) {
                   СумИнвВыч219: kop2(ap.iis),
                   ИнвВычПредВосст: "0.00",
                   ИнвВычУпр: "0.00",
-                })
+                }),
+              // Вычет на долгосрочные сбережения (ст. 219.2), строки 235–280.
+              // Нумерация подпунктов сверена с бланком Приложения 5 (лист 2):
+              // 235 — пп. 1 (негосударственное пенсионное обеспечение),
+              // 240 — пп. 2 (договор долгосрочных сбережений), 250 — пп. 3
+              // (ИИС, открытый с 2024 года), 255 — пп. 5 (страхование жизни
+              // от 10 лет). Форма 5.21, приказ ЕД-1-11/333@.
+              //
+              // Форма элемента зависит от года, и сильно:
+              //   2022–2023 — элемента нет вовсе (вычет введён ФЗ 58-ФЗ);
+              //   2024      — ровно три ОБЯЗАТЕЛЬНЫХ атрибута (пп. 2, пп. 3 и
+              //               упрощённый порядок): вычет по НПО применяется к
+              //               договорам с 2025 года, поэтому пп. 1 в форме
+              //               за 2024 нет;
+              //   2025+     — все атрибуты необязательные, добавлены пп. 1,
+              //               пп. 5 и разбивка «агент / упрощёнка / декларация».
+              (sv.eligible > 0 || sv.byAgent > 0) &&
+                year >= 2024 &&
+                (year >= 2025
+                  ? el("РасчВычСбер", {
+                      ...(sv.npo > 0 ? { "ВычСбер1.1.219.2": kop2(sv.npo) } : {}),
+                      ...(sv.pds > 0 ? { "ВычСбер2.1.219.2": kop2(sv.pds) } : {}),
+                      ...(sv.iis3 > 0 ? { "ВычСбер3.1.219.2": kop2(sv.iis3) } : {}),
+                      ...(sv.life10 > 0 ? { "ВычСбер5.1.219.2": kop2(sv.life10) } : {}),
+                      ...(sv.byAgent > 0 ? { ВычНалПер: kop2(sv.byAgent) } : {}),
+                      ...(sv.simplified > 0 ? { ВычУпрОбщ: kop2(sv.simplified) } : {}),
+                      ВычДекл: kop2(sv.declared),
+                    })
+                  : el("РасчВычСбер", {
+                      "ВычСбер2.1.219.2": kop2(sv.pds),
+                      "ВычСбер3.1.219.2": kop2(sv.iis3),
+                      ВычСберУпр: kop2(sv.simplified),
+                    }))
             ),
           // --- Приложение 6: имущественный вычет по доходам от продажи ---
           // ОбщИмущВыч (стр. 160) — итоговая сумма вычета. Дочерний элемент по
@@ -455,52 +488,93 @@ export function buildDeclarationXml(model) {
           // появились. Обе формы проверены по официальным XSD.
           ...(() => {
             const ins = calc.lines.insurance > 0 && ct.insurance?.insurerInn ? ct.insurance : null;
-            const iis = ap.iis > 0 && ct.iis?.brokerInn ? ct.iis : null;
-            if (!ins && !iis) return [];
+            const iisSum = ap.iis > 0 ? ap.iis : sv.iis3;
+            const iis = iisSum > 0 && ct.iis?.brokerInn ? ct.iis : null;
             const legacy = model.year < 2024;
-            const psv =
-              ins &&
+            // Блоки 1.1 листа-расчёта. Каждый договор — свой блок; в XML они
+            // складываются в РасчПСВВыч (maxOccurs="unbounded"). Код вида
+            // договора берётся из подсказки на самом бланке:
+            //   1 — негосударственное пенсионное обеспечение,
+            //   3 — страхование жизни по пп. 4 п. 1 ст. 219 (социальный вычет),
+            //   4 — договор долгосрочных сбережений,
+            //   5 — страхование жизни по пп. 5 п. 1 ст. 219.2 (код добавлен
+            //       приказом ЕД-1-11/333@, в схеме до 2025 года его нет).
+            const SAVE_CODE = { npo: "1", pds: "4", life10: "5" };
+            const svContracts = (sv.eligible > 0 ? ct.savings || [] : [])
+              .filter((c) => SAVE_CODE[c.kind] && Number(c.amount) > 0 && digits(c.inn))
+              // Подпункты 1 и 5 применяются к договорам с 2025 года: за 2024
+              // и код «5», и вычет по НПО схема не примет.
+              .filter((c) => model.year >= 2025 || c.kind === "pds");
+            const blocks = [
+              ...(ins
+                ? [{
+                    amount: calc.lines.insurance,
+                    code: "3",
+                    date: ins.contractDate,
+                    number: ins.contractNumber,
+                    name: ins.insurerName,
+                    inn: ins.insurerInn,
+                    kpp: ins.insurerKpp,
+                  }]
+                : []),
+              ...svContracts.map((c) => ({
+                amount: Number(c.amount),
+                code: SAVE_CODE[c.kind],
+                date: c.date,
+                number: c.number,
+                name: c.name,
+                inn: c.inn,
+                kpp: c.kpp,
+              })),
+            ];
+            if (!blocks.length && !iis) return [];
+            const psvList = blocks.map((b) =>
               el(
                 "РасчПСВВыч",
-                { СумВзносУпл: kop2(calc.lines.insurance), ...(legacy ? {} : { ПрВыч: "0" }) },
+                { СумВзносУпл: kop2(b.amount), ...(legacy ? {} : { ПрВыч: "0" }) },
                 el(
                   "СведДогНПО",
                   {
-                    // «3» — договор добровольного страхования жизни в целях
-                    // применения пп. 4 п. 1 ст. 219 НК (это наш вычет).
-                    ВидДоговор: "3",
-                    ДатаДогНПО: dateRu(ins.contractDate),
-                    НомДогНПО: ins.contractNumber,
+                    ВидДоговор: b.code,
+                    ДатаДогНПО: dateRu(b.date),
+                    НомДогНПО: b.number,
                   },
                   el("СведИст", {
-                    Наим: ins.insurerName,
-                    ИННЮЛ: digits(ins.insurerInn),
-                    КПП: digits(ins.insurerKpp),
+                    Наим: b.name,
+                    ИННЮЛ: digits(b.inn),
+                    КПП: digits(b.kpp),
                   })
                 )
-              );
+              )
+            );
             const inv =
               iis &&
               el("РасчСумИнвВыч", {
                 // 1 — вычет по статье 219.1 НК (взносы на ИИС).
-                ...(legacy ? {} : { ПрОснВыч: "1" }),
+                ...(legacy ? {} : { ПрОснВыч: ct.iis?.newAccount ? "2" : "1" }),
                 ИННЮЛ: digits(iis.brokerInn),
                 КПП: digits(iis.brokerKpp),
                 НаимУч: iis.brokerName,
                 ДатаДог: dateRu(iis.contractDate),
                 НомДог: iis.contractNumber,
                 ДатаОткр: dateRu(iis.openDate),
-                ОбщСумВыч: kop2(ap.iis),
+                ОбщСумВыч: kop2(iisSum),
                 ПрВыч: "0",
               });
+            const total = blocks.reduce((a, b) => a + b.amount, 0);
             return [
               legacy
                 ? el(
                     "ВычСоцИнв219",
                     {},
-                    el("РасчПенсВзнос", { ОбщВзносВыч: kop2(calc.lines.insurance) }, psv, inv)
+                    el("РасчПенсВзнос", { ОбщВзносВыч: kop2(total) }, ...psvList, inv)
                   )
-                : el("ВычСоцИнв219", {}, psv && el("РасчПенсВзнос", {}, psv), inv),
+                : el(
+                    "ВычСоцИнв219",
+                    {},
+                    psvList.length && el("РасчПенсВзнос", {}, ...psvList),
+                    inv
+                  ),
             ];
           })()
         )

@@ -64,6 +64,42 @@ const drafts = {
     },
     sport: { amount: "30000" },
   },
+  // Долгосрочные сбережения (ст. 219.2): строки 235–280 Приложения 5, лист 2.
+  // ИИС здесь «новый» (открыт с 2024) — его взносы идут в строку 250, а не 210,
+  // и на «Расчёте к Приложению 5» признак основания вычета печатается «2».
+  savings2025: {
+    year: 2025,
+    types: ["lechenie", "iis", "strahovanie", "sberezheniya"],
+    incomes: [{ name: "ООО «Ромашка»", inn: "7736050003", kpp: "773601001",
+                oktmo: "45380000", income: "1500000", withheld: "195000" }],
+    standard: { children: [], singleParent: false, providedByAgent: "", months: "" },
+    socialProvided: { byAgent: "", simplified: "" },
+    medical: { ordinary: "80000", expensive: "0" },
+    education: { self: "", children: [] },
+    iis: {
+      contribution: "150000",
+      brokerName: "АО «Брокер Инвест»", brokerInn: "7710140679", brokerKpp: "771001001",
+      contractDate: "2025-02-10", contractNumber: "ИИС-777888", openDate: "2025-02-12",
+      newAccount: true,
+    },
+    insurance: {
+      amount: "40000",
+      insurerName: "ООО «Страховая компания Жизнь»", insurerInn: "7702070139",
+      insurerKpp: "770201001", contractDate: "2020-05-14", contractNumber: "Ж-987654",
+    },
+    savings: {
+      contracts: [
+        { kind: "npo", name: "АО НПФ «Достойное будущее»", inn: "7725039953",
+          kpp: "772501001", date: "2025-01-15", number: "НПО-1001", amount: "60000" },
+        { kind: "pds", name: "АО НПФ «Достойное будущее»", inn: "7725039953",
+          kpp: "772501001", date: "2025-02-20", number: "ПДС-2002", amount: "80000" },
+        { kind: "life10", name: "ООО «Страховая компания Жизнь»", inn: "7702070139",
+          kpp: "770201001", date: "2025-03-05", number: "ЖС-3003", amount: "40000" },
+      ],
+      byAgent: "10000", simplified: "5000",
+    },
+    sport: { amount: "" },
+  },
 };
 
 const [out, scenario] = process.argv.slice(2);

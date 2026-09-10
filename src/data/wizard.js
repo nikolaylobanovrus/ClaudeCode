@@ -83,7 +83,7 @@ export const documentsStepFor = (draft) => stepIndexIn(stepsFor(draft), "documen
 
 // Виды вычетов, доступные в мастере (подмножество каталога deductions
 // из content.js — те, что формируются автоматически).
-const WIZARD_SLUGS = ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport", "deti"];
+const WIZARD_SLUGS = ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport", "deti", "sberezheniya"];
 export const wizardDeductions = WIZARD_SLUGS.map((slug) =>
   deductions.find((d) => d.slug === slug)
 ).filter(Boolean);

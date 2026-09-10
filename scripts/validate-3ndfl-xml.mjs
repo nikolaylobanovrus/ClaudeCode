@@ -21,7 +21,7 @@ const schemaDir = join(root, "docs", "fns-schemas");
 // (Приложения 1, 5, 7), которые должна покрыть схема.
 const sampleDraft = (year) => ({
   year,
-  types: ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport", "deti"],
+  types: ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport", "deti", "sberezheniya"],
   personal: {
     lastName: "Иванов", firstName: "Пётр", middleName: "Сергеевич",
     inn: "500100732259", birthDate: "1985-04-12", birthPlace: "г. Челябинск",
@@ -56,6 +56,21 @@ const sampleDraft = (year) => ({
     contractDate: "2020-05-14", contractNumber: "Ж-987654",
   },
   sport: { amount: "30000" },
+  // Долгосрочные сбережения (ст. 219.2): все три вида договора сразу, чтобы в
+  // РасчВычСбер появились строки 235 (пп. 1, НПО), 240 (пп. 2, ПДС) и 255
+  // (пп. 5, страхование жизни от 10 лет). Строка 250 (ИИС) приходит из блока
+  // iis — там это отдельный сценарий с newAccount: true.
+  savings: {
+    contracts: [
+      { kind: "npo", name: "АО НПФ «Достойное будущее»", inn: "7725039953", kpp: "772501001",
+        date: "2025-01-15", number: "НПО-1001", amount: "60000" },
+      { kind: "pds", name: "АО НПФ «Достойное будущее»", inn: "7725039953", kpp: "772501001",
+        date: "2025-02-20", number: "ПДС-2002", amount: "80000" },
+      { kind: "life10", name: "ООО «СК Жизнь»", inn: "7702070139", kpp: "770201001",
+        date: "2025-03-05", number: "ЖС-3003", amount: "40000" },
+    ],
+    byAgent: "10000", simplified: "5000",
+  },
   bank: { bik: "047501711", account: "40702810007710002545" },
   order: null,
 });
@@ -88,6 +103,15 @@ const scenarios = [
   // С формы за 2024 год паспорт и дата рождения не обязательны при ИНН
   // (choice ИННФЛ|СведФЛ в XSD) — анкета разрешает пропуск, XML обязан пройти.
   { tag: "квартира, без паспорта (ИНН указан)", patch: {}, noPassport: true, minYear: 2024 },
+  // ИИС, открытый с 2024 года: взносы уходят не в инвестиционный вычет
+  // (строка 210, ст. 219.1), а в вычет на долгосрочные сбережения — строка 250
+  // и атрибут ВычСбер3.1.219.2. Разные ветки кода, обе должны пройти схему.
+  {
+    tag: "ИИС с 2024 года (вычет 219.2)",
+    patch: {},
+    minYear: 2024,
+    apply: (d) => { d.iis.newAccount = true; },
+  },
 ];
 
 // Продажа имущества (Приложение 6, налог к уплате): проверяем для лет из
@@ -179,6 +203,44 @@ function checkKbk(bytes, kind, label) {
   return false;
 }
 
+// Проверка «покрытие не пустое». Схема молчит, если элемента просто нет, —
+// а трижды за разработку выходило так, что новый код не срабатывал вовсе,
+// потому что в тестовом черновике не было нужных данных. Поэтому для базового
+// сценария явно требуем присутствия элементов, ради которых он и собран.
+const MUST_CONTAIN = {
+  2022: ["РасчВычСтанд", "ВычСоцИнв219", "РасчИнвВыч"],
+  2023: ["РасчВычСтанд", "ВычСоцИнв219", "РасчИнвВыч"],
+  // За 2024 вычет на долгосрочные сбережения уже есть, но только по пп. 2 и 3.
+  2024: ["РасчВычСтанд", "ВычСоцИнв219", "РасчИнвВыч", "РасчВычСбер"],
+  // За 2025 добавились подпункты 1 и 5 статьи 219.2 (строки 235 и 255).
+  2025: ["РасчВычСтанд", "ВычСоцИнв219", "РасчИнвВыч", "РасчВычСбер",
+         "ВычСбер1.1.219.2", "ВычСбер2.1.219.2", "ВычСбер5.1.219.2",
+         // Каждый договор долгосрочных сбережений — свой блок «Расчёта к
+         // Приложению 5»: код 1 (НПО), 4 (ПДС), 5 (страхование жизни, пп. 5).
+         'ВидДоговор="1"', 'ВидДоговор="3"', 'ВидДоговор="4"', 'ВидДоговор="5"'],
+};
+// Ручная перекодировка UTF-8 → windows-1251: файл выгружается в 1251, и
+// искать в нём русские имена элементов нужно в той же кодировке.
+function cp1251(str) {
+  return [...str]
+    .map((ch) => {
+      const c = ch.codePointAt(0);
+      if (c < 0x80) return ch;
+      if (c === 0x401) return String.fromCharCode(0xa8); // Ё
+      if (c === 0x451) return String.fromCharCode(0xb8); // ё
+      if (c >= 0x410 && c <= 0x44f) return String.fromCharCode(c - 0x410 + 0xc0);
+      return ch;
+    })
+    .join("");
+}
+function checkContains(bytes, year, label) {
+  const text = Buffer.from(bytes).toString("latin1");
+  const missing = (MUST_CONTAIN[year] || []).filter((name) => !text.includes(cp1251(name)));
+  if (!missing.length) return true;
+  console.log(`✗ ${label}: в XML нет элементов ${missing.join(", ")} — сценарий их не задействовал`);
+  return false;
+}
+
 let anySchema = false;
 let failed = 0;
 
@@ -194,6 +256,7 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
     const draft = sampleDraft(year);
     Object.assign(draft.property, sc.patch);
     if (sc.correction) draft.correction = sc.correction;
+    if (sc.apply) sc.apply(draft);
     if (sc.noPassport)
       Object.assign(draft.personal, {
         birthDate: "", birthPlace: "", passportSeries: "",
@@ -204,6 +267,8 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
     const xmlPath = join(tmp, `${scenarios.indexOf(sc)}-${filename}`);
     writeFileSync(xmlPath, bytes); // байты в windows-1251, как для ЛК ФНС
     if (!checkKbk(bytes, "refund", `${year} (${sc.tag})`)) failed++;
+    // Полноту проверяем на базовом сценарии: остальные — его вариации.
+    if (sc.tag === "квартира" && !checkContains(bytes, year, `${year} (${sc.tag})`)) failed++;
     try {
       execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
         stdio: ["ignore", "ignore", "pipe"],

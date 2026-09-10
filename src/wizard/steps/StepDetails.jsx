@@ -210,6 +210,78 @@ export default function StepDetails({ errors, calc }) {
         </section>
       )}
 
+      {has("sberezheniya") && (
+        <section className="wiz__block">
+          <h3 className="wiz__subhead">🏦 Долгосрочные сбережения</h3>
+          <p className="wiz__note">
+            Вычет по статье 219.2: программа долгосрочных сбережений, договор
+            негосударственного пенсионного обеспечения, страхование жизни от
+            10 лет. Совокупно по первым трём — до 400 000 ₽ взносов в год.
+            Реквизиты нужны для листа «Расчёт к Приложению 5».
+          </p>
+          {(draft.savings.contracts || []).map((c, i) => (
+            <div className="wiz__block" key={i}>
+              <div className="wiz__row">
+                <Field label="Вид договора">
+                  <SelectInput value={c.kind}
+                    onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { kind: v } })}
+                    options={[
+                      { value: "pds", label: "Программа долгосрочных сбережений" },
+                      { value: "npo", label: "Негосударственное пенсионное обеспечение" },
+                      { value: "life10", label: "Страхование жизни от 10 лет" },
+                    ]} />
+                </Field>
+                <Field label="Взносы за год, ₽" error={errors[`savings.${i}.amount`]}>
+                  <MoneyInput value={c.amount} error={errors[`savings.${i}.amount`]}
+                    onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { amount: v } })} />
+                </Field>
+              </div>
+              <Field label="Название фонда или страховой" error={errors[`savings.${i}.name`]}>
+                <TextInput value={c.name} error={errors[`savings.${i}.name`]}
+                  onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { name: v } })} />
+              </Field>
+              <div className="wiz__row">
+                <Field label="ИНН" error={errors[`savings.${i}.inn`]}>
+                  <TextInput value={c.inn} error={errors[`savings.${i}.inn`]} inputMode="numeric"
+                    onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { inn: v.replace(/\D/g, "").slice(0, 12) } })} />
+                </Field>
+                <Field label="КПП" error={errors[`savings.${i}.kpp`]}>
+                  <TextInput value={c.kpp} error={errors[`savings.${i}.kpp`]} inputMode="numeric"
+                    onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { kpp: v.replace(/\D/g, "").slice(0, 9) } })} />
+                </Field>
+              </div>
+              <div className="wiz__row">
+                <Field label="Дата договора" error={errors[`savings.${i}.date`]}>
+                  <DateInput value={c.date} error={errors[`savings.${i}.date`]}
+                    onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { date: v } })} />
+                </Field>
+                <Field label="Номер договора" error={errors[`savings.${i}.number`]}>
+                  <TextInput value={c.number} error={errors[`savings.${i}.number`]}
+                    onChange={(v) => dispatch({ type: "PATCH_SAVING", index: i, patch: { number: v.slice(0, 40) } })} />
+                </Field>
+                <button type="button" className="btn btn--ghost"
+                  onClick={() => dispatch({ type: "DROP_SAVING", index: i })}>Убрать</button>
+              </div>
+            </div>
+          ))}
+          {errors["savings.contracts"] && (
+            <p className="form__error" role="alert">{errors["savings.contracts"]}</p>
+          )}
+          <button type="button" className="btn btn--ghost"
+            onClick={() => dispatch({ type: "ADD_SAVING" })}>+ Добавить договор</button>
+          <div className="wiz__row">
+            <Field label="Уже предоставлено налоговым агентом, ₽">
+              <MoneyInput value={draft.savings.byAgent}
+                onChange={(v) => dispatch({ type: "PATCH", section: "savings", patch: { byAgent: v } })} />
+            </Field>
+            <Field label="Получено в упрощённом порядке, ₽">
+              <MoneyInput value={draft.savings.simplified}
+                onChange={(v) => dispatch({ type: "PATCH", section: "savings", patch: { simplified: v } })} />
+            </Field>
+          </div>
+        </section>
+      )}
+
       {has("deti") && (
         <section className="wiz__block">
           <h3 className="wiz__subhead">👶 Вычет на детей</h3>
@@ -278,6 +350,11 @@ export default function StepDetails({ errors, calc }) {
           <Contract sec="iis" errors={errors} dispatch={dispatch} v={draft.iis}
             who="брокера или управляющей компании"
             keys={{ name: "brokerName", inn: "brokerInn", kpp: "brokerKpp" }} />
+          <label className="wiz__checkline">
+            <input type="checkbox" checked={Boolean(draft.iis.newAccount)}
+              onChange={(e) => dispatch({ type: "PATCH", section: "iis", patch: { newAccount: e.target.checked } })} />
+            <span>Счёт открыт с 2024 года — вычет по статье 219.2</span>
+          </label>
           <Field label="Дата открытия счёта" error={errors["iis.openDate"]}>
             <DateInput value={draft.iis.openDate} error={errors["iis.openDate"]}
               onChange={(v) => dispatch({ type: "PATCH", section: "iis", patch: { openDate: v } })} />

@@ -45,10 +45,44 @@ export async function buildOfficialPdf2025(model) {
   // «Расчёт к Приложению 5» — обязателен, если заявлены взносы по договору
   // страхования жизни (из него берётся строка 160) или взносы на ИИС
   // (раздел 2 листа). Порядок заполнения, п. 78 и 106.
-  const hasInsurance = calc.lines.insurance > 0;
-  const hasIis = ap.iis > 0;
-  if (hasInsurance || hasIis)
-    sheets.push({ tpl: PG.raschet5, fill: (pen) => fillRaschet5(pen, hasInsurance, hasIis) });
+  // Раздел 1.1 вмещает ОДИН договор, поэтому листов печатается столько же,
+  // сколько договоров: страхование жизни (социальный вычет, строка 160) плюс
+  // каждый договор долгосрочных сбережений (строки 235, 240, 255).
+  // Коды вида договора — по подсказке на самом бланке.
+  const SAVE_CODE = { npo: "1", pds: "4", life10: "5" };
+  const raschetBlocks = [];
+  if (calc.lines.insurance > 0) {
+    const ins = model.contracts?.insurance || {};
+    raschetBlocks.push({
+      code: "3", // договор добровольного страхования жизни (пп. 4 п. 1 ст. 219)
+      amount: calc.lines.insurance,
+      name: ins.insurerName, inn: ins.insurerInn, kpp: ins.insurerKpp,
+      date: ins.contractDate, number: ins.contractNumber,
+    });
+  }
+  if (calc.savings?.eligible > 0) {
+    for (const c of model.contracts?.savings || []) {
+      if (!SAVE_CODE[c.kind] || !(Number(c.amount) > 0)) continue;
+      raschetBlocks.push({
+        code: SAVE_CODE[c.kind],
+        amount: Number(c.amount),
+        name: c.name, inn: c.inn, kpp: c.kpp,
+        date: c.date, number: c.number,
+      });
+    }
+  }
+  // ИИС по 219.1 (строка 210) и по 219.2 (строка 250) — оба требуют листа-расчёта.
+  const iisAmount = ap.iis > 0 ? ap.iis : calc.savings?.iis3 || 0;
+  const hasIis = iisAmount > 0;
+  if (raschetBlocks.length || hasIis) {
+    const pages = Math.max(raschetBlocks.length, 1);
+    for (let i = 0; i < pages; i++)
+      sheets.push({
+        tpl: PG.raschet5,
+        // Раздел 2 (ИИС) на листе один — печатаем его на первом.
+        fill: (pen) => fillRaschet5(pen, raschetBlocks[i] || null, hasIis && i === 0),
+      });
+  }
   if (sale) sheets.push({ tpl: PG.app6, fill: fillApp6 });
   if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
   // Недвижимость: лист «Расчёт к Приложению 1» — сверка дохода с кадастровой
@@ -248,33 +282,49 @@ export async function buildOfficialPdf2025(model) {
     pen.money(social, X, 377.4, 12); // 190 все социальные
     pen.money(social, X, 352.1, 12); // 200 стандартные + социальные
     if (ap.iis > 0) pen.money(ap.iis, X, 313.2, 12); // 210 ИИС (ст. 219.1)
+    // Раздел 6 — вычет на долгосрочные сбережения (ст. 219.2). Строка 255
+    // добавлена приказом ЕД-1-11/333@ с 01.09.2026.
+    const sv = calc.savings;
+    if (sv && (sv.eligible > 0 || sv.byAgent > 0)) {
+      if (sv.npo > 0) pen.money(sv.npo, X, 216.6, 12); // 235 НПО (пп. 1)
+      if (sv.pds > 0) pen.money(sv.pds, X, 191.1, 12); // 240 ПДС (пп. 2)
+      if (sv.iis3 > 0) pen.money(sv.iis3, X, 165.9, 12); // 250 ИИС с 2024 (пп. 3)
+      if (sv.life10 > 0) pen.money(sv.life10, X, 140.7, 12); // 255 страхование жизни от 10 лет (пп. 5)
+      if (sv.byAgent > 0) pen.money(sv.byAgent, X, 115.5, 12); // 260 дал агент
+      if (sv.simplified > 0) pen.money(sv.simplified, X, 82.3, 12); // 270 упрощённый порядок
+      pen.money(sv.declared, X, 57.1, 12); // 280 к заявлению
+    }
   }
 
   // --- Расчёт к Приложению 5 ---------------------------------------------------
   // Координаты сняты с официального шаблона 5.21000_28: у полосы знакомест
   // берётся НИЖНЯЯ граница (откалибровано на Приложении 7, расхождение ≤ 0,9 pt).
-  function fillRaschet5(pen, insurance, iis) {
-    if (insurance) {
-      const ins = model.contracts?.insurance || {};
-      pen.left(digits(ins.insurerInn), 14.4, 596, 12); // 010 ИНН страховой
-      pen.left(digits(ins.insurerKpp), 187.0, 596, 9); // 020 КПП
-      pen.left("3", 357.0, 596, 1); // 021 — договор добровольного страхования жизни (пп. 4 п. 1 ст. 219)
-      fillRows(pen, ins.insurerName, 14.4, [511.1, 487.7, 464.3], 40); // 030
-      pen.date(ins.contractDate, 14.4, 425.8); // 040
-      pen.left(ins.contractNumber, 269.2, 425.8, 20); // 050
-      pen.money(calc.lines.insurance, 14.4, 379.0, 12); // 060 взносы к вычету
+  // block — один договор для раздела 1.1 (или null, если лист нужен только
+  // ради ИИС); iis — печатать ли раздел 2. Договоров может быть несколько,
+  // а раздел 1.1 на листе один, поэтому листов печатается столько же, сколько
+  // договоров, а блок ИИС ставится на первый из них.
+  function fillRaschet5(pen, block, iis) {
+    if (block) {
+      pen.left(digits(block.inn), 14.4, 596, 12); // 010 ИНН фонда или страховой
+      pen.left(digits(block.kpp), 187.0, 596, 9); // 020 КПП
+      pen.left(block.code, 357.0, 596, 1); // 021 код вида договора
+      fillRows(pen, block.name, 14.4, [511.1, 487.7, 464.3], 40); // 030
+      pen.date(block.date, 14.4, 425.8); // 040
+      pen.left(block.number, 269.2, 425.8, 20); // 050
+      pen.money(block.amount, 14.4, 379.0, 12); // 060 взносы к вычету
       pen.left("0", 269.2, 379.0, 1); // 061 — вычет в упрощённом порядке не предоставлялся
     }
     if (iis) {
       const iisC = model.contracts?.iis || {};
-      pen.left("1", 269.2, 287.0, 1); // 080 — основание: статья 219.1 НК
+      // 080 — основание: 1 — статья 219.1, 2 — статья 219.2 (счёт с 2024 года).
+      pen.left(iisC.newAccount ? "2" : "1", 269.2, 287.0, 1); // 080
       pen.left(digits(iisC.brokerInn), 14.4, 243.0, 12); // 090 ИНН брокера
       pen.left(digits(iisC.brokerKpp), 269.2, 243.0, 9); // 100 КПП
       fillRows(pen, iisC.brokerName, 14.4, [205.5, 182.5, 159.1], 40); // 110
       pen.date(iisC.contractDate, 14.4, 112.3); // 120
       pen.left(iisC.contractNumber, 269.2, 112.3, 20); // 130
       pen.date(iisC.openDate, 283.6, 87.0); // 140 дата открытия счёта
-      pen.money(ap.iis, 14.4, 45.4, 12); // 150 внесено на ИИС
+      pen.money(iisAmount, 14.4, 45.4, 12); // 150 внесено на ИИС
       pen.left("0", 269.2, 45.4, 1); // 160
     }
   }
