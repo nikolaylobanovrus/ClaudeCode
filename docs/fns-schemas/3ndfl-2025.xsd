@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="windows-1251"?>
-<!-- edited with XMLSpy v2011 sp1 (http://www.altova.com) by Shakeev (FGUP GNIVC FNS Russia) -->
+<!-- edited with XMLSpy v2024 rel. 2 sp1 (x64) (https://www.altova.com) by  () -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:sch="http://purl.oclc.org/dsdl/schematron" xmlns:usch="http://www.unisoftware.ru/schematron-extensions" xmlns:sql="urn:schemas-microsoft-com:mapping-schema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 	<xs:element name="Файл">
 		<xs:annotation>
@@ -1797,6 +1797,17 @@
 																	</xs:restriction>
 																</xs:simpleType>
 															</xs:attribute>
+															<xs:attribute name="ВычСбер5.1.219.2" use="optional">
+																<xs:annotation>
+																	<xs:documentation>Сумма налогового вычета на долгосрочные сбережения граждан, установленного подпунктом 5 пункта 1 статьи 219.2 Налогового кодекса Российской Федерации</xs:documentation>
+																</xs:annotation>
+																<xs:simpleType>
+																	<xs:restriction base="xs:decimal">
+																		<xs:totalDigits value="14"/>
+																		<xs:fractionDigits value="2"/>
+																	</xs:restriction>
+																</xs:simpleType>
+															</xs:attribute>
 															<xs:attribute name="ВычНалПер" use="optional">
 																<xs:annotation>
 																	<xs:documentation>Общая сумма налоговых вычетов на долгосрочные сбережения граждан, предоставленных в течение отчетного налогового периода налоговыми агентами</xs:documentation>
@@ -2819,6 +2830,7 @@
 																								<xs:enumeration value="2"/>
 																								<xs:enumeration value="3"/>
 																								<xs:enumeration value="4"/>
+																								<xs:enumeration value="5"/>
 																							</xs:restriction>
 																						</xs:simpleType>
 																					</xs:attribute>
@@ -3063,7 +3075,7 @@
 					<xs:restriction base="xs:string">
 						<xs:minLength value="1"/>
 						<xs:maxLength value="5"/>
-						<xs:enumeration value="5.20"/>
+						<xs:enumeration value="5.21"/>
 					</xs:restriction>
 				</xs:simpleType>
 			</xs:attribute>
