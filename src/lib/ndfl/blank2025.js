@@ -207,16 +207,23 @@ export async function buildOfficialPdf2025(model) {
   }
 
   // --- Приложение 5, лист 2: лечение, страхование, итоги, ИИС -------------------
+  // Координаты пересняты 10.09.2026 под редакцию приказа ЕД-1-11/333@: ФНС
+  // добавила строку 255 (вычет на долгосрочные сбережения) и перевёрстала лист
+  // целиком. Сдвиг не постоянный, он нарастает сверху вниз — от −2 pt на
+  // строке 140 до +10 pt на строке 210, то есть на высоту знакоместа. Снято
+  // распознаванием номеров строк на официальном шаблоне 5.21000_28: смещение
+  // «центр номера → координата печати» 8,86 pt, разброс 0,7 pt по семи строкам
+  // (метод сверен на прежнем бланке — воспроизводит старые значения).
   function fillApp5b(pen) {
     const X = 365.9;
-    if (calc.lines.medicalOrdinary > 0) pen.money(calc.lines.medicalOrdinary, X, 716, 12); // 140
-    if (calc.lines.insurance > 0) pen.money(calc.lines.insurance, X, 570, 12); // 160
-    if (calc.lines.sport > 0) pen.money(calc.lines.sport, X, 476, 12); // 171 физкультура
-    pen.money(ap.socialGroup, X, 450, 12); // 180 итог с ограничением 219.2
+    if (calc.lines.medicalOrdinary > 0) pen.money(calc.lines.medicalOrdinary, X, 713.9, 12); // 140
+    if (calc.lines.insurance > 0) pen.money(calc.lines.insurance, X, 571.8, 12); // 160
+    if (calc.lines.sport > 0) pen.money(calc.lines.sport, X, 478.7, 12); // 171 физкультура
+    pen.money(ap.socialGroup, X, 453.2, 12); // 180 итог с ограничением 219.2
     const social = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
-    pen.money(social, X, 371, 12); // 190 все социальные
-    pen.money(social, X, 344, 12); // 200 стандартные + социальные
-    if (ap.iis > 0) pen.money(ap.iis, X, 303, 12); // 210 ИИС (ст. 219.1)
+    pen.money(social, X, 377.4, 12); // 190 все социальные
+    pen.money(social, X, 352.1, 12); // 200 стандартные + социальные
+    if (ap.iis > 0) pen.money(ap.iis, X, 313.2, 12); // 210 ИИС (ст. 219.1)
   }
 
   // --- Приложение 7: имущественный вычет ---------------------------------------

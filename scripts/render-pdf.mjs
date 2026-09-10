@@ -37,6 +37,20 @@ const drafts = {
   // Уточнёнка: титул с номером корректировки 1 (в остальном — realty2025/2023).
   korr2025: { year: 2025, correction: 1, types: ["prodazha_realty"], incomes: [], sale: realtySale(true) },
   korr2023: { year: 2023, correction: 2, types: ["prodazha_realty"], incomes: [], sale: realtySale(true) },
+  // Возврат со всеми социальными вычетами и ИИС — заполняет оба листа
+  // Приложения 5. Нужен для сверки координат после перевёрстки листа 2
+  // приказом ЕД-1-11/333@ (см. scripts/build-blank-2025.mjs).
+  social2025: {
+    year: 2025,
+    types: ["lechenie", "obuchenie", "iis", "strahovanie", "sport"],
+    incomes: [{ name: "ООО «Ромашка»", inn: "7736050003", kpp: "773601001",
+                oktmo: "45380000", income: "1200000", withheld: "156000" }],
+    medical: { ordinary: "80000", expensive: "150000" },
+    education: { self: "60000", children: [{ amount: "50000" }] },
+    iis: { contribution: "400000" },
+    insurance: { amount: "40000" },
+    sport: { amount: "30000" },
+  },
 };
 
 const [out, scenario] = process.argv.slice(2);
