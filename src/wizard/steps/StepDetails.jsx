@@ -219,7 +219,7 @@ export default function StepDetails({ errors, calc }) {
             10 лет. Совокупно по первым трём — до 400 000 ₽ взносов в год.
             Реквизиты нужны для листа «Расчёт к Приложению 5».
           </p>
-          {(draft.savings.contracts || []).map((c, i) => (
+          {(draft.savings?.contracts || []).map((c, i) => (
             <div className="wiz__block" key={i}>
               <div className="wiz__row">
                 <Field label="Вид договора">
@@ -271,11 +271,11 @@ export default function StepDetails({ errors, calc }) {
             onClick={() => dispatch({ type: "ADD_SAVING" })}>+ Добавить договор</button>
           <div className="wiz__row">
             <Field label="Уже предоставлено налоговым агентом, ₽">
-              <MoneyInput value={draft.savings.byAgent}
+              <MoneyInput value={draft.savings?.byAgent ?? ""}
                 onChange={(v) => dispatch({ type: "PATCH", section: "savings", patch: { byAgent: v } })} />
             </Field>
             <Field label="Получено в упрощённом порядке, ₽">
-              <MoneyInput value={draft.savings.simplified}
+              <MoneyInput value={draft.savings?.simplified ?? ""}
                 onChange={(v) => dispatch({ type: "PATCH", section: "savings", patch: { simplified: v } })} />
             </Field>
           </div>
@@ -290,7 +290,7 @@ export default function StepDetails({ errors, calc }) {
             Если он дал его полностью — по декларации возвращать нечего, но
             указать данные всё равно нужно: без них налоговая посчитает базу иначе.
           </p>
-          {(draft.standard.children || []).map((c, i) => (
+          {(draft.standard?.children || []).map((c, i) => (
             <div className="wiz__row" key={i}>
               <Field label={`Ребёнок ${i + 1} — по счёту в семье`}>
                 <SelectInput value={c.order}
@@ -316,18 +316,18 @@ export default function StepDetails({ errors, calc }) {
           <div className="wiz__row">
             <Field label="Вычет уже предоставлен работодателем, ₽" hint={HINTS.stdProvided}
               error={errors["standard.providedByAgent"]}>
-              <MoneyInput value={draft.standard.providedByAgent}
+              <MoneyInput value={draft.standard?.providedByAgent ?? ""}
                 error={errors["standard.providedByAgent"]}
                 onChange={(v) => dispatch({ type: "PATCH", section: "standard", patch: { providedByAgent: v } })} />
             </Field>
             <Field label="Месяцев, за которые положен вычет" hint={HINTS.stdMonths}>
-              <TextInput value={draft.standard.months} inputMode="numeric"
+              <TextInput value={draft.standard?.months ?? ""} inputMode="numeric"
                 placeholder={String(calc.standard?.months ?? "")}
                 onChange={(v) => dispatch({ type: "PATCH", section: "standard", patch: { months: v.replace(/\D/g, "").slice(0, 2) } })} />
             </Field>
           </div>
           <label className="wiz__checkline">
-            <input type="checkbox" checked={Boolean(draft.standard.singleParent)}
+            <input type="checkbox" checked={Boolean(draft.standard?.singleParent)}
               onChange={(e) => dispatch({ type: "PATCH", section: "standard", patch: { singleParent: e.target.checked } })} />
             <span>Я единственный родитель — вычет в двойном размере</span>
           </label>
@@ -339,7 +339,7 @@ export default function StepDetails({ errors, calc }) {
           <h3 className="wiz__subhead">📈 ИИС</h3>
           <Field label={`Взносы на ИИС за ${draft.year} год, ₽`} hint={HINTS.iis}
             error={errors["iis.contribution"]}>
-            <MoneyInput value={draft.iis.contribution} error={errors["iis.contribution"]}
+            <MoneyInput value={draft.iis?.contribution ?? ""} error={errors["iis.contribution"]}
               onChange={(v) =>
                 dispatch({ type: "PATCH", section: "iis", patch: { contribution: v } })
               } />
@@ -347,16 +347,16 @@ export default function StepDetails({ errors, calc }) {
           {/* Реквизиты договора: по ним заполняется раздел 2 листа «Расчёт к
               Приложению 5». Без этого листа строка 210 остаётся без расчёта. */}
           <p className="wiz__note">Данные из договора с брокером — они нужны в декларации.</p>
-          <Contract sec="iis" errors={errors} dispatch={dispatch} v={draft.iis}
+          <Contract sec="iis" errors={errors} dispatch={dispatch} v={draft.iis || {}}
             who="брокера или управляющей компании"
             keys={{ name: "brokerName", inn: "brokerInn", kpp: "brokerKpp" }} />
           <label className="wiz__checkline">
-            <input type="checkbox" checked={Boolean(draft.iis.newAccount)}
+            <input type="checkbox" checked={Boolean(draft.iis?.newAccount)}
               onChange={(e) => dispatch({ type: "PATCH", section: "iis", patch: { newAccount: e.target.checked } })} />
             <span>Счёт открыт с 2024 года — вычет по статье 219.2</span>
           </label>
           <Field label="Дата открытия счёта" error={errors["iis.openDate"]}>
-            <DateInput value={draft.iis.openDate} error={errors["iis.openDate"]}
+            <DateInput value={draft.iis?.openDate ?? ""} error={errors["iis.openDate"]}
               onChange={(v) => dispatch({ type: "PATCH", section: "iis", patch: { openDate: v } })} />
           </Field>
         </section>
@@ -367,7 +367,7 @@ export default function StepDetails({ errors, calc }) {
           <h3 className="wiz__subhead">🛡️ Страхование жизни</h3>
           <Field label="Взносы за год, ₽" hint={HINTS.insurance}
             error={errors["insurance.amount"]}>
-            <MoneyInput value={draft.insurance.amount} error={errors["insurance.amount"]}
+            <MoneyInput value={draft.insurance?.amount ?? ""} error={errors["insurance.amount"]}
               onChange={(v) =>
                 dispatch({ type: "PATCH", section: "insurance", patch: { amount: v } })
               } />
@@ -375,7 +375,7 @@ export default function StepDetails({ errors, calc }) {
           {/* Реквизиты договора: по ним заполняется раздел 1 листа «Расчёт к
               Приложению 5», из которого берётся строка 160 Приложения 5. */}
           <p className="wiz__note">Данные из договора страхования — они нужны в декларации.</p>
-          <Contract sec="insurance" errors={errors} dispatch={dispatch} v={draft.insurance}
+          <Contract sec="insurance" errors={errors} dispatch={dispatch} v={draft.insurance || {}}
             who="страховой организации"
             keys={{ name: "insurerName", inn: "insurerInn", kpp: "insurerKpp" }} />
         </section>
@@ -391,11 +391,11 @@ export default function StepDetails({ errors, calc }) {
           </p>
           <div className="wiz__row">
             <Field label="Вернул работодатель за год, ₽" hint={HINTS.socialProvided}>
-              <MoneyInput value={draft.socialProvided.byAgent}
+              <MoneyInput value={draft.socialProvided?.byAgent ?? ""}
                 onChange={(v) => dispatch({ type: "PATCH", section: "socialProvided", patch: { byAgent: v } })} />
             </Field>
             <Field label="Получено в упрощённом порядке, ₽">
-              <MoneyInput value={draft.socialProvided.simplified}
+              <MoneyInput value={draft.socialProvided?.simplified ?? ""}
                 onChange={(v) => dispatch({ type: "PATCH", section: "socialProvided", patch: { simplified: v } })} />
             </Field>
           </div>

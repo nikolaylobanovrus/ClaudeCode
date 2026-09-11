@@ -265,7 +265,9 @@ function reducer(state, action) {
         purchases: state.purchases || [],
       };
     case "RESTORE":
-      return action.draft;
+      // Черновик приходит из localStorage или из ссылки ?d= — и в обоих
+      // случаях мог быть собран версией сайта, не знавшей части полей.
+      return withDefaults(action.draft);
     default:
       return state;
   }
@@ -276,6 +278,30 @@ function reducer(state, action) {
 // перестановке шагов индекс переезжает: personal 1→3, income 2→1,
 // details 3→2. Данные анкеты не меняются (хеш оплаты не затрагивается).
 const V1_STEP_MAP = { 1: 3, 2: 1, 3: 2 };
+
+// Разделы, появившиеся позже самого черновика, добираем из initialDraft.
+//
+// Это не украшение, а защита от целого класса аварий. RESTORE кладёт черновик
+// в состояние КАК ЕСТЬ, без слияния, поэтому у вернувшегося человека попросту
+// нет полей, добавленных после того дня, когда он заполнял анкету. Шаг,
+// который читает такое поле в лоб (`draft.socialProvided.byAgent`), падает на
+// рендере, а error boundary в приложении нет — вся анкета уходит в белый
+// экран, причём молча: человек жмёт «Далее», и «ничего не происходит».
+//
+// Ровно это и случилось 10.09.2026 с полями standard / socialProvided /
+// savings: раньше каждое новое поле дописывали сюда руками, и на третьем
+// подряд забыли. Поэтому больше не перечисляем — добираем всё разом.
+//
+// Вызывается в ДВУХ местах: здесь (черновик из localStorage) и в RESTORE
+// (ссылка-черновик ?d= с другого устройства могла быть собрана старой
+// версией сайта). Уже заполненные поля не трогаем.
+export function withDefaults(draft) {
+  if (!draft || typeof draft !== "object") return draft;
+  const base = initialDraft();
+  for (const key of Object.keys(base))
+    if (draft[key] === undefined) draft[key] = base[key];
+  return draft;
+}
 
 export function loadDraft() {
   try {
@@ -297,9 +323,20 @@ export function loadDraft() {
       draft.sales = [draft.sale && typeof draft.sale === "object" ? draft.sale : emptySale()];
     // Черновики до появления уточнёнки: первичная декларация.
     if (draft.correction === undefined) draft.correction = 0;
-    // Черновики до появления вычета за спорт.
-    if (!draft.sport) draft.sport = { amount: "" };
-    return draft;
+    // Разделы, появившиеся позже самого черновика, добираем из initialDraft.
+    //
+    // Это не украшение, а защита от целого класса аварий. RESTORE кладёт
+    // сохранённый черновик в состояние КАК ЕСТЬ, без слияния, поэтому у
+    // вернувшегося человека попросту нет полей, добавленных после того дня,
+    // когда он заполнял анкету. Шаг, который читает такое поле в лоб
+    // (`draft.socialProvided.byAgent`), падает на рендере, а error boundary
+    // в приложении нет — вся анкета уходит в белый экран, причём молча:
+    // человек жмёт «Далее» и «ничего не происходит».
+    //
+    // Ровно это и случилось 10.09.2026 с полями standard / socialProvided /
+    // savings: раньше каждое новое поле дописывали сюда руками, и на третьем
+    // подряд забыли. Поэтому больше не перечисляем — добираем всё разом.
+    return withDefaults(draft);
   } catch {
     return null;
   }
