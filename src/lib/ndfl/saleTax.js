@@ -6,6 +6,7 @@
 // коэффициент кадастра, править надо там, и оба места подхватят новое.
 import {
   RATE,
+  taxOn,
   SALE_CADASTRAL_COEF,
   saleClassOf,
   saleIsRealty,
@@ -74,6 +75,8 @@ export function computeSaleTax({
   // Срок владения (ст. 217.1 НК): продержал дольше минимального — доход не
   // облагается и декларацию подавать НЕ нужно. Говорим об этом прямо, даже
   // если это значит «вы нам не клиент».
+  // Год берём из даты продажи: шкала ставок у каждого года своя.
+  const taxYear = Number(String(saleDate).slice(0, 4)) || new Date().getFullYear();
   const minHolding = saleMinHolding(cls, realtyBasis);
   const held = holdingYears(acquireDate, saleDate);
   const exempt = held !== null && held >= minHolding;
@@ -87,9 +90,14 @@ export function computeSaleTax({
     deductionKind,
     deduction,
     base,
-    tax: exempt ? 0 : Math.round(base * RATE),
-    taxByLimit: Math.round(byLimit * RATE),
-    taxByExpenses: byExpenses === null ? null : Math.round(byExpenses * RATE),
+    // Ставка — по шкале года, как и в самой декларации. Пока здесь стояли
+    // плоские 13%, калькулятор на сайте и готовый документ расходились на
+    // дорогой недвижимости: с 2025 года у доходов от продажи своя шкала
+    // (п. 1.1 ст. 224) — 13% до 2,4 млн и 15% свыше. Человек увидел бы одну
+    // сумму до оплаты и другую после, и это худший момент для сюрприза.
+    tax: exempt ? 0 : taxOn(base, taxYear, "sale"),
+    taxByLimit: taxOn(byLimit, taxYear, "sale"),
+    taxByExpenses: byExpenses === null ? null : taxOn(byExpenses, taxYear, "sale"),
     minHolding,
     held,
     exempt,

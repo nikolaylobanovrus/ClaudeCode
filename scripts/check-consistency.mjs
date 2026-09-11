@@ -25,6 +25,7 @@ const { computeDeclaration } = await import("../src/lib/ndfl/calc.js");
 const { buildDeclarationModel } = await import("../src/lib/ndfl/model.js");
 const { buildDeclarationXml } = await import("../src/lib/ndfl/xml3ndfl.js");
 const { buildDeclarationPdf } = await import("../src/lib/ndfl/pdf3ndfl.js");
+const { computeSaleTax } = await import("../src/lib/ndfl/saleTax.js");
 
 const personal = {
   lastName: "Иванов", firstName: "Пётр", middleName: "Сергеевич",
@@ -134,5 +135,30 @@ for (const [name, draft] of SCENARIOS) {
   }
 }
 
-console.log(problems ? `\nРАСХОЖДЕНИЙ: ${problems}` : "\nВсе суммы совпадают в печати и в выгрузке.");
+// --- Калькулятор на лендинге и декларация обязаны давать один налог --------
+// Это два независимых движка: saleTax.js питает публичный калькулятор, calc.js
+// строит документ. Человек считает налог ДО оплаты и видит сумму ПОСЛЕ — если
+// они разойдутся, это худший момент для сюрприза. Уже расходились дважды: по
+// освобождению от налога при долгом владении и по ставке свыше 2,4 млн.
+console.log("\n--- калькулятор на сайте против декларации ---");
+const SALES = [
+  ["квартира 9 млн, владение 2 года", { objectKind: "flat", price: "9000000", cadastralValue: "9000000", acquireDate: "2023-01-10" }],
+  ["квартира 3 млн, владение 2 года", { objectKind: "flat", price: "3000000", cadastralValue: "2000000", acquireDate: "2023-01-10" }],
+  ["квартира 8 млн, владение 15 лет", { objectKind: "flat", price: "8000000", cadastralValue: "8000000", acquireDate: "2010-01-10" }],
+  ["гараж 800 тыс, владение 2 года", { objectKind: "garage", price: "800000", cadastralValue: "600000", acquireDate: "2023-01-10" }],
+];
+for (const [label, o] of SALES) {
+  const common = { kind: "realty", saleDate: "2025-06-10", realtyBasis: "purchase",
+                   deductionKind: "standard", ...o };
+  const fromCalculator = computeSaleTax(common).tax;
+  const fromDeclaration = computeDeclaration({
+    year: 2025, types: ["prodazha_realty"], personal, incomes: [],
+    sales: [{ ...common, cadastralNumber: "74:36:0000000:1", buyerName: "Петров" }],
+  }).owed;
+  const ok = fromCalculator === fromDeclaration;
+  if (!ok) problems++;
+  console.log(`${ok ? "✓" : "✗"} ${label}: калькулятор ${fromCalculator} ₽, декларация ${fromDeclaration} ₽`);
+}
+
+console.log(problems ? `\nРАСХОЖДЕНИЙ: ${problems}` : "\nВсё сходится: печать, выгрузка и калькулятор.");
 process.exit(problems ? 1 : 0);
