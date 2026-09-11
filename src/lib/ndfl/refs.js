@@ -223,6 +223,23 @@ export function marginalRate(base, year, kind = "main") {
   return table[table.length - 1][1];
 }
 
+// Разбивка базы по ступеням для форм 2022–2024: строки 061 и 062 Раздела 2
+// (они же атрибуты НалБаза2.1.224 и НалБаза3.1.224 в XML).
+//
+// Абзац второй п. 1 ст. 224 — ставка 13% на базу до 5 млн ₽, абзац третий —
+// 15% на превышение. Значит 061 — это НЕ вся база и не ноль: это её часть до
+// порога. Печать ставила в 061 всю базу целиком, выгрузка писала «0.00» и
+// туда, и в 062 — то есть декларация с базой 1,2 млн ₽ утверждала, что по
+// ставке 13% не облагается ничего. Оба документа говорили неправду, причём
+// каждый свою.
+export function baseSplit(base, year, kind = "main") {
+  const b = Math.max(0, Number(base) || 0);
+  const table = (kind === "sale" ? SCALE_SALE : SCALE_MAIN)[Number(year)] ||
+                (kind === "sale" ? SCALE_SALE : SCALE_MAIN)[2025];
+  const threshold = table[0][0];
+  return { low: Math.min(b, threshold), high: Math.max(0, b - threshold) };
+}
+
 export const YEAR_RULES = {
   2022: {
     order: "Приказ ФНС от 29.09.2022 № ЕД-7-11/880@",

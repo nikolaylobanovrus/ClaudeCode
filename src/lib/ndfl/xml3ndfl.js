@@ -3,7 +3,7 @@
 // NO_NDFL3_{ИФНС}_{ИФНС}_{ИНН}_{ГГГГММДД}_{GUID}.xml.
 // ВНИМАНИЕ: ЛК ФНС жёстко проверяет файл по XSD актуального приказа —
 // функция помечена в интерфейсе как «бета», основной документ — PDF.
-import { CODES, yearRules } from "./refs.js";
+import { CODES, baseSplit, yearRules } from "./refs.js";
 import { fmtDate as dateRu } from "./model.js";
 
 const digits = (v) => String(v ?? "").replace(/\D/g, "");
@@ -202,9 +202,16 @@ export function buildDeclarationXml(model) {
                 СумНалВыч: kop2(calc.totalDeduction),
                 СумРасх: "0.00",
                 НалБаза: kop2(calc.taxBase),
-                // Эти три поля есть только до 2025 года.
-                "НалБаза2.1.224": is2025 ? undefined : "0.00",
-                "НалБаза3.1.224": is2025 ? undefined : "0.00",
+                // Эти три поля есть только до 2025 года. 2.1.224 — часть базы
+                // по ставке абз. 2 п. 1 ст. 224 (13% до 5 млн), 3.1.224 —
+                // превышение по абз. 3 (15%). Раньше в обоих стоял ноль, и
+                // выгрузка утверждала, что по ставке 13% не облагается ничего.
+                "НалБаза2.1.224": is2025
+                  ? undefined
+                  : kop2(baseSplit(calc.taxBase, year, "main").low),
+                "НалБаза3.1.224": is2025
+                  ? undefined
+                  : kop2(baseSplit(calc.taxBase, year, "main").high),
                 СумИное: is2025 ? undefined : "0.00",
               }),
               el("РасчНалПУ", {
@@ -234,8 +241,12 @@ export function buildDeclarationXml(model) {
                   СумРасх: "0.00",
                   НалБаза: kop2(sale.base),
                   // Поля прогрессивной базы/иного — только до 2025 (как в возврате).
-                  "НалБаза2.1.224": is2025 ? undefined : "0.00",
-                  "НалБаза3.1.224": is2025 ? undefined : "0.00",
+                  "НалБаза2.1.224": is2025
+                    ? undefined
+                    : kop2(baseSplit(sale.base, year, "sale").low),
+                  "НалБаза3.1.224": is2025
+                    ? undefined
+                    : kop2(baseSplit(sale.base, year, "sale").high),
                   СумИное: is2025 ? undefined : "0.00",
                 }),
                 el("РасчНалПУ", {

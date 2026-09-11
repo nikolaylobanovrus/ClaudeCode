@@ -26,6 +26,7 @@ const { buildDeclarationModel } = await import("../src/lib/ndfl/model.js");
 const { buildDeclarationXml } = await import("../src/lib/ndfl/xml3ndfl.js");
 const { buildDeclarationPdf } = await import("../src/lib/ndfl/pdf3ndfl.js");
 const { computeSaleTax } = await import("../src/lib/ndfl/saleTax.js");
+const { baseSplit } = await import("../src/lib/ndfl/refs.js");
 
 const personal = {
   lastName: "Иванов", firstName: "Пётр", middleName: "Сергеевич",
@@ -81,6 +82,18 @@ const SCENARIOS = [
   ["2024 всё сразу", base(2024, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
                                  "strahovanie", "sport", "deti", "sberezheniya"])],
   ["2024 только сбережения", base(2024, ["sberezheniya"])],
+  // База выше 5 млн ₽: форма делит её на две ступени (строки 061 и 062, они же
+  // НалБаза2.1.224 и 3.1.224). До этого печать клала в 061 всю базу целиком,
+  // а выгрузка писала в обе строки ноль — и ни один сценарий этого не трогал,
+  // потому что во всех доход был меньше порога.
+  ["2024 доход 9 млн", base(2024, ["lechenie", "kvartira"], {
+    incomes: [{ name: "ООО «Ромашка»", inn: "7420010847", kpp: "741501001",
+                oktmo: "75701000", income: "9000000", withheld: "1300000" }],
+  })],
+  ["2023 доход 9 млн", base(2023, ["lechenie"], {
+    incomes: [{ name: "ООО «Ромашка»", inn: "7420010847", kpp: "741501001",
+                oktmo: "75701000", income: "9000000", withheld: "1300000" }],
+  })],
   ["2023 всё сразу", base(2023, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
                                  "strahovanie", "sport", "deti"])],
   ["2022 всё сразу", base(2022, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
@@ -139,6 +152,12 @@ for (const [name, draft] of SCENARIOS) {
     "упрощённый порядок (182)": calc.socialProvided?.simplified,
     "сбережения к заявлению": calc.savings?.declared,
   };
+  // Ступени базы (строки 061/062) есть только в формах до 2025 года.
+  if (Number(draft.year) < 2025) {
+    const sp = baseSplit(calc.taxBase, draft.year, "main");
+    want["база по ставке 13% (061)"] = sp.low;
+    want["база по ставке 15% (062)"] = sp.high;
+  }
 
   // Налоги печатаются в полных рублях, без копеек, — искать их надо иначе.
   const wantInt = {

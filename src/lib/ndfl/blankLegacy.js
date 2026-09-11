@@ -20,7 +20,7 @@ import blank2022Url from "../../assets/ndfl/blank-2022.pdf?url";
 import blank2023Url from "../../assets/ndfl/blank-2023.pdf?url";
 import blank2024Url from "../../assets/ndfl/blank-2024.pdf?url";
 import { assembleOnBlank, fillRows, chunk } from "./blankPdf.js";
-import { CODES } from "./refs.js";
+import { CODES, baseSplit } from "./refs.js";
 import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-20XX.pdf (порядок задан при нарезке бланков).
@@ -253,10 +253,14 @@ export async function buildOfficialPdfLegacy(model) {
     const income = s ? sale.taxable : calc.totalIncome;
     const base = s ? sale.base : calc.taxBase;
     pen.left(s ? sale.groupCode : CODES.incomeKind, x, code, 2); // 001
+    // 061 — часть базы по ставке абз. 2 п. 1 ст. 224 (13% до 5 млн),
+    // 062 — превышение по абз. 3 (15%), 063 — иные базы, которых у нас нет.
+    // Раньше в 061 уходила ВСЯ база, сколько бы её ни было.
+    const split = baseSplit(base, model.year, s ? "sale" : "main");
     const mv = {
       "010": income, "020": 0, "030": income,
       "040": s ? sale.deduction : calc.totalDeduction, "050": 0, "060": base,
-      "061": base, "062": 0, "063": 0, // база по ставке абз. 2 п. 1 ст. 224
+      "061": split.low, "062": split.high, "063": 0,
     };
     for (const [k, y] of Object.entries(money)) pen.money(mv[k] ?? 0, x, y, 13);
     const iv = {
