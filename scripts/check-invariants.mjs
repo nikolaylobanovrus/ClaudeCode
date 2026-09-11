@@ -26,7 +26,7 @@ import { computeDeclaration } from "../src/lib/ndfl/calc.js";
 import { buildDeclarationModel } from "../src/lib/ndfl/model.js";
 import { buildDeclarationXml } from "../src/lib/ndfl/xml3ndfl.js";
 import { buildDeclarationPdf } from "../src/lib/ndfl/pdf3ndfl.js";
-import { YEARS, RATE, yearRules, SALE_YEARS } from "../src/lib/ndfl/refs.js";
+import { YEARS, yearRules, SALE_YEARS, taxOn } from "../src/lib/ndfl/refs.js";
 
 // --- детерминированный генератор -------------------------------------------
 let seed = 20260911;
@@ -49,7 +49,7 @@ const INCOMES = {
   "ноль удержано": [{ name: "ООО", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "500000", withheld: "0" }],
   "маленький": [{ name: "ООО", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "100000", withheld: "13000" }],
   "обычный": [{ name: "ООО", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "1200000", withheld: "156000" }],
-  "высокий (прогрессия)": [{ name: "ООО", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "5000000", withheld: "650000" }],
+  "высокий (прогрессия)": [{ name: "ООО", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "5000000", withheld: String(taxOn(5000000, 2025)) }],
   "двое работодателей": [
     { name: "ООО «Ромашка»", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "800000", withheld: "104000" },
     { name: "ООО «Лютик»", inn: "7708503727", kpp: "770801001", oktmo: "45382000", income: "400000", withheld: "52000" },
@@ -132,9 +132,20 @@ async function inspect(id, draft) {
   check(id, c.refund <= c.totalWithheld,
         `возврат ${c.refund} больше удержанного ${c.totalWithheld}`);
 
-  // 5. Возврат не больше 13% от вычетов.
-  check(id, c.refund <= Math.round(c.totalDeduction * RATE) + 1,
-        `возврат ${c.refund} больше 13% от вычетов ${c.totalDeduction}`);
+  // 5. Возврат — это ровно «удержано минус исчислено» (строка 160 Раздела 2 =
+  //    080 − 150). Прежний инвариант «не больше 13% от вычетов» был подогнан
+  //    под плоскую ставку и при прогрессивной шкале ложно срабатывал бы.
+  check(id, c.refund === Math.max(0, c.totalWithheld - c.assessed),
+        `возврат ${c.refund} ≠ удержано ${c.totalWithheld} − исчислено ${c.assessed}`);
+
+  // 5б. Исчисленный налог считается по шкале года, а не плоскими 13%.
+  check(id, c.assessed === taxOn(c.taxBase, draft.year, "main"),
+        `исчислено ${c.assessed} ≠ по шкале ${taxOn(c.taxBase, draft.year, "main")}`);
+
+  // 5в. Вычетов не может быть больше дохода — контрольное соотношение
+  //     Раздела 2: строка 040 ≤ строка 030.
+  check(id, c.totalDeduction <= c.totalIncome,
+        `вычетов ${c.totalDeduction} больше дохода ${c.totalIncome}`);
 
   // 6. Социальная группа не выше годового лимита.
   check(id, c.applied.socialGroup <= r.socialGroup,
@@ -159,6 +170,10 @@ async function inspect(id, draft) {
   // 10. Продажа: налог неотрицательный, вычет не больше дохода.
   if (c.sale) {
     check(id, c.sale.tax >= 0, `налог с продажи отрицательный: ${c.sale.tax}`);
+    // Объект, которым владели дольше минимального срока, не декларируется:
+    // налога по нему быть не может.
+    if (c.sale.items.every((o) => o.holdingExempt))
+      check(id, c.sale.tax === 0, `все объекты освобождены, а налог ${c.sale.tax}`);
     check(id, c.sale.deduction <= c.sale.taxable + 1,
           `вычет с продажи ${c.sale.deduction} больше дохода ${c.sale.taxable}`);
   }

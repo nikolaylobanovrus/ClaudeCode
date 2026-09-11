@@ -76,11 +76,13 @@ const MAP_22_23 = {
 const MAPS = {
   2022: {
     blankUrl: blank2022Url, ...MAP_22_23,
-    app5a: { 100: 293, 110: 253, 120: 223 },
+    app5a: { 100: 293, 110: 253, 120: 223,
+             std: { 30: 642.0, 40: 601.2, 50: 549.8, 60: 487.9, 70: 414.5, 80: 384.7 } },
   },
   2023: {
     blankUrl: blank2023Url, ...MAP_22_23,
-    app5a: { 100: 272, 110: 231, 120: 201 },
+    app5a: { 100: 272, 110: 231, 120: 201,
+             std: { 30: 642.0, 40: 601.2, 50: 549.8, 60: 476.9, 70: 392.9, 80: 363.1 } },
   },
   2024: {
     blankUrl: blank2024Url,
@@ -104,7 +106,8 @@ const MAPS = {
       nameY: [[642, 618, 595, 572], [426, 403, 380, 356], [211, 187, 164, 141]],
       sumY: [533, 318, 102], taxX: 297.9,
     },
-    app5a: { 100: 301, 110: 209, 120: 183, 130: 123 },
+    app5a: { 100: 301, 110: 209, 120: 183, 130: 123,
+             std: { 30: 622.5, 40: 587.0, 50: 541.4, 60: 475.2, 70: 399.3, 80: 372.9 } },
     app5b: { 140: 716, 160: 550, 171: 440, 180: 411, 190: 317, 200: 288, 210: 242 },
     // Приложение 7 формы 757@ свёрстано как в 913@ (сверено по сеткам).
     app7: {
@@ -307,6 +310,20 @@ export async function buildOfficialPdfLegacy(model) {
   // --- Приложение 5, лист 1 -------------------------------------------------------
   function fillApp5a(pen) {
     const X = 365.9, A = M.app5a;
+    // Раздел 1 — стандартные вычеты. Координаты сняты распознаванием номеров
+    // строк на каждом бланке (метод в docs/fns-blank-2025.md). Верхний блок
+    // свёрстан уже, чем социальный: 6 рублёвых знакомест против 12, и своя
+    // левая граница. Строки 071 в формах до 2025 года нет — только 070 и 080.
+    const SX = 450.6, SN = 6;
+    const st = calc.standard;
+    if (A.std && st && st.eligible > 0) {
+      if (st.ordinary > 0) pen.money(st.ordinary, SX, st.double ? A.std[40] : A.std[30], SN);
+      if (st.disabled > 0) pen.money(st.disabled, SX, st.double ? A.std[60] : A.std[50], SN);
+    }
+    if (A.std && st && (st.byAgent > 0 || st.eligible > 0)) {
+      if (st.byAgent > 0) pen.money(st.byAgent, SX, A.std[70], SN);
+      pen.money(st.declared, SX, A.std[80], SN);
+    }
     if (ap.childEducation > 0) pen.money(ap.childEducation, X, A[100], 12); // 100
     if (ap.expensiveMedical > 0) pen.money(ap.expensiveMedical, X, A[110], 12); // 110
     pen.money(ap.childEducation + ap.expensiveMedical, X, A[120], 12); // 120 итог
@@ -327,7 +344,10 @@ export async function buildOfficialPdfLegacy(model) {
     pen.money(ap.socialGroup, X, A[180], 12); // 180 итог с ограничением 219 НК
     const social = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
     pen.money(social, X, A[190], 12); // 190 все социальные
-    pen.money(social, X, A[200], 12); // 200 стандартные + социальные
+    // 200 — «стандартные И социальные». Пока стандартный вычет сюда не входил,
+    // строка расходилась с разделом 1 того же листа у каждого, кто заявлял
+    // детей за 2022–2024 годы.
+    pen.money(social + (calc.standard?.declared || 0), X, A[200], 12); // 200
     if (ap.iis > 0) pen.money(ap.iis, X, A[210], 12); // 210 ИИС
   }
 

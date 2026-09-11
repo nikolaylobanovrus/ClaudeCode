@@ -101,6 +101,17 @@ const drafts = {
     sport: { amount: "" },
   },
   // Только стандартный вычет на детей — без единого социального вычета.
+  deti2024: {
+    year: 2024,
+    types: ["deti", "lechenie"],
+    incomes: [{ name: "ООО «Ромашка»", inn: "7736050003", kpp: "773601001",
+                oktmo: "45380000", income: "900000", withheld: "117000" }],
+    standard: { children: [{ order: "1", disabled: false }, { order: "2", disabled: true }],
+                singleParent: false, providedByAgent: "5000", months: "", monthly: [] },
+    socialProvided: { byAgent: "", simplified: "" },
+    medical: { ordinary: "40000", expensive: "" }, education: { self: "", children: [] },
+    iis: {}, insurance: {}, sport: { amount: "" },
+  },
   deti2025: {
     year: 2025,
     types: ["deti"],

@@ -16,11 +16,27 @@ import {
   saleMinHolding,
   yearRules,
   refundDeadlineYear,
+  taxOn,
 } from "./refs.js";
 import { fmtRub } from "../format.js";
 
+// Разбор денежной суммы. Терпим к тому, как её могли записать: неразрывные и
+// обычные пробелы между разрядами, запятая вместо точки. Поле ввода в анкете
+// нормализует ввод само, но в черновик суммы попадают и другими путями —
+// распознаванием документов, ссылкой-черновиком, снимком оплаченного
+// комплекта. Строгий Number("1 000 000") даёт NaN, а прежний код превращал это
+// в ноль молча: человек с доходом миллион получал возврат 0 и не понимал, почему.
+// Склонение числительных: «2 лет» в тексте для человека читается как небрежность.
+const plural = (n, one, few, many) => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b > 1 && b < 5) return few;
+  return b === 1 ? one : many;
+};
+
 const num = (v) => {
-  const n = Number(v);
+  if (typeof v === "number") return Number.isFinite(v) && v > 0 ? v : 0;
+  const n = Number(String(v ?? "").replace(/[\s\u00a0]/g, "").replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
@@ -113,6 +129,7 @@ function parseSaleItem(item, defaultKind, warnings) {
 // Объекты, по которым заявлены расходы на покупку, лимит не расходуют —
 // у них свой вычет, тоже не больше собственного дохода.
 function computeSale(draft, warnings) {
+  const year = Number(draft.year) || 2025;
   const types = draft.types || [];
   const items = salesOf(draft);
   if (!items.length) return null;
@@ -134,6 +151,10 @@ function computeSale(draft, warnings) {
     movable: SALE_DEDUCTION.other,
   };
   const sales = parsed.map((o) => {
+    // Освобождённый объект не декларируется, значит и годовой лимит вычета
+    // не расходует — иначе он «съедал» бы вычет у тех объектов, которые
+    // действительно попадают в декларацию.
+    if (o.holdingExempt) return { ...o, deduction: 0, base: 0, tax: 0 };
     let deduction;
     if (o.deductionKind === "expenses") {
       deduction = Math.min(o.expenses, o.taxable);
@@ -171,23 +192,34 @@ function computeSale(draft, warnings) {
   for (const o of sales) {
     if (o.holdingExempt) {
       warnings.push(
-        `Вы владели этим имуществом ${o.held} ${o.held === 1 ? "год" : "лет"} — это не меньше ` +
-          `минимального срока (${o.minHolding} ${o.minHolding === 3 ? "года" : "лет"}). ` +
+        `Вы владели этим имуществом ${o.held} ${plural(o.held, "год", "года", "лет")} — это не меньше ` +
+          `минимального срока (${o.minHolding} ${plural(o.minHolding, "год", "года", "лет")}). ` +
           `Доход от продажи налогом не облагается и декларацию 3-НДФЛ подавать НЕ нужно.`
       );
     }
   }
 
-  const sum = (f) => sales.reduce((acc, o) => acc + f(o), 0);
+  // Объекты, которыми владели дольше минимального срока, в декларацию НЕ
+  // попадают вовсе (п. 17.1 ст. 217, п. 2 ст. 217.1 НК): такой доход не
+  // облагается и не декларируется. Раньше они оставались в расчёте, и человек
+  // получал готовый документ с налогом к уплате, которого он не должен —
+  // на квартире за 8 млн это 910 000 ₽ из воздуха. Предупреждение при этом
+  // выводилось, но документ всё равно требовал денег.
+  const declared = sales.filter((o) => !o.holdingExempt);
+  const sum = (f) => declared.reduce((acc, o) => acc + f(o), 0);
   const taxable = sum((o) => o.taxable);
   const deduction = sum((o) => o.deduction);
   const base = Math.max(0, taxable - deduction);
-  // Налог считаем от суммарной базы, а не сложением округлённых налогов по
-  // объектам: в Разделе 2 стоит одна база, и суммы обязаны сойтись.
-  const tax = Math.round(base * RATE);
+  // Налог — от суммарной базы по шкале года, а не сложением округлённых
+  // налогов по объектам: в Разделе 2 стоит одна база, и суммы обязаны сойтись.
+  // С 2025 года у доходов от продажи имущества своя шкала (п. 1.1 ст. 224):
+  // 13% до 2,4 млн и 15% свыше.
+  const tax = taxOn(base, year, "sale");
 
   return {
     items: sales,
+    // Объекты, которые реально идут в декларацию (без освобождённых по сроку).
+    declaredItems: declared,
     price: sum((o) => o.price),
     taxable,
     deduction,
@@ -302,47 +334,18 @@ export function computeDeclaration(draft) {
         Math.max(0, LIMITS.interest - num(draft.property?.priorInterest))
       )
     : 0;
-
-  // --- Применение к доходу ----------------------------------------------------
-  // Порядок важен: социальные и ИИС «сгорают» (их остаток не переносится),
-  // поэтому применяются первыми; имущественный и проценты — последними,
-  // их остаток переходит на следующие годы.
-  let room = totalIncome;
-  const take = (v) => {
-    const t = Math.min(v, room);
-    room -= t;
-    return t;
-  };
-  const socialGroup = take(groupEligible);
-  const childEducation = take(childEligible);
-  const expensiveMedical = take(expensiveEligible);
-  const iis = take(iisEligible);
-  const property = take(propertyEligible);
-  const interest = take(interestEligible);
-
-  const socialEligibleTotal = groupEligible + childEligible + expensiveEligible + iisEligible;
-  const socialApplied = socialGroup + childEducation + expensiveMedical + iis;
-  if (socialEligibleTotal > socialApplied && totalIncome > 0) {
+  // Лимит 3 млн по процентам ввёл ФЗ от 23.07.2013 № 212-ФЗ и только для
+  // кредитов, взятых С 2014 года. По более старой ипотеке проценты
+  // принимаются полностью, без потолка. Дату кредита анкета не спрашивает,
+  // поэтому режем по лимиту, но говорим человеку — иначе он молча потеряет
+  // вычет, на который имеет право.
+  if (has("ipoteka") && num(draft.property?.interestPaid) > interestEligible) {
     warnings.push(
-      "Социальные вычеты и вычет по ИИС превышают ваш доход за год — неиспользованный остаток на следующие годы не переносится."
+      `Проценты по ипотеке учтены в пределах ${fmtRub(LIMITS.interest)} — это лимит для кредитов, ` +
+        "взятых с 2014 года. Если ваш кредит оформлен раньше, лимита нет и вычет положен со всей " +
+        "суммы процентов: напишите нам, сделаем декларацию без ограничения."
     );
   }
-
-  // Разбивка группового лимита по строкам Приложения 5 (тот же принцип:
-  // лечение → своё обучение → страхование → спорт, пока есть место в
-  // socialGroup).
-  let groupRoom = socialGroup;
-  const takeGroup = (v) => {
-    const t = Math.min(v, groupRoom);
-    groupRoom -= t;
-    return t;
-  };
-  const lines = {
-    medicalOrdinary: takeGroup(has("lechenie") ? num(draft.medical?.ordinary) : 0),
-    educationSelf: takeGroup(has("obuchenie") ? num(draft.education?.self) : 0),
-    insurance: takeGroup(has("strahovanie") ? num(draft.insurance?.amount) : 0),
-    sport: takeGroup(has("sport") ? num(draft.sport?.amount) : 0),
-  };
 
   // --- Стандартный вычет на детей (пп. 4 п. 1 ст. 218) -------------------------
   // Вычет даётся помесячно, пока доход нарастающим итогом не превысил предел
@@ -363,8 +366,15 @@ export function computeDeclaration(draft) {
     if (stdHasMonthly) {
       // Вычет положен ПО МЕСЯЦ, в котором доход нарастающим итогом ещё не
       // превысил предел (пп. 4 п. 1 ст. 218 НК).
+      // Счёт начинаем с ПЕРВОГО месяца с доходом: до трудоустройства вычет не
+      // предоставляется (пп. 4 п. 1 ст. 218 — его даёт налоговый агент за
+      // месяцы работы). Раньше пустые месяцы в начале года считались
+      // вычетными, и у вышедшего на работу в июле выходило 10 месяцев вместо
+      // шести — завышение, которое камералка снимает.
+      const first = stdMonthly.findIndex((v) => v > 0);
+      if (first < 0) return 0;
       let sum = 0, months = 0;
-      for (let i = 0; i < 12; i++) {
+      for (let i = first; i < 12; i++) {
         sum += stdMonthly[i] || 0;
         if (sum > rules.childLimit) break;
         months++;
@@ -463,6 +473,55 @@ export function computeDeclaration(draft) {
   savings.eligible = savings.pds + savings.npo + savings.iis3 + savings.life10;
   savings.declared = Math.max(0, savings.eligible - savings.byAgent - savings.simplified);
 
+  // --- Применение к доходу ----------------------------------------------------
+  // Порядок важен: социальные и ИИС «сгорают» (их остаток не переносится),
+  // поэтому применяются первыми; имущественный и проценты — последними,
+  // их остаток переходит на следующие годы.
+  let room = totalIncome;
+  const take = (v) => {
+    const t = Math.min(v, room);
+    room -= t;
+    return t;
+  };
+  // Стандартный вычет и вычет на долгосрочные сбережения тоже уменьшают доход,
+  // и тоже «сгорают» — значит проходят через ту же воронку и ПЕРВЫМИ. Пока они
+  // шли мимо неё, случалось два дефекта сразу: сумма вычетов могла оказаться
+  // больше дохода (контрольное соотношение Раздела 2 требует стр. 040 ≤ 030),
+  // а имущественный «расходовался» на доход, которого уже не было, и остаток
+  // на будущие годы выходил заниженным — то есть деньги терялись навсегда.
+  const standardApplied = take(standard.eligible);
+  const savingsApplied = take(savings.eligible);
+  const socialGroup = take(groupEligible);
+  const childEducation = take(childEligible);
+  const expensiveMedical = take(expensiveEligible);
+  const iis = take(iisEligible);
+  const property = take(propertyEligible);
+  const interest = take(interestEligible);
+
+  const socialEligibleTotal = groupEligible + childEligible + expensiveEligible + iisEligible;
+  const socialApplied = socialGroup + childEducation + expensiveMedical + iis;
+  if (socialEligibleTotal > socialApplied && totalIncome > 0) {
+    warnings.push(
+      "Социальные вычеты и вычет по ИИС превышают ваш доход за год — неиспользованный остаток на следующие годы не переносится."
+    );
+  }
+
+  // Разбивка группового лимита по строкам Приложения 5 (тот же принцип:
+  // лечение → своё обучение → страхование → спорт, пока есть место в
+  // socialGroup).
+  let groupRoom = socialGroup;
+  const takeGroup = (v) => {
+    const t = Math.min(v, groupRoom);
+    groupRoom -= t;
+    return t;
+  };
+  const lines = {
+    medicalOrdinary: takeGroup(has("lechenie") ? num(draft.medical?.ordinary) : 0),
+    educationSelf: takeGroup(has("obuchenie") ? num(draft.education?.self) : 0),
+    insurance: takeGroup(has("strahovanie") ? num(draft.insurance?.amount) : 0),
+    sport: takeGroup(has("sport") ? num(draft.sport?.amount) : 0),
+  };
+
   const carryover = {
     property: propertyEligible - property,
     interest: interestEligible - interest,
@@ -474,26 +533,43 @@ export function computeDeclaration(draft) {
   // и если её не учесть, исчисленный налог окажется завышенным, а возврат —
   // заниженным. Ср. формулу строки 140 Приложения 7 в Порядке заполнения:
   // стандартные вычеты там считаются как (070 + 080) − 071.
-  const totalDeduction = socialApplied + property + interest + standard.eligible + savings.eligible;
+  const totalDeduction = socialApplied + property + interest + standardApplied + savingsApplied;
   const taxBase = Math.max(0, totalIncome - totalDeduction);
-  const assessed = Math.round(taxBase * RATE);
-  const refund = Math.max(0, Math.min(Math.round(totalDeduction * RATE), totalWithheld));
+  const assessed = taxOn(taxBase, draft.year, "main");
 
-  if (totalWithheld > 0 && Math.round(totalDeduction * RATE) > totalWithheld) {
+  // Возврат — это РАЗНИЦА между удержанным и исчисленным, а не «вычет × 13%».
+  // Формула Раздела 2: строка 160 = строка 080 − строка 150, и налоговая
+  // считает именно так. Прежняя формула расходилась с собственной декларацией
+  // всякий раз, когда удержанный налог не равнялся ровно 13% от дохода: у
+  // человека, которому работодатель уже дал вычет на детей, она обещала
+  // возврат, которого не существует, — деньги «к возврату» есть на экране, но
+  // нет в декларации. Заодно это само собой учитывает прогрессивную шкалу:
+  // вычет снимает доход с ВЕРХНЕЙ ступени, и возвращается по её ставке.
+  const refund = Math.max(0, totalWithheld - assessed);
+
+  // Удержано больше, чем вообще можно было удержать с такого дохода — почти
+  // всегда это опечатка в справке или перепутанные поля. Молчать нельзя:
+  // возврат считается как «удержано минус исчислено», и завышенное удержание
+  // раздувает обещанный возврат.
+  if (totalWithheld > taxOn(totalIncome, draft.year, "main") + 1) {
     warnings.push(
-      `К возврату не может быть больше удержанного за год налога (${fmtRub(totalWithheld)}).`
+      `Удержанный налог (${fmtRub(totalWithheld)}) больше, чем налог со всего вашего дохода ` +
+        `(${fmtRub(taxOn(totalIncome, draft.year, "main"))}). Проверьте суммы в справке о доходах — ` +
+        "скорее всего в одно из полей попала не та цифра."
     );
   }
-  if (totalIncome > rules.progressiveThreshold) {
+  if (totalWithheld > 0 && totalDeduction > 0 && refund === 0) {
     warnings.push(
-      "Часть вашего дохода облагается по повышенной ставке — расчёт по 13% приблизителен, итоговую сумму уточнит налоговая."
+      "Возвращать нечего: удержанный за год налог уже не больше исчисленного с учётом вычетов. " +
+        "Обычно это значит, что вычет вам уже предоставил работодатель."
     );
   }
 
   return {
     totalIncome,
     totalWithheld,
-    applied: { socialGroup, childEducation, expensiveMedical, iis, property, interest },
+    applied: { socialGroup, childEducation, expensiveMedical, iis, property, interest,
+               standard: standardApplied, savings: savingsApplied },
     standard,
     savings,
     // Социальные вычеты, уже предоставленные агентом (181) и в упрощённом
