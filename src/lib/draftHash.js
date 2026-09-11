@@ -33,14 +33,41 @@ export function draftSnapshot(draft) {
     if (!SKIP_KEYS.has(k)) snap[k] = draft[k];
   }
   if (Array.isArray(snap.types)) snap.types = [...snap.types].sort();
-  // Первичная декларация (корректировка 0) хешируется БЕЗ поля correction:
-  // оплаты, сделанные до появления уточнёнки, должны узнаваться и после
-  // миграции черновика (loadDraft дописывает correction: 0).
-  if (!Number(snap.correction)) delete snap.correction;
-  // Тот же приём для секций, добавленных после запуска оплат: пустая секция
-  // не попадает в хеш, чтобы старые покупки узнавались после миграции.
-  if (!Number(snap.sport?.amount)) delete snap.sport;
-  return snap;
+  // ПУСТОЕ НЕ ХЕШИРУЕТСЯ. Это не оптимизация, а защита оплаченного доступа.
+  //
+  // Каждый релиз, добавляющий поле в анкету, дописывает его всем сохранённым
+  // черновикам (см. withDefaults в WizardContext). Если пустое поле влияет на
+  // хеш, то у человека, оплатившего ДО релиза, хеш назавтра меняется сам
+  // собой — и шаг «Документы» говорит ему «анкета изменилась после оплаты,
+  // оплатите новую декларацию». Он не делал ничего.
+  //
+  // Раньше от этого спасались списком исключений (correction, sport), который
+  // вели руками — и 10.09.2026 не обновили, добавив standard, savings и
+  // socialProvided. Поэтому больше не список, а правило: пустое значение не
+  // участвует в содержании документов, значит и в хеше ему делать нечего.
+  return stripEmpty(snap);
+}
+
+// Рекурсивно убирает то, что не влияет на документы: пустые строки, нули,
+// false, пустые массивы и объекты. Массивы, ставшие пустыми, тоже уходят —
+// «ни одного ребёнка» и «поля для детей ещё не было» для документа одно и то же.
+export function stripEmpty(value) {
+  if (Array.isArray(value)) {
+    const items = value.map(stripEmpty).filter((v) => v !== undefined);
+    return items.length ? items : undefined;
+  }
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const k of Object.keys(value)) {
+      const v = stripEmpty(value[k]);
+      if (v !== undefined) out[k] = v;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  if (value === "" || value === null || value === undefined || value === false) return undefined;
+  if (typeof value === "number" && value === 0) return undefined;
+  if (typeof value === "string" && Number(value) === 0 && value.trim() !== "") return undefined;
+  return value;
 }
 
 export async function computeDraftHash(draft) {
@@ -63,7 +90,21 @@ export async function computeDraftHash(draft) {
 }
 
 // Покупка, соответствующая текущему состоянию анкеты (или null).
+//
+// Сначала быстрый путь — совпадение хешей. Если не совпало, сверяем СОДЕРЖАНИЕ
+// со снимком, сохранённым в момент оплаты: снимок лежит в самой покупке и
+// описывает ровно то, за что человек заплатил. Это страхует от смены самого
+// алгоритма хеширования (покупки, сделанные прежней версией сайта, обязаны
+// продолжать открываться) и от любого будущего поля, о котором мы сегодня не
+// знаем. Содержание сравнивается после stripEmpty — пустое с обеих сторон
+// значит одно и то же.
 export function findPurchase(draft, hash) {
-  if (!hash) return null;
-  return (draft?.purchases || []).find((p) => p.draftHash === hash) || null;
+  const list = draft?.purchases || [];
+  if (!list.length) return null;
+  if (hash) {
+    const byHash = list.find((p) => p.draftHash === hash);
+    if (byHash) return byHash;
+  }
+  const current = stableStringify(draftSnapshot(draft));
+  return list.find((p) => p.snapshot && stableStringify(stripEmpty(p.snapshot)) === current) || null;
 }

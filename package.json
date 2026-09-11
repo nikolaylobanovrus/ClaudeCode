@@ -13,7 +13,8 @@
     "check:hscroll": "node scripts/check-no-hscroll.mjs",
     "check:wizard": "node scripts/check-wizard.mjs",
     "check:invariants": "node --loader ./scripts/_url-loader.mjs scripts/check-invariants.mjs",
-    "check:consistency": "node --loader ./scripts/_url-loader.mjs scripts/check-consistency.mjs"
+    "check:consistency": "node --loader ./scripts/_url-loader.mjs scripts/check-consistency.mjs",
+    "check:purchase": "node scripts/check-purchase.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
