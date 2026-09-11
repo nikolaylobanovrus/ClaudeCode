@@ -74,8 +74,13 @@ const SCENARIOS = [
     { socialProvided: { byAgent: "20000", simplified: "10000" } })],
   ["2025 всё сразу", base(2025, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
                                  "strahovanie", "sport", "deti", "sberezheniya"])],
+  // Сбережения (ст. 219.2) действуют с 2024 года, и за 2024 их печатает свой
+  // раздел 6 Приложения 5 — три строки вместо семи. В наборе «всё сразу» их
+  // не было, и год прожил с расчётом, который считал вычет, XML, который его
+  // выгружал, и бумагой, на которой его не было вовсе.
   ["2024 всё сразу", base(2024, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
-                                 "strahovanie", "sport", "deti"])],
+                                 "strahovanie", "sport", "deti", "sberezheniya"])],
+  ["2024 только сбережения", base(2024, ["sberezheniya"])],
   ["2023 всё сразу", base(2023, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
                                  "strahovanie", "sport", "deti"])],
   ["2022 всё сразу", base(2022, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
