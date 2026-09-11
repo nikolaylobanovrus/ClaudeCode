@@ -150,8 +150,17 @@ export async function sbOperatorLogin(email, password) {
   return data.access_token;
 }
 
-// Продление сессии по refresh_token. Возвращает новый access_token или ""
-// (нет refresh_token / сервер отклонил — вызывающий трактует "" как разлогин).
+// Продление сессии по refresh_token.
+//
+// Возвращает РАЗЛИЧИМЫЙ результат, и это главное:
+//   { token }        — продлили;
+//   { revoked: true } — сервер отклонил refresh_token, сессии больше нет;
+//   { retry: true }   — сеть не ответила, refresh_token жив, надо повторить.
+//
+// Раньше все три случая возвращали пустую строку, и вызывающий выбрасывал
+// оператора на форму входа даже при мигнувшем интернете — при том, что сама
+// функция сессию в этом случае намеренно сохраняла. Отсюда и жалобы на то,
+// что «сессия часто отрывается».
 // Дедуп по in-flight промису: фоновый таймер и повторный вызов не гонятся
 // (у Supabase включён reuse-interval, но лишний параллельный обмен ни к чему).
 let refreshInFlight = null;
@@ -159,7 +168,7 @@ export function sbOperatorRefresh() {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     const s = readSession();
-    if (!s?.refresh_token) return "";
+    if (!s?.refresh_token) return { revoked: true };
     try {
       const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=refresh_token`, {
         method: "POST",
@@ -169,15 +178,14 @@ export function sbOperatorRefresh() {
       if (!res.ok) {
         // 400/401 — refresh_token отозван или протух: сессии больше нет.
         writeSession(null);
-        return "";
+        return { revoked: true };
       }
       const data = await res.json();
       writeSession(sessionFromAuth(data));
-      return data.access_token;
+      return { token: data.access_token };
     } catch {
-      // Сетевой сбой — сессию НЕ рвём (refresh_token ещё может быть жив),
-      // просто не продлили в этот раз; таймер попробует снова.
-      return "";
+      // Сетевой сбой — сессию НЕ рвём (refresh_token ещё может быть жив).
+      return { retry: true };
     } finally {
       refreshInFlight = null;
     }

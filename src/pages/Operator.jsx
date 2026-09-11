@@ -54,8 +54,22 @@ export default function Operator() {
     setClients([]);
   }, []);
 
+  // Любой 401 сначала пробуем вылечить продлением, а не выбросом на форму.
+  // Access_token живёт час, но фоновые таймеры браузер душит, а во сне машины
+  // они не идут вовсе — поэтому к моменту первого клика токен часто уже
+  // просрочен, хотя refresh_token жив. Возвращает свежий токен или "".
+  const recoverAuth = useCallback(async () => {
+    const r = await sbOperatorRefresh();
+    if (r.token) {
+      setToken(r.token);
+      return r.token;
+    }
+    if (r.revoked) logout();
+    return "";
+  }, [logout]);
+
   const load = useCallback(
-    async (t) => {
+    async (t, retried = false) => {
       setBusy(true);
       setError("");
       try {
@@ -64,13 +78,19 @@ export default function Operator() {
         // миграция leads не применена — тогда просто пустой блок.
         setLeads(await sbListLeads(t).catch(() => []));
       } catch (e) {
-        if (e.status === 401) logout();
-        else setError("Не удалось загрузить базу. Попробуйте обновить страницу.");
+        if (e.status === 401 && !retried) {
+          const fresh = await recoverAuth();
+          if (fresh) return load(fresh, true); // один повтор со свежим токеном
+        } else if (e.status === 401) {
+          logout();
+        } else {
+          setError("Не удалось загрузить базу. Попробуйте обновить страницу.");
+        }
       } finally {
         setBusy(false);
       }
     },
-    [logout]
+    [logout, recoverAuth]
   );
 
   // Бутстрап при открытии вкладки: если сохранённый access_token уже истёк
@@ -81,10 +101,12 @@ export default function Operator() {
     (async () => {
       const exp = operatorTokenExpiresAt();
       if (getOperatorToken() && exp && exp - Date.now() < 120000) {
-        const fresh = await sbOperatorRefresh();
+        const r = await sbOperatorRefresh();
         if (!alive) return;
-        if (fresh) setToken(fresh);
-        else logout(); // refresh отклонён — сессии нет
+        if (r.token) setToken(r.token);
+        else if (r.revoked) logout(); // сервер отклонил — сессии правда нет
+        // r.retry: сеть не ответила. Сессию НЕ рвём: refresh_token жив,
+        // и первый же 401 запустит продление повторно (см. withFreshToken).
       }
       if (alive) setReady(true);
     })();
@@ -109,16 +131,37 @@ export default function Operator() {
     const delay = exp ? Math.max(5000, exp - Date.now() - 120000) : Infinity;
     if (!Number.isFinite(delay)) return;
     const timer = setTimeout(async () => {
-      const fresh = await sbOperatorRefresh();
+      const r = await sbOperatorRefresh();
       if (!alive) return;
-      if (fresh) setToken(fresh);
-      else logout();
+      if (r.token) setToken(r.token);
+      else if (r.revoked) logout();
+      // r.retry: молча ждём — на следующем действии сработает withFreshToken.
     }, delay);
     return () => {
       alive = false;
       clearTimeout(timer);
     };
   }, [ready, token, logout]);
+
+  // Возврат к вкладке. Фоновые таймеры браузер душит, а пока машина спит, они
+  // не идут вообще — поэтому к моменту, когда оператор снова смотрит на экран,
+  // запланированное продление могло не состояться. Проверяем срок при каждом
+  // показе вкладки и продлеваем, если он вышел или вот-вот выйдет.
+  useEffect(() => {
+    if (!ready || !token) return;
+    const check = () => {
+      if (document.visibilityState !== "visible") return;
+      const exp = operatorTokenExpiresAt();
+      if (exp && exp - Date.now() < 120000) recoverAuth();
+    };
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    check();
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [ready, token, recoverAuth]);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -148,11 +191,21 @@ export default function Operator() {
     try {
       await sbSetPayment(token, client.id, { tariff, amount });
     } catch (e) {
+      if (e.status === 401) {
+        const fresh = await recoverAuth();
+        if (fresh) {
+          try {
+            await sbSetPayment(fresh, client.id, { tariff, amount });
+            return; // продлили и дописали — откатывать нечего
+          } catch {
+            /* не помогло — падаем в общий откат ниже */
+          }
+        }
+      }
       setClients((list) =>
         list.map((c) => (c.id === client.id ? { ...c, ...prev } : c))
       );
-      if (e.status === 401) logout();
-      else setError(`Не удалось обновить сумму клиента ${client.id}.`);
+      if (e.status !== 401) setError(`Не удалось обновить сумму клиента ${client.id}.`);
     }
   }
 
@@ -173,8 +226,19 @@ export default function Operator() {
       await sbDeleteClient(token, client.id);
       setClients((list) => list.filter((c) => c.id !== client.id));
     } catch (e) {
-      if (e.status === 401) logout();
-      else
+      if (e.status === 401) {
+        const fresh = await recoverAuth();
+        if (fresh) {
+          try {
+            await sbDeleteClient(fresh, client.id);
+            setClients((list) => list.filter((c) => c.id !== client.id));
+            return;
+          } catch {
+            /* не помогло — покажем обычную ошибку ниже */
+          }
+        }
+      }
+      if (e.status !== 401)
         setError(
           `Не удалось удалить клиента ${client.id}. Проверьте, что применена миграция docs/supabase-migration-operator-delete.sql.`
         );

@@ -1,7 +1,7 @@
 // Генерация тестовых XML во временную папку — вход для schematron-проверки
 // (npm run validate:sch). Пути импортов относительные, ассеты не нужны.
 // Генерация всех тестовых XML (сценарии validate-3ndfl-xml + продажи) в файлы.
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { buildDeclarationXml } from "../src/lib/ndfl/xml3ndfl.js";
 import { buildDeclarationModel } from "../src/lib/ndfl/model.js";
 import { YEARS, SALE_YEARS, MIXED_YEARS } from "../src/lib/ndfl/refs.js";
@@ -12,17 +12,48 @@ const personal = {
   passportIssuer: "ОУФМС", phone: "+7 (912) 000-00-00", oktmo: "75701000", ifns: "7447",
 };
 const base = (year) => ({
-  year, types: ["kvartira","ipoteka","lechenie","obuchenie","iis","strahovanie","sport"], personal,
+  // Набор должен покрывать ВСЕ вычеты, которые умеет мастер: контрольные
+  // соотношения ФНС проверяют арифметику между листами, и вычет, которого нет
+  // в черновике, не проверяется вообще (схема на отсутствие элемента молчит).
+  year, types: ["kvartira","ipoteka","lechenie","obuchenie","iis","strahovanie","sport","deti","sberezheniya"], personal,
   incomes: [
     { name: "ООО «Ромашка»", inn: "7420010847", kpp: "741501001", oktmo: "75701000", income: "1200000", withheld: "156000" },
     { name: "ООО «Лютик»", inn: "7708503727", kpp: "770801001", oktmo: "45382000", income: "300000", withheld: "39000" },
   ],
   property: { address: "г. Челябинск, ул. Ленина, 1", cadastral: "74:36:0000000:1234", cost: "2500000", dateAct: "", dateReg: "2024-03-15", priorDeduction: "", interestPaid: "250000", priorInterest: "" },
   medical: { ordinary: "60000", expensive: "10000" }, education: { self: "40000", children: [{ amount: "50000" }] },
-  iis: { contribution: "100000" }, insurance: { amount: "5000" }, sport: { amount: "30000" },
+  iis: {
+    contribution: "100000",
+    brokerName: "АО «Брокер»", brokerInn: "7710140679", brokerKpp: "771001001",
+    contractDate: "2023-02-10", contractNumber: "ИИС-1", openDate: "2023-02-12",
+  },
+  insurance: {
+    amount: "5000",
+    insurerName: "ООО «СК Жизнь»", insurerInn: "7702070139", insurerKpp: "770201001",
+    contractDate: "2020-05-14", contractNumber: "Ж-1",
+  },
+  sport: { amount: "30000" },
+  standard: { children: [{ order: "1", disabled: false }, { order: "2", disabled: true }],
+              singleParent: false, providedByAgent: "8000", months: "4" },
+  socialProvided: { byAgent: "5000", simplified: "3000" },
+  savings: {
+    contracts: [
+      { kind: "npo", name: "НПФ «Будущее»", inn: "7725039953", kpp: "772501001",
+        date: "2025-01-15", number: "НПО-1", amount: "60000" },
+      { kind: "pds", name: "НПФ «Будущее»", inn: "7725039953", kpp: "772501001",
+        date: "2025-02-20", number: "ПДС-1", amount: "80000" },
+      { kind: "life10", name: "ООО «СК Жизнь»", inn: "7702070139", kpp: "770201001",
+        date: "2025-03-05", number: "ЖС-1", amount: "40000" },
+    ],
+    byAgent: "10000", simplified: "5000",
+  },
   bank: { bik: "047501711", account: "40702810007710002545" }, order: null,
 });
 const out = process.argv[2];
+// Папку создаём сами: без этого скрипт падал на первом writeFileSync, а с ним
+// и `npm run validate:sch` — то есть контрольные соотношения ФНС не
+// проверялись вообще, молча.
+mkdirSync(out, { recursive: true });
 for (const year of YEARS) {
   const { filename, bytes } = buildDeclarationXml(buildDeclarationModel(base(year)));
   writeFileSync(`${out}/refund-${year}.xml`, bytes);
