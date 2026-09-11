@@ -11,6 +11,7 @@ import {
   propertyObjectCode,
   propertySignCode,
   propertyIsHouse,
+  propertyNeedsBuildCode,
 } from "./refs.js";
 import { digits } from "../format.js";
 
@@ -170,7 +171,13 @@ export function buildDeclarationModel(draft) {
             codes: {
               object: propertyObjectCode(pr.objectKind || "flat", draft.year),
               sign: propertySignCode(pr.owner || "self", Boolean(pr.pensioner)),
-              build: propertyIsHouse(pr.objectKind)
+              // Способ приобретения — строго по коду объекта в форме года,
+              // см. propertyNeedsBuildCode: схема ФНС требует его при одних
+              // кодах и ЗАПРЕЩАЕТ при других.
+              build: propertyNeedsBuildCode(
+                propertyObjectCode(pr.objectKind || "flat", draft.year),
+                draft.year
+              )
                 ? pr.buildMethod === "new"
                   ? "1"
                   : "2"

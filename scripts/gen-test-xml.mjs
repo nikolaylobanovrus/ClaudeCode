@@ -57,6 +57,18 @@ mkdirSync(out, { recursive: true });
 for (const year of YEARS) {
   const { filename, bytes } = buildDeclarationXml(buildDeclarationModel(base(year)));
   writeFileSync(`${out}/refund-${year}.xml`, bytes);
+  // Вид объекта обязан варьироваться: контрольное соотношение ФНС требует
+  // «способ приобретения» при одних кодах объекта и ЗАПРЕЩАЕТ при других, а
+  // «жилой дом с участком» в форме 2024 имеет свой код. Пока во всех
+  // сценариях стояла квартира, эта ветка не проверялась ничем — и файл с
+  // домом за 2024 год ЛК ФНС отвергал.
+  for (const [tag, objectKind] of [["house", "house"], ["houseland", "houseLand"],
+                                   ["room", "room"], ["land", "land"]]) {
+    const d = base(year);
+    d.property = { ...d.property, objectKind, buildMethod: "new" };
+    writeFileSync(`${out}/prop-${tag}-${year}.xml`,
+                  buildDeclarationXml(buildDeclarationModel(d)).bytes);
+  }
   if (SALE_YEARS.includes(year)) {
     for (const [tag, sale] of [
       ["auto", { kind: "auto", price: "600000", saleDate: `${year}-06-10`, deductionKind: "standard", buyerName: "Петров Пётр", buyerInn: "" }],

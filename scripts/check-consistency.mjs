@@ -70,6 +70,8 @@ const SCENARIOS = [
   ["2025 спорт", base(2025, ["sport"])],
   ["2025 дети", base(2025, ["deti"])],
   ["2025 сбережения", base(2025, ["sberezheniya"])],
+  ["2025 вычет уже дал работодатель", base(2025, ["lechenie", "obuchenie", "deti"],
+    { socialProvided: { byAgent: "20000", simplified: "10000" } })],
   ["2025 всё сразу", base(2025, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
                                  "strahovanie", "sport", "deti", "sberezheniya"])],
   ["2024 всё сразу", base(2024, ["kvartira", "ipoteka", "lechenie", "obuchenie", "iis",
@@ -114,6 +116,8 @@ for (const [name, draft] of SCENARIOS) {
     "имущественный": calc.applied.property,
     "проценты по ипотеке": calc.applied.interest,
     "вычет на детей": calc.standard?.declared,
+    "предоставлено агентом (181)": calc.socialProvided?.byAgent,
+    "упрощённый порядок (182)": calc.socialProvided?.simplified,
     "сбережения к заявлению": calc.savings?.declared,
   };
 

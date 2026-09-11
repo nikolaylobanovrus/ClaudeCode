@@ -280,9 +280,21 @@ export async function buildOfficialPdf2025(model) {
     if (calc.lines.insurance > 0) pen.money(calc.lines.insurance, X, 571.8, 12); // 160
     if (calc.lines.sport > 0) pen.money(calc.lines.sport, X, 478.7, 12); // 171 физкультура
     pen.money(ap.socialGroup, X, 453.2, 12); // 180 итог с ограничением 219.2
-    const social = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
-    pen.money(social, X, 377.4, 12); // 190 все социальные
-    pen.money(social, X, 352.1, 12); // 200 стандартные + социальные
+    // 181/182 — то, что работодатель уже вернул в течение года и что пришло
+    // упрощённым порядком. Эти строки на бланке есть, а печататься не
+    // печатались: из-за этого 190 и 200 выходили завышенными, и на бумаге
+    // человек повторно заявлял вычет, который уже получил. В XML то же самое
+    // считалось правильно, то есть бумага и выгрузка расходились.
+    const sp = calc.socialProvided || { byAgent: 0, simplified: 0 };
+    if (sp.byAgent > 0) pen.money(sp.byAgent, X, 427.8, 12); // 181
+    if (sp.simplified > 0) pen.money(sp.simplified, X, 402.4, 12); // 182
+    // 190 = (120 + 180) − (181 + 182), Порядок заполнения, п. 79.
+    const socialGross = ap.socialGroup + ap.childEducation + ap.expensiveMedical;
+    const social = Math.max(0, socialGross - sp.byAgent - sp.simplified);
+    pen.money(social, X, 377.4, 12); // 190 социальные, заявляемые по декларации
+    // 200 = 080 + 190 (п. 80): плюс стандартный вычет, тоже за вычетом данного
+    // работодателем.
+    pen.money(social + (calc.standard?.declared || 0), X, 352.1, 12); // 200
     if (ap.iis > 0) pen.money(ap.iis, X, 313.2, 12); // 210 ИИС (ст. 219.1)
     // Раздел 6 — вычет на долгосрочные сбережения (ст. 219.2). Строка 255
     // добавлена приказом ЕД-1-11/333@ с 01.09.2026.
