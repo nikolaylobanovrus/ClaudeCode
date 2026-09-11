@@ -194,6 +194,42 @@ for (const [name, draft] of SCENARIOS) {
   }
 }
 
+// --- Контрольное соотношение ФНС: Раздел 2 стр. 010 = сумма строк 070 --------
+// Инспекция сверяет сумму доходов Раздела 2 с суммой доходов по источникам из
+// Приложения 1. Соотношение ломалось на продаже недвижимости дешевле 70%
+// кадастра: в Приложение 1 уходила ЦЕНА ПО ДОГОВОРУ, а в Раздел 2 — кадастровый
+// доход (ст. 214.10 НК). Расхождение в декларации, которое человек не совершал.
+console.log("\n--- доход по источникам сходится с Разделом 2 ---");
+{
+  // Кириллица в XML — в кодировке windows-1251, читаем как latin1 и переводим.
+  const cp = (t) => [...t].map((ch) => {
+    const c = ch.codePointAt(0);
+    return c < 0x80 ? ch : String.fromCharCode(c - 0x410 + 0xc0);
+  }).join("");
+  const cheapFlat = (year) => ({
+    kind: "realty", objectKind: "flat", cadastralNumber: "74:36:0000000:1",
+    cadastralValue: "9000000", price: "3000000", saleDate: `${year}-06-10`,
+    acquireDate: `${year - 2}-01-10`, realtyBasis: "purchase",
+    deductionKind: "standard", buyerName: "Петров Пётр", buyerInn: "",
+  });
+  for (const year of [2023, 2024, 2025]) {
+    const draft = { year, types: ["prodazha_realty"], personal, incomes: [],
+                    sales: [cheapFlat(year)], bank: { bik: "", account: "" } };
+    const calc = computeDeclaration(draft);
+    const xml = Buffer.from(buildDeclarationXml(buildDeclarationModel(draft)).bytes).toString("latin1");
+    // Доходы по источникам (Приложение 1) — атрибут Доход у ДоходИстРФ.
+    // Пробел перед именем обязателен: иначе в выборку попадает ВидДоход.
+    const perSource = [...xml.matchAll(new RegExp('\\s' + cp("Доход") + '="([\\d.]+)"', "g"))]
+      .map((m) => Number(m[1]));
+    const sum = perSource.reduce((a, b) => a + b, 0);
+    const ok = perSource.length > 0 && Math.abs(sum - calc.sale.taxable) < 0.01;
+    if (!ok) problems++;
+    console.log(ok
+      ? `✓ ${year}: доход по источникам ${sum} = Раздел 2 ${calc.sale.taxable}`
+      : `✗ ${year}: по источникам ${sum}, в Разделе 2 ${calc.sale.taxable} (цена договора 3 000 000)`);
+  }
+}
+
 // --- Старые годы: половина декларации хуже отказа --------------------------
 console.log("\n--- комбинированная декларация за старые годы ---");
 for (const year of [2023, 2024]) {
