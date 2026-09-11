@@ -138,44 +138,54 @@ export async function buildOfficialPdfLegacy(model) {
   const ap = calc.applied;
   const sale = model.sale;
 
-  // Продажа: без заявления о возврате, Приложение 1 — покупатель, плюс
-  // Приложение 6. Возврат: как раньше.
-  const sheets = sale
-    ? [
-        { tpl: PG.title, fill: fillTitle },
-        { tpl: PG.r1, fill: fillR1 },
-        { tpl: PG.r2, fill: fillR2 },
-        // По объекту на источник дохода, до трёх на листе.
-        ...chunk(sale.items, 3).map((part) => ({
-          tpl: PG.app1,
-          fill: (pen) => fillApp1Sale(pen, part),
-        })),
-        { tpl: PG.app6, fill: fillApp6 },
-        // Недвижимость: лист «Расчёт к Приложению 1» (есть в бланках с raschet),
-        // по листу на каждый проданный объект.
-        ...(M.raschet
-          ? sale.items
-              .filter((o) => o.kind === "realty")
-              .map((o) => ({ tpl: PG.raschet, fill: (pen) => fillRaschet(pen, o) }))
-          : []),
-      ]
-    : [
-        { tpl: PG.title, fill: fillTitle },
-        { tpl: PG.r1, fill: fillR1 },
-        { tpl: PG.r1app, fill: fillR1App },
-        { tpl: PG.r2, fill: fillR2 },
-      ];
-  if (!sale) {
+  // Комбинированная декларация (продажа + вычет в одном году) на старых
+  // бланках не собирается, и молчать об этом нельзя.
+  //
+  // Дело не в листах, а в арифметике: в формах 2023–2024 зарплата и доход от
+  // продажи лежат в ОДНОЙ основной базе (ВидДоход «10»), вычеты надо делить
+  // между ними, и это другой расчёт — см. MIXED_YEARS в refs.js. Мастер туда
+  // и не пускает: при выборе продажи вместе с вычетом год переключается на
+  // 2025 (StepDeductions). Но сборка листов об этом не знала и на запрос
+  // «продажа + вычеты за 2023» молча печатала ПОЛОВИНУ декларации — только
+  // продажу, без зарплаты, Приложения 5 и заявления о возврате. Неполная
+  // декларация, поданная в налоговую, хуже отказа сформировать её.
+  if (sale && model.mode === "mixed")
+    throw new Error(
+      `Декларация за ${model.year} год не может совмещать продажу и вычет: ` +
+        `в форме этого года обе суммы попадают в одну налоговую базу. ` +
+        `Выберите 2025 год или подайте две отдельные декларации.`
+    );
+
+  // Возвратная сторона (зарплата, вычеты, заявление о возврате) есть у обычной
+  // декларации; у чистой продажи её нет. Листы собираются по слагаемым, как в
+  // бланке 2025 года, а не как «одно из двух»: так видно, что именно печатается.
+  const refundSide = model.mode !== "sale";
+  const sheets = [{ tpl: PG.title, fill: fillTitle }];
+  if (sale) sheets.push({ tpl: PG.r1, fill: (pen) => fillR1(pen, "sale") });
+  if (refundSide) sheets.push({ tpl: PG.r1, fill: (pen) => fillR1(pen, "refund") });
+  if (refundSide) sheets.push({ tpl: PG.r1app, fill: fillR1App });
+  if (refundSide) sheets.push({ tpl: PG.r2, fill: (pen) => fillR2(pen, "refund") });
+  if (sale) sheets.push({ tpl: PG.r2, fill: (pen) => fillR2(pen, "sale") });
+  if (refundSide)
     for (const part of chunk(model.incomes, 3))
       sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
-    // См. model.needsApp5: на листе живут и стандартные вычеты, не только
-    // социальные — по одному признаку «есть соцвычеты» лист терялся.
-    if (model.needsApp5) {
-      sheets.push({ tpl: PG.app5a, fill: fillApp5a });
-      sheets.push({ tpl: PG.app5b, fill: fillApp5b });
-    }
-    if (model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
+  // По объекту на источник дохода, до трёх на листе.
+  if (sale)
+    for (const part of chunk(sale.items, 3))
+      sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1Sale(pen, part) });
+  // См. model.needsApp5: на листе живут и стандартные вычеты, не только
+  // социальные — по одному признаку «есть соцвычеты» лист терялся.
+  if (refundSide && model.needsApp5) {
+    sheets.push({ tpl: PG.app5a, fill: fillApp5a });
+    sheets.push({ tpl: PG.app5b, fill: fillApp5b });
   }
+  if (sale) sheets.push({ tpl: PG.app6, fill: fillApp6 });
+  if (refundSide && model.property) sheets.push({ tpl: PG.app7, fill: fillApp7 });
+  // Недвижимость: лист «Расчёт к Приложению 1» (есть в бланках с raschet),
+  // по листу на каждый проданный объект.
+  if (sale && M.raschet)
+    for (const o of sale.items.filter((x) => x.kind === "realty"))
+      sheets.push({ tpl: PG.raschet, fill: (pen) => fillRaschet(pen, o) });
   const total = sheets.length;
 
   // В сканах 2022/2023 линия «Фамилия» в шапке выше, чем в векторных бланках.
@@ -208,11 +218,14 @@ export async function buildOfficialPdfLegacy(model) {
   }
 
   // --- Раздел 1 ----------------------------------------------------------------
-  function fillR1(pen) {
-    pen.left(model.kbk, M.r1.x, M.r1.kbk, 20); // 020
+  // kind = "sale" — налог к уплате по ст. 228 (свой КБК);
+  // kind = "refund" — возврат налога, удержанного работодателем.
+  function fillR1(pen, kind) {
+    const paying = kind === "sale";
+    pen.left(paying ? model.kbkSale : model.kbkRefund, M.r1.x, M.r1.kbk, 20); // 020
     pen.left(person.oktmo, M.r1.x, M.r1.oktmo, 11); // 030
-    pen.int(sale ? model.owed : 0, M.r1.x, M.r1.pay, 13); // 040 к уплате
-    pen.int(sale ? 0 : model.refund, M.r1.x, M.r1.refund, 13); // 050 к возврату
+    pen.int(paying ? model.owed : 0, M.r1.x, M.r1.pay, 13); // 040 к уплате
+    pen.int(paying ? 0 : model.refund, M.r1.x, M.r1.refund, 13); // 050 к возврату
   }
 
   // --- Приложение к Разделу 1: заявление о возврате -----------------------------
@@ -224,24 +237,25 @@ export async function buildOfficialPdfLegacy(model) {
   }
 
   // --- Раздел 2 ------------------------------------------------------------------
-  function fillR2(pen) {
+  function fillR2(pen, kind) {
     const { x, code, money, ints } = M.r2;
-    // Продажа: код вида дохода «10» (основная база), суммы из sale, налог
-    // печатается в строку 150 «к уплате». Возврат: как раньше (строка 160).
-    const income = sale ? sale.taxable : calc.totalIncome;
-    const base = sale ? sale.base : calc.taxBase;
-    pen.left(sale ? sale.groupCode : CODES.incomeKind, x, code, 2); // 001
+    // Продажа: суммы из sale, налог печатается в строку 150 «к уплате».
+    // Возврат: зарплата и вычеты, налог к возврату — строка 160.
+    const s = kind === "sale";
+    const income = s ? sale.taxable : calc.totalIncome;
+    const base = s ? sale.base : calc.taxBase;
+    pen.left(s ? sale.groupCode : CODES.incomeKind, x, code, 2); // 001
     const mv = {
       "010": income, "020": 0, "030": income,
-      "040": sale ? sale.deduction : calc.totalDeduction, "050": 0, "060": base,
+      "040": s ? sale.deduction : calc.totalDeduction, "050": 0, "060": base,
       "061": base, "062": 0, "063": 0, // база по ставке абз. 2 п. 1 ст. 224
     };
     for (const [k, y] of Object.entries(money)) pen.money(mv[k] ?? 0, x, y, 13);
     const iv = {
-      "070": sale ? sale.tax : calc.assessed,
-      "080": sale ? 0 : calc.totalWithheld,
-      "150": sale ? model.owed : 0,
-      "160": sale ? 0 : model.refund,
+      "070": s ? sale.tax : calc.assessed,
+      "080": s ? 0 : calc.totalWithheld,
+      "150": s ? model.owed : 0,
+      "160": s ? 0 : model.refund,
     };
     for (const [k, y] of Object.entries(ints)) pen.int(iv[k] ?? 0, x, y, 13);
   }

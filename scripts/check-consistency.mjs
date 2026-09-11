@@ -82,6 +82,20 @@ const SCENARIOS = [
                                  "strahovanie", "sport", "deti"])],
 ];
 
+// Смешанная декларация: продал машину И заявил вычеты. Худший случай для
+// сборки листов — обе половины обязаны быть на бумаге разом, иначе человек
+// подаёт в налоговую документ, где про оплаченное лечение не сказано ни
+// строчки. На бланке 2025 года это работает; за старые годы такая декларация
+// невозможна по арифметике (одна налоговая база на зарплату и продажу), и
+// проверка ниже требует, чтобы сборка отказывалась вслух, а не печатала
+// половину.
+const mixedDraft = (year) =>
+  base(year, ["lechenie", "obuchenie", "deti", "prodazha_auto"], {
+    sales: [{ kind: "auto", price: "600000", saleDate: `${year}-06-10`,
+              deductionKind: "standard", buyerName: "Петров Пётр", buyerInn: "" }],
+  });
+SCENARIOS.push(["2025 смешанная: вычеты + продажа авто", mixedDraft(2025)]);
+
 // Цифры в бланке стоят по клеткам, поэтому из текста PDF они выходят с
 // пробелами между знаками. Больше того, разделительная ТОЧКА напечатана на
 // самом бланке: на векторных листах она попадает в текстовый слой, а на
@@ -121,7 +135,24 @@ for (const [name, draft] of SCENARIOS) {
     "сбережения к заявлению": calc.savings?.declared,
   };
 
+  // Налоги печатаются в полных рублях, без копеек, — искать их надо иначе.
+  const wantInt = {
+    "исчисленный налог": calc.assessed,
+    "удержанный налог": calc.totalWithheld,
+    "налог к возврату": calc.refund,
+    "налог с продажи": calc.sale?.tax,
+    "налог к уплате": calc.owed,
+  };
+
   const miss = [];
+  for (const [label, value] of Object.entries(wantInt)) {
+    if (!value || value <= 0) continue;
+    const s = String(Math.round(value));
+    const inPdf = pdfText.includes(s);
+    const inXml = xmlText.includes(s);
+    if (!inPdf || !inXml)
+      miss.push(`${label} ${s}: ${!inPdf ? "нет в PDF" : ""}${!inPdf && !inXml ? " и " : ""}${!inXml ? "нет в XML" : ""}`);
+  }
   for (const [label, value] of Object.entries(want)) {
     if (!value || value <= 0) continue;
     const s = kop(value);
@@ -137,6 +168,22 @@ for (const [name, draft] of SCENARIOS) {
   } else {
     console.log(`✓ ${name}: печать и выгрузка сходятся`);
   }
+}
+
+// --- Старые годы: половина декларации хуже отказа --------------------------
+console.log("\n--- комбинированная декларация за старые годы ---");
+for (const year of [2023, 2024]) {
+  let printed = null, threw = "";
+  try {
+    printed = await buildDeclarationPdf(buildDeclarationModel(mixedDraft(year)));
+  } catch (e) {
+    threw = e.message;
+  }
+  const ok = !printed && /продажу и вычет/.test(threw);
+  if (!ok) problems++;
+  console.log(ok
+    ? `✓ ${year}: сборка отказывается вслух, а не печатает половину`
+    : `✗ ${year}: ${printed ? "напечатала комплект" : "упала не тем: " + threw}`);
 }
 
 // --- Калькулятор на лендинге и декларация обязаны давать один налог --------
