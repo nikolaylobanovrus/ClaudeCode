@@ -14,6 +14,7 @@
 // переживать релиз и смену алгоритма хеширования — и обязан ПРОПАДАТЬ, когда
 // человек действительно правит данные, иначе документы выдаются бесплатно.
 import { computeDraftHash, draftSnapshot, findPurchase } from "../src/lib/draftHash.js";
+import { DRAFT_KEY, mergeStored } from "../src/lib/draftStore.js";
 
 let failures = 0;
 const check = (label, actual, expected) => {
@@ -83,6 +84,37 @@ check("вернул данные обратно", await open(afterRelease), true
 // Порядок выбора вычетов не содержателен.
 check("переставил вычеты местами",
   await open({ ...afterRelease, types: ["lechenie"] }), true);
+
+// --- Вторая вкладка не должна стирать оплату ---------------------------
+// Черновик один на все вкладки. Вкладка, узнавшая об оплате позже, писала
+// себя поверх — и оплата, подтверждённая в соседней вкладке, исчезала.
+const fake = (obj) => ({ getItem: () => (obj === null ? null : JSON.stringify(obj)) });
+const eq = (label, actual, expected) => {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (!ok) failures++;
+  console.log(`${ok ? "✓" : "✗"} ${label.padEnd(38)} ${ok ? "" : `получили ${JSON.stringify(actual)}, ждали ${JSON.stringify(expected)}`}`);
+};
+
+const buy = (id) => ({ id, provider: "yookassa", amount: 199 });
+const waiting = { id: "ord-w", provider: "yookassa", status: "waiting", confirmationUrl: "u" };
+
+eq("оплата из соседней вкладки цела",
+  mergeStored({ purchases: [] }, fake({ purchases: [buy("ord-A")] })).purchases.map((p) => p.id),
+  ["ord-A"]);
+eq("две вкладки — обе оплаты целы",
+  mergeStored({ purchases: [buy("ord-B")] }, fake({ purchases: [buy("ord-A")] })).purchases.map((p) => p.id),
+  ["ord-B", "ord-A"]);
+eq("повтор не задваивается",
+  mergeStored({ purchases: [buy("ord-A")] }, fake({ purchases: [buy("ord-A")] })).purchases.length, 1);
+eq("«Начать заново» не теряет неподтверждённый заказ",
+  mergeStored({ purchases: [], order: null }, fake({ order: waiting })).order?.id, "ord-w");
+eq("подтверждённый заказ не воскресает",
+  mergeStored({ purchases: [buy("ord-w")], order: null }, fake({ order: waiting })).order, null);
+eq("пустое хранилище ничего не ломает",
+  mergeStored({ purchases: [buy("ord-A")], order: null }, fake(null)).purchases.length, 1);
+eq("битое хранилище ничего не ломает",
+  mergeStored({ purchases: [buy("ord-A")] }, { getItem: () => "{не json" }).purchases.length, 1);
+if (DRAFT_KEY !== "ns.decl.draft.v1") { failures++; console.log("✗ ключ черновика поменялся — старые черновики потеряются"); }
 
 console.log(failures ? `\nПРОВАЛОВ: ${failures}` : "\nДоступ к оплаченному ведёт себя правильно.");
 process.exit(failures ? 1 : 0);

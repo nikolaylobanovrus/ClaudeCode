@@ -11,6 +11,8 @@ import { useWizard } from "../WizardContext.jsx";
 import { selfService } from "../../data/content.js";
 import { getAccount } from "../../lib/account.js";
 import { fmtRub } from "../../lib/format.js";
+import { hasRefund } from "../../data/wizard.js";
+import { refundDeadlineYear } from "../../lib/ndfl/refs.js";
 import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
 import {
   createOrder,
@@ -22,12 +24,42 @@ import {
 import { getOperatorToken } from "../../lib/supabase.js";
 import { ymGoal, ymGoalOnce, ymPurchase } from "../../lib/metrika.js";
 
+// Работает ли хранилище прямо сейчас. Приватный режим Safari и запрет
+// «сайт не может хранить данные» ведут себя одинаково: setItem бросает.
+function storageWorks() {
+  try {
+    const k = "ns.probe";
+    localStorage.setItem(k, "1");
+    localStorage.removeItem(k);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function StepPayment({ onPaid, calc }) {
   const { draft, dispatch, flushDraft } = useWizard();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [hash, setHash] = useState(null); // null = ещё считается
   const order = draft.order;
+
+  // Два случая, когда декларация на возврат денег не принесёт. Оба видны
+  // ДО оплаты, и оба человек узнавал только после — уже заплатив.
+  const wantsRefund = hasRefund(draft);
+  const deadlinePassed =
+    wantsRefund && new Date().getFullYear() > refundDeadlineYear(draft.year);
+  const nothingToRefund = wantsRefund && !(calc?.refund > 0);
+  // Третий случай: браузер запрещает хранение (приватный режим, запрет
+  // сайту хранить данные). Переход на страницу ЮKassa тогда стирает анкету
+  // вместе с номером заказа — деньги спишутся, а восстановить будет нечего.
+  // Проверяем ДО оплаты: предупредить дешевле, чем возвращать платёж.
+  const storageBlocked = !storageWorks();
+  const zeroReason = !(calc?.totalWithheld > 0)
+    ? "в доходах не указан удержанный налог"
+    : !(calc?.totalDeduction > 0)
+      ? "не заполнены суммы вычета"
+      : "удержанный налог уже полностью зачтён";
   const canceled = order?.status === "canceled";
 
   // Хеш текущей анкеты (асинхронный — до готовности ничего не решаем).
@@ -284,6 +316,35 @@ export default function StepPayment({ onPaid, calc }) {
       <div className="wiz__pay card">
         <h3 className="card__title">{selfService.name}</h3>
         <p className="card__text">{selfService.description}</p>
+        {/* Предупреждения ДО оплаты. Человек платит за декларацию, которая
+            в этих двух случаях денег ему не вернёт — узнать об этом он должен
+            здесь, а не после списания. Кнопку не блокируем: подать декларацию
+            можно и с нулевым возвратом (например, чтобы отчитаться), но
+            решение остаётся за человеком. */}
+        {storageBlocked && (
+          <div className="doc-note doc-note--err">
+            Браузер не разрешает сайту сохранять данные — скорее всего, включён
+            приватный режим. При переходе на страницу оплаты анкета и номер
+            заказа пропадут, и вернуть документы будет не по чему. Откройте
+            сайт в обычном окне (или разрешите сайту хранить данные) и
+            заполните анкету заново — это безопаснее, чем платить сейчас.
+          </div>
+        )}
+        {deadlinePassed && (
+          <div className="doc-note doc-note--err">
+            Срок возврата за {draft.year} год истёк 31 декабря{" "}
+            {refundDeadlineYear(draft.year)} года: заявление на возврат налоговая
+            уже не примет (п. 7 ст. 78 НК). Декларацию мы подготовим, но деньги
+            по ней вернуть нельзя. Проверьте год на первом шаге.
+          </div>
+        )}
+        {nothingToRefund && !deadlinePassed && (
+          <div className="doc-note doc-note--err">
+            По введённым данным возвращать нечего: {zeroReason}. Декларацию мы
+            подготовим, но возврата по ней не будет — вернитесь на шаг
+            «Проверка» и сверьте суммы.
+          </div>
+        )}
         {/* Якорь: цена сервиса на фоне суммы возврата клиента. */}
         {calc?.refund > 0 && (
           <div className="doc-note doc-note--ok">

@@ -4,10 +4,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWizard } from "../WizardContext.jsx";
-import { company } from "../../data/content.js";
+import { company, selfService } from "../../data/content.js";
 import { hasSale, hasRefund, modeOf } from "../../data/wizard.js";
 import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
-import { fetchOrderStatus } from "../../lib/payments.js";
+import { claimOrder, fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
 import { ymGoal } from "../../lib/metrika.js";
@@ -333,7 +333,7 @@ export default function StepDocuments({ onUnpaid }) {
           <p className="wiz__note">
             Паспорт, ИНН и реквизиты счёта уже сохранены — останется отметить
             вычеты и вписать суммы. Каждый год — отдельная декларация и отдельная
-            оплата 199 ₽. Крайний срок по самому старому году: за {oldestYear}{" "}
+            оплата {selfService.price} ₽. Крайний срок по самому старому году: за {oldestYear}{" "}
             — до 31 декабря {refundDeadlineYear(oldestYear)} года.
           </p>
         </div>
@@ -428,14 +428,25 @@ function RecoverByOrder({ draft, dispatch, onDone }) {
       }
       // Привязываем оплату к ТЕКУЩЕЙ анкете: снимок нужен, чтобы документы
       // потом собрались ровно из этих данных, даже если человек продолжит
-      // править поля.
+      // править поля. Привязка фиксируется и на сервере: номер заказа виден
+      // в адресной строке, и без неё один платёж открывал бы документы всем,
+      // кому его переслали.
       const hash = await computeDraftHash(draft);
+      const claim = await claimOrder(orderId, hash);
+      if (!claim.ok) {
+        setError(
+          claim.reason === "exhausted"
+            ? "По этому заказу документы уже выдавались для других анкет. Напишите нам — разберёмся вручную."
+            : "По этому номеру оплата не подтверждена. Проверьте номер или напишите нам — разберёмся вручную."
+        );
+        return;
+      }
       dispatch({
         type: "ADD_PURCHASE",
         purchase: {
           id: orderId,
           provider: "yookassa",
-          amount: 199,
+          amount: claim.amount ?? selfService.price,
           paidAt: new Date().toISOString(),
           draftHash: hash,
           snapshot: draftSnapshot(draft),
@@ -465,7 +476,9 @@ function RecoverByOrder({ draft, dispatch, onDone }) {
       <label htmlFor="recover-order">Номер заказа</label>
       <p className="wiz__note">
         Он был в адресной строке сразу после оплаты — длинный код после
-        «?order=». Ещё его видно в письме или SMS от ЮKassa.
+        «?order=». В письме от ЮKassa его нет: там свой номер платежа. Если
+        адресную строку не сохранили — напишите нам, найдём оплату по сумме
+        и времени.
       </p>
       <div className="wiz__recover-row">
         <input

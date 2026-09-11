@@ -3,8 +3,9 @@
 // пережили редирект на страницу оплаты и обратно).
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
 import { YEARS } from "../lib/ndfl/refs.js";
+import { DRAFT_KEY as STORE_KEY, mergeStored } from "../lib/draftStore.js";
 
-export const DRAFT_KEY = "ns.decl.draft.v1";
+export const DRAFT_KEY = STORE_KEY;
 
 export function initialDraft() {
   return {
@@ -263,6 +264,15 @@ function reducer(state, action) {
         purchases: exists ? state.purchases : [...(state.purchases || []), action.purchase],
       };
     }
+    // Оплата, подтверждённая в СОСЕДНЕЙ вкладке. Черновик один на две
+    // вкладки, и та, что узнала об оплате первой, записала её в хранилище —
+    // здесь мы её подхватываем, иначе человек видит «оплатите» в той самой
+    // вкладке, где заполнял анкету.
+    case "ADOPT_PURCHASES": {
+      const have = state.purchases || [];
+      const add = action.purchases.filter((p) => !have.some((x) => x.id === p.id));
+      return add.length ? { ...state, purchases: [...have, ...add] } : state;
+    }
     // Покупки переживают сброс: клиент не должен потерять оплаченное.
     case "RESET":
       return { ...initialDraft(), purchases: state.purchases || [] };
@@ -366,14 +376,19 @@ const WizardCtx = createContext(null);
 export function WizardProvider({ children }) {
   const [draft, dispatch] = useReducer(reducer, undefined, initialDraft);
 
+  // Возвращает true, если черновик реально лёг в хранилище. Шаг оплаты
+  // обязан это знать: если запись не прошла, переход на страницу ЮKassa
+  // стирает анкету вместе с номером заказа.
   const persist = (d) => {
     try {
       localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ ...d, savedAt: new Date().toISOString() })
+        JSON.stringify({ ...mergeStored(d, localStorage), savedAt: new Date().toISOString() })
       );
+      return true;
     } catch {
       /* приватный режим — черновик проживёт до конца сессии */
+      return false;
     }
   };
 
@@ -406,6 +421,28 @@ export function WizardProvider({ children }) {
     };
     window.addEventListener("pagehide", flushOnLeave);
     return () => window.removeEventListener("pagehide", flushOnLeave);
+  }, []);
+
+  // Оплату подтвердила соседняя вкладка — забираем её себе, не дожидаясь
+  // перезагрузки страницы. Человек часто платит во второй вкладке, а анкету
+  // держит открытой в первой; без этого первая так и просит оплатить.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key && e.key !== DRAFT_KEY) return;
+      let stored = null;
+      try {
+        stored = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      } catch {
+        return;
+      }
+      const have = latest.current.purchases || [];
+      const fresh = (stored?.purchases || []).filter(
+        (p) => p?.id && !have.some((x) => x.id === p.id)
+      );
+      if (fresh.length) dispatch({ type: "ADOPT_PURCHASES", purchases: fresh });
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // flushDraft(patch) — немедленная запись; patch применяется поверх

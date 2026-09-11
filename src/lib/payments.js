@@ -89,6 +89,25 @@ export async function createOperatorPaidOrder() {
   return { id, provider: "operator", amount: 0, status: "paid" };
 }
 
+// Привязать оплаченный заказ к анкете (восстановление доступа по номеру).
+// Возвращает { ok, amount?, reason? }: reason = not_found | not_paid |
+// exhausted. Номер заказа виден в адресной строке и легко пересылается, так
+// что без привязки один платёж открывал бы документы неограниченному числу
+// анкет — см. docs/supabase-migration-order-claim.sql.
+//
+// Если миграция ещё не применена, функции в базе нет и RPC падает. Запирать
+// из-за этого человека, который заплатил, нельзя: деградируем к прежнему
+// поведению (статус всё равно проверен отдельно).
+export async function claimOrder(orderId, hash) {
+  try {
+    const r = await sbRpc("claim_order", { p_id: orderId, p_hash: hash });
+    if (r && typeof r === "object" && typeof r.ok === "boolean") return r;
+  } catch {
+    /* функции ещё нет — прежнее поведение */
+  }
+  return { ok: true };
+}
+
 // Актуальный статус заказа из базы: pending | waiting | paid | canceled.
 // Для боевого провайдера (yookassa) проверка строгая — ошибка сети не
 // считается оплатой; в тестовом режиме деградируем к статусу из черновика.
