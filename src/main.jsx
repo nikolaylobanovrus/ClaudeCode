@@ -5,6 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App.jsx";
 import "./index.css";
 import { initVkPixel } from "./lib/vkpixel.js";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 // На GitHub Pages сайт живёт в подкаталоге без серверного SPA-fallback,
 // поэтому там используем HashRouter (сборка задаёт VITE_HASH_ROUTER=1).
@@ -34,7 +35,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
       <Router {...routerProps}>
-        <App />
+        {/* Внешний ограничитель: всё, что вне анкеты (лендинги, калькулятор,
+            кабинет). Внутри анкеты есть свой, вокруг шага. */}
+        <ErrorBoundary where="app">
+          <App />
+        </ErrorBoundary>
       </Router>
     </HelmetProvider>
   </React.StrictMode>

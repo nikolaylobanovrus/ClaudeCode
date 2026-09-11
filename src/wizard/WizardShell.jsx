@@ -22,6 +22,7 @@ import StepPayment from "./steps/StepPayment.jsx";
 import StepDocuments from "./steps/StepDocuments.jsx";
 import DocAutofill from "./DocAutofill.jsx";
 import TurnkeyOffer from "./TurnkeyOffer.jsx";
+import ErrorBoundary from "../components/ErrorBoundary.jsx";
 
 // Кнопка «Продолжить на другом устройстве»: share-меню на мобильных,
 // копирование ссылки на десктопе. Подпись подтверждает результат.
@@ -279,12 +280,22 @@ export default function WizardShell({ resumeOffer, onResume, onRestart }) {
           {(step.key === "income" || step.key === "sale") && (
             <DocAutofill stepKey={step.key} />
           )}
-          <Step
-            errors={errors}
-            calc={calc}
-            onPaid={() => goto(DOCUMENTS_STEP)}
-            onUnpaid={() => goto(PAYMENT_STEP)}
-          />
+          {/* Ограничитель аварий стоит ВОКРУГ шага, а не вокруг всей анкеты:
+              при сбое остаются и полоса шагов, и кнопка «Назад», то есть
+              человек может вернуться и продолжить, а не начинать заново.
+              resetKey — ключ шага: ушёл назад, экран с ошибкой сам исчез. */}
+          <ErrorBoundary
+            where={`wizard:${step.key}`}
+            resetKey={step.key}
+            hint={`Сбой на шаге «${step.title}». Это ошибка на нашей стороне, а не в ваших данных.`}
+          >
+            <Step
+              errors={errors}
+              calc={calc}
+              onPaid={() => goto(DOCUMENTS_STEP)}
+              onUnpaid={() => goto(PAYMENT_STEP)}
+            />
+          </ErrorBoundary>
 
           {/* Предложение «под ключ» — на шагах, где люди упираются в стену
               реквизитов, и на экране оплаты. Не на первом шаге (там ещё нечего
