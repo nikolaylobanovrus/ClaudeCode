@@ -11,7 +11,7 @@
     "validate:xml": "node scripts/validate-3ndfl-xml.mjs",
     "validate:sch": "node scripts/gen-test-xml.mjs /tmp/ndfl-sch && python3 scripts/validate-3ndfl-schematron.py /tmp/ndfl-sch",
     "check:hscroll": "node scripts/check-no-hscroll.mjs",
-    "check:wizard": "node scripts/check-wizard.mjs",
+    "check:wizard": "VITE_HASH_ROUTER=1 VITE_SB_URL=http://127.0.0.1:9 vite build && node scripts/check-wizard.mjs",
     "check:invariants": "node --loader ./scripts/_url-loader.mjs scripts/check-invariants.mjs",
     "check:consistency": "node --loader ./scripts/_url-loader.mjs scripts/check-consistency.mjs",
     "check:purchase": "node scripts/check-purchase.mjs"
