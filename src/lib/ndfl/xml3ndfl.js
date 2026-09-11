@@ -290,7 +290,7 @@ export function buildDeclarationXml(model) {
               )
             : []),
           // --- Приложение 5: стандартные/социальные/инвестиционные вычеты ---
-          social &&
+          model.needsApp5 &&
             el(
               "ВычСтандСоц",
               { ВычСтандСоц: kop2(socialTotalApplied) },

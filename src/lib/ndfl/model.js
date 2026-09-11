@@ -170,6 +170,20 @@ export function buildDeclarationModel(draft) {
             },
           }
         : null,
+    // Нужен ли лист «Приложение 5».
+    //
+    // Раньше условием были только СОЦИАЛЬНЫЕ вычеты, и это было ошибкой: на
+    // том же листе живут стандартный вычет на детей (раздел 1, строки 010–080)
+    // и вычет на долгосрочные сбережения (раздел 6, строки 235–280). Человек,
+    // заявивший ТОЛЬКО детей, получал декларацию, где Раздел 2 уменьшает базу,
+    // а подтверждающего листа нет вовсе — ни на бумаге, ни в XML. Такую ФНС
+    // возвращает. Поэтому признак считается по всему содержимому листа.
+    needsApp5: Boolean(
+      has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie") ||
+        has("sport") || calc.standard?.eligible > 0 || calc.standard?.byAgent > 0 ||
+        calc.savings?.eligible > 0 || calc.savings?.byAgent > 0 ||
+        calc.socialProvided?.byAgent > 0 || calc.socialProvided?.simplified > 0
+    ),
     // Приложение 5 (социальные и ИИС)
     social:
       has("lechenie") || has("obuchenie") || has("iis") || has("strahovanie") || has("sport")

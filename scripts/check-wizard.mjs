@@ -2,7 +2,6 @@
 // Сквозной проход анкеты в браузере: четыре сценария до готовых документов.
 //
 //   VITE_HASH_ROUTER=1 VITE_SB_URL=http://127.0.0.1:9 npm run build
-//   npx http-server dist -p 8781   (или python3 -m http.server 8781 из dist)
 //   npm run check:wizard
 //
 // Зачем. 10.09.2026 шаг «Расходы» падал у вернувшихся с сохранённым
@@ -18,8 +17,37 @@
 // Проверяется на каждом шаге: «Далее» действительно уводит дальше, экран не
 // пустой, цель render_error не сработала, консоль чистая.
 import { chromium } from "playwright";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join } from "node:path";
 
-const BASE = process.env.BASE || "http://127.0.0.1:8781";
+// Статику раздаём сами: одной командой, без внешнего сервера — иначе проверку
+// не запустит никто, кроме того, кто её написал.
+const ROOT = new URL("../dist/", import.meta.url).pathname;
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
+               ".svg": "image/svg+xml", ".pdf": "application/pdf", ".ttf": "font/ttf",
+               ".json": "application/json", ".txt": "text/plain; charset=utf-8" };
+const server = createServer(async (req, res) => {
+  const path = decodeURIComponent(req.url.split("?")[0]);
+  // Тип берём по ОТДАВАЕМОМУ файлу, а не по адресу: у «/» расширения нет, и
+  // браузер получал octet-stream, то есть предлагал скачать главную страницу.
+  const file = path === "/" ? "index.html" : path;
+  try {
+    const body = await readFile(join(ROOT, file));
+    res.writeHead(200, { "Content-Type": MIME[extname(file)] || "application/octet-stream" });
+    res.end(body);
+  } catch {
+    // SPA-фолбэк, как на боевом nginx
+    try {
+      res.writeHead(200, { "Content-Type": MIME[".html"] });
+      res.end(await readFile(join(ROOT, "index.html")));
+    } catch {
+      res.writeHead(404).end("нет dist/ — соберите: VITE_HASH_ROUTER=1 npm run build");
+    }
+  }
+});
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const BASE = process.env.BASE || `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
 let failures = 0;
@@ -266,4 +294,5 @@ await run("Телефон 390px: лечение", async (page) => {
 
 console.log(failures ? `\nПРОВАЛОВ: ${failures}` : "\nВСЁ ЗЕЛЁНОЕ");
 await browser.close();
+server.close();
 process.exit(failures ? 1 : 0);

@@ -54,7 +54,12 @@ export function initialDraft() {
       children: [],          // [{ order: "1"|"2"|"3", disabled: bool }]
       singleParent: false,   // единственный родитель — вычет удваивается
       providedByAgent: "",   // строка 070: сколько уже дал работодатель
-      months: "",            // за сколько месяцев положен (пусто — считаем по доходу)
+      months: "",            // ручное число месяцев (пусто — считаем сами)
+      // Доход по месяцам из справки о доходах, 12 значений. Вычет положен по
+      // месяц, в котором доход нарастающим итогом ещё не превысил предел, а
+      // доход почти никогда не ровный: премия, тринадцатая зарплата, выход на
+      // работу не с января. По среднему за год месяцы выходят другими.
+      monthly: [],
     },
     // Вычет на долгосрочные сбережения (ст. 219.2): договоры ПДС, НПО и
     // страхования жизни от 10 лет. Строки 235–280 Приложения 5.
@@ -186,6 +191,12 @@ function reducer(state, action) {
           contracts: (state.savings?.contracts || []).filter((_, i) => i !== action.index),
         },
       };
+    case "SET_STD_MONTH": {
+      const monthly = [...(state.standard?.monthly || [])];
+      while (monthly.length < 12) monthly.push("");
+      monthly[action.index] = action.value;
+      return { ...state, standard: { ...state.standard, monthly } };
+    }
     case "ADD_STD_CHILD":
       return {
         ...state,

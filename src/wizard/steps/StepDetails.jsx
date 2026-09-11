@@ -47,6 +47,9 @@ function Contract({ sec, keys, who, v, errors, dispatch }) {
   );
 }
 
+const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+
 export default function StepDetails({ errors, calc }) {
   const { draft, dispatch } = useWizard();
   const has = (t) => draft.types.includes(t);
@@ -326,6 +329,30 @@ export default function StepDetails({ errors, calc }) {
                 onChange={(v) => dispatch({ type: "PATCH", section: "standard", patch: { months: v.replace(/\D/g, "").slice(0, 2) } })} />
             </Field>
           </div>
+
+          {/* Доход по месяцам. Вычет положен по тот месяц, в котором доход
+              нарастающим итогом ещё не превысил предел, поэтому при неровном
+              доходе (премия, тринадцатая зарплата, выход на работу не с января)
+              среднее за год даёт неверное число месяцев — а с ним и сумму. */}
+          <details className="wiz__months">
+            <summary>Доход по месяцам — чтобы посчитать точно</summary>
+            <p className="wiz__note">
+              Возьмите из справки о доходах помесячные суммы. Вычет даётся по
+              тот месяц, в котором доход <strong>нарастающим итогом</strong> ещё
+              не превысил {fmtRub(yearRules(draft.year).childLimit)}. Если
+              оставить пустым, посчитаем по среднему за год — это оценка.
+            </p>
+            <div className="wiz__months-grid">
+              {MONTHS.map((m, i) => (
+                <Field key={m} label={m}>
+                  <MoneyInput
+                    value={draft.standard?.monthly?.[i] ?? ""}
+                    onChange={(v) => dispatch({ type: "SET_STD_MONTH", index: i, value: v })}
+                  />
+                </Field>
+              ))}
+            </div>
+          </details>
           <label className="wiz__checkline">
             <input type="checkbox" checked={Boolean(draft.standard?.singleParent)}
               onChange={(e) => dispatch({ type: "PATCH", section: "standard", patch: { singleParent: e.target.checked } })} />

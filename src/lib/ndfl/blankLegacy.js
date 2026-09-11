@@ -165,7 +165,9 @@ export async function buildOfficialPdfLegacy(model) {
   if (!sale) {
     for (const part of chunk(model.incomes, 3))
       sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1(pen, part) });
-    if (model.social) {
+    // См. model.needsApp5: на листе живут и стандартные вычеты, не только
+    // социальные — по одному признаку «есть соцвычеты» лист терялся.
+    if (model.needsApp5) {
       sheets.push({ tpl: PG.app5a, fill: fillApp5a });
       sheets.push({ tpl: PG.app5b, fill: fillApp5b });
     }

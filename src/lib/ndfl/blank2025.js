@@ -38,7 +38,9 @@ export async function buildOfficialPdf2025(model) {
   if (sale)
     for (const part of chunk(sale.items, 3))
       sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1Sale(pen, part) });
-  if (model.social) {
+  // Лист нужен не только под социальные вычеты: на нём же стандартный
+  // вычет на детей (раздел 1) и долгосрочные сбережения (раздел 6).
+  if (model.needsApp5) {
     sheets.push({ tpl: PG.app5a, fill: fillApp5a });
     sheets.push({ tpl: PG.app5b, fill: fillApp5b });
   }

@@ -411,6 +411,28 @@ export function mergePatch(draft, patch) {
   // incomes: пользовательский ввод не трогаем. Заменяем целиком только если
   // в черновике единственная пустая запись; иначе — дописываем новых
   // работодателей (по ИНН), не дублируя.
+  // Доход по месяцам (раздел 3 справки) — не в строку работодателя, а в блок
+  // вычета на детей: месяцев там ОДИН счёт на человека, поэтому складываем по
+  // всем справкам поэлементно. Вычет на детей даётся по тот месяц, в котором
+  // доход нарастающим итогом ещё не превысил предел, и по среднему за год
+  // месяцы выходят неверными при премии или выходе на работу не с января.
+  const monthlyRows = (patch?.incomes || [])
+    .map((i) => (Array.isArray(i?.monthly) ? i.monthly : []))
+    .filter((m) => m.length === 12 && m.some((v) => Number(v) > 0));
+  if (monthlyRows.length) {
+    const already = draft.standard?.monthly || [];
+    // Человек мог вписать месяцы сам — ручной ввод приоритетнее.
+    if (!already.some((v) => filled(v))) {
+      const sum = Array.from({ length: 12 }, (_, k) =>
+        monthlyRows.reduce((a, m) => a + (Number(m[k]) || 0), 0)
+      );
+      draftPatch.standard = { ...(draft.standard || {}), monthly: sum.map(String) };
+      applied.push("доход по месяцам (для вычета на детей)");
+    } else {
+      busy += 1;
+    }
+  }
+
   const foundIncomes = (patch?.incomes || []).filter(
     (i) => filled(i?.income) || filled(i?.name) || filled(i?.inn)
   );

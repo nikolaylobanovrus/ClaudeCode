@@ -3519,3 +3519,29 @@ h4 {
     display: none;
   }
 }
+
+/* Доход по месяцам (вычет на детей): 12 узких полей, чтобы блок не занимал
+   пол-экрана. На телефоне — по два в ряд. Свёрнут по умолчанию: нужен он
+   только тем, у кого доход неровный. */
+.wiz__months {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.wiz__months > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+.wiz__months-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+@media (max-width: 480px) {
+  .wiz__months-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

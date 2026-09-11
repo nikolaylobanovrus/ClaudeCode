@@ -351,13 +351,47 @@ export function computeDeclaration(draft) {
   // задать его сам — в справке о доходах видно точно.
   const std = draft.standard || {};
   const stdChildren = has("deti") ? std.children || [] : [];
+  // Помесячный доход (12 чисел из справки о доходах) — единственный способ
+  // посчитать месяцы точно. Доход почти никогда не ровный: премия, тринадцатая
+  // зарплата, выход на работу не с января. При тех же 900 000 ₽ за год «по
+  // среднему» выходит 6 месяцев, а если 400 000 из них пришли в декабре — 10.
+  const stdMonthly = has("deti") ? (std.monthly || []).map(num) : [];
+  const stdHasMonthly = stdMonthly.some((v) => v > 0);
   const stdMonths = (() => {
     const manual = Math.round(num(std.months));
     if (manual > 0) return Math.min(12, manual);
+    if (stdHasMonthly) {
+      // Вычет положен ПО МЕСЯЦ, в котором доход нарастающим итогом ещё не
+      // превысил предел (пп. 4 п. 1 ст. 218 НК).
+      let sum = 0, months = 0;
+      for (let i = 0; i < 12; i++) {
+        sum += stdMonthly[i] || 0;
+        if (sum > rules.childLimit) break;
+        months++;
+      }
+      return months;
+    }
     if (totalIncome <= 0) return 12;
     const perMonth = totalIncome / 12;
     return Math.max(0, Math.min(12, Math.floor(rules.childLimit / perMonth)));
   })();
+  // Оценка по среднему — именно оценка, и человек должен об этом знать.
+  if (has("deti") && stdChildren.length && !stdHasMonthly && !(num(std.months) > 0))
+    warnings.push(
+      `Число месяцев для вычета на детей посчитано по среднему доходу за год (${stdMonths} мес.). ` +
+        "Если доход был неровным — премия, тринадцатая зарплата, вышли на работу не с января, — " +
+        "впишите доход по месяцам из справки о доходах: сумма вычета изменится."
+    );
+  // Сумма помесячных должна сходиться с годовым доходом, иначе одно из двух
+  // введено с ошибкой, и человек об этом узнает сейчас, а не от инспектора.
+  if (stdHasMonthly && totalIncome > 0) {
+    const sumMonthly = stdMonthly.reduce((a, v) => a + v, 0);
+    if (Math.abs(sumMonthly - totalIncome) > 1)
+      warnings.push(
+        `Доход по месяцам (${fmtRub(sumMonthly)}) не сходится с годовым доходом из справки ` +
+          `(${fmtRub(totalIncome)}). Проверьте: месяцы влияют на размер вычета на детей.`
+      );
+  }
   const stdRates = rules.childDed || { first: 1400, second: 1400, third: 3000, disabled: 12000 };
   const perOrder = (o) => (o === "3" ? stdRates.third : o === "2" ? stdRates.second : stdRates.first);
   const stdDouble = Boolean(std.singleParent);
