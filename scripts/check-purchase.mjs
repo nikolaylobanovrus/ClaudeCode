@@ -14,7 +14,7 @@
 // переживать релиз и смену алгоритма хеширования — и обязан ПРОПАДАТЬ, когда
 // человек действительно правит данные, иначе документы выдаются бесплатно.
 import { computeDraftHash, draftSnapshot, findPurchase } from "../src/lib/draftHash.js";
-import { DRAFT_KEY, mergeStored } from "../src/lib/draftStore.js";
+import { DRAFT_KEY, mergeStored, restoreFromSnapshot } from "../src/lib/draftStore.js";
 
 let failures = 0;
 const check = (label, actual, expected) => {
@@ -115,6 +115,33 @@ eq("пустое хранилище ничего не ломает",
 eq("битое хранилище ничего не ломает",
   mergeStored({ purchases: [buy("ord-A")] }, { getItem: () => "{не json" }).purchases.length, 1);
 if (DRAFT_KEY !== "ns.decl.draft.v1") { failures++; console.log("✗ ключ черновика поменялся — старые черновики потеряются"); }
+
+// --- Кнопка «вернуть оплаченные данные» обязана возвращать доступ ---------
+// Иначе она хуже, чем ничего: человек нажимает и всё равно видит «оплатите».
+{
+  const edited = { ...afterRelease, personal: { ...afterRelease.personal, lastName: "Иванова" } };
+  const back = restoreFromSnapshot(purchase.snapshot, { ...afterRelease, purchases: [] });
+  check("вернул оплаченные данные кнопкой",
+    await open({ ...back, purchases: edited.purchases }), true);
+  // И пустые поля обязаны вернуться пустыми, а не пропасть: иначе поля формы
+  // становятся неуправляемыми и шаг падает на рендере.
+  const holes = [];
+  const walk = (t, v, path) => {
+    if (t && typeof t === "object" && !Array.isArray(t)) {
+      for (const k of Object.keys(t)) {
+        if (!(k in (v || {}))) holes.push(`${path}.${k}`);
+        else walk(t[k], v[k], `${path}.${k}`);
+      }
+    }
+  };
+  walk(afterRelease, back, "черновик");
+  if (holes.length) {
+    failures++;
+    console.log(`✗ после возврата пропали поля: ${holes.slice(0, 5).join(", ")}`);
+  } else {
+    console.log("✓ после возврата на месте все поля анкеты");
+  }
+}
 
 console.log(failures ? `\nПРОВАЛОВ: ${failures}` : "\nДоступ к оплаченному ведёт себя правильно.");
 process.exit(failures ? 1 : 0);

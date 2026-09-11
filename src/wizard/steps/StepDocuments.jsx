@@ -3,7 +3,8 @@
 // Доступ строго по оплаченному заказу: статус перепроверяется в базе.
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useWizard } from "../WizardContext.jsx";
+import { useWizard, initialDraft } from "../WizardContext.jsx";
+import { restoreFromSnapshot } from "../../lib/draftStore.js";
 import { company, selfService } from "../../data/content.js";
 import { hasSale, hasRefund, modeOf } from "../../data/wizard.js";
 import { YEARS, refundDeadlineYear } from "../../lib/ndfl/refs.js";
@@ -192,6 +193,7 @@ export default function StepDocuments({ onUnpaid }) {
             </button>
           </div>
         )}
+        <RestorePaid draft={draft} dispatch={dispatch} onDone={() => setAttempt((a) => a + 1)} />
         <button type="button" className="btn btn--primary" onClick={onUnpaid}>
           Оплатить новую декларацию
         </button>
@@ -397,6 +399,52 @@ export default function StepDocuments({ onUnpaid }) {
 // Восстановление доступа по номеру заказа.
 //
 // Оплаченные комплекты живут в localStorage браузера: очистил данные, сменил
+// Возврат к оплаченным данным.
+//
+// Текст на экране «анкета изменилась после оплаты» предлагал вернуть прежние
+// данные — но вернуть их было нечем: снимок, сделанный в момент оплаты, лежал
+// в черновике и никуда не показывался. Человек, заметивший опечатку в фамилии
+// сразу после оплаты и исправивший её, оказывался перед выбором: платить
+// второй раз или писать нам. Здесь тот же снимок предлагается одной кнопкой.
+//
+// Снимков может быть несколько — «заполнить ещё одну декларацию» оставляет
+// оплаченные комплекты прежних лет в черновике, и добраться до них после
+// сброса было нельзя вовсе. Показываем все.
+function RestorePaid({ draft, dispatch, onDone }) {
+  const paid = (draft.purchases || []).filter((p) => p.snapshot);
+  if (!paid.length) return null;
+  const restore = (p) => {
+    const base = restoreFromSnapshot(p.snapshot, initialDraft());
+    if (!base) return;
+    dispatch({
+      type: "RESTORE",
+      // Покупки и текущий шаг — не часть оплаченных данных: их переносим.
+      draft: { ...base, purchases: draft.purchases, order: draft.order, step: draft.step },
+    });
+    ymGoal("paid_restored");
+    onDone();
+  };
+  return (
+    <div className="doc-note doc-note--ok">
+      {paid.length === 1
+        ? "Вернуть данные, за которые уже заплачено:"
+        : "Вернуть данные одной из оплаченных деклараций:"}
+      <div className="wiz__recover-row" style={{ marginTop: 8 }}>
+        {paid.map((p) => (
+          <button key={p.id} type="button" className="btn btn--ghost" onClick={() => restore(p)}>
+            {p.snapshot.year ? `За ${p.snapshot.year} год` : "Оплаченная анкета"}
+            {p.snapshot.personal?.lastName ? ` — ${p.snapshot.personal.lastName}` : ""}
+          </button>
+        ))}
+      </div>
+      <p className="wiz__note" style={{ marginTop: 6 }}>
+        Текущие правки при этом потеряются — если они нужны, сначала выпишите
+        их себе.
+      </p>
+    </div>
+  );
+}
+
 // устройство или не смог вернуться на сайт после оплаты — и человек, который
 // заплатил, документов не получит. 18.08.2026 так и вышло: клиент оплатил в
 // 17:34, а сайт в этот момент был недоступен у его провайдера (переезжали с
