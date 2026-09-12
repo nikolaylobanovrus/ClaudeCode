@@ -22,6 +22,34 @@ function safeMessage(error) {
   return raw.replace(/\d{4,}/g, "…").slice(0, 120);
 }
 
+// Признаки того, что не загрузился кусок бандла, а не сломался наш код.
+// Формулировки у браузеров разные, поэтому проверяем все известные.
+function isStaleChunk(error) {
+  const m = String(error?.message || error || "");
+  return (
+    /Importing a module script failed/i.test(m) ||
+    /Failed to fetch dynamically imported module/i.test(m) ||
+    /error loading dynamically imported module/i.test(m) ||
+    /Unable to preload CSS/i.test(m) ||
+    /ChunkLoadError/i.test(m)
+  );
+}
+
+const RELOAD_KEY = "ns.reloaded";
+
+// true — перезагружаться можно (в этой вкладке ещё не перезагружались).
+// Приватный режим и запрет хранения роняют sessionStorage: там лучше НЕ
+// перезагружаться вовсе, чем зациклиться без возможности это запомнить.
+function markReloadOnce() {
+  try {
+    if (sessionStorage.getItem(RELOAD_KEY)) return false;
+    sessionStorage.setItem(RELOAD_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default class ErrorBoundary extends Component {
   state = { error: null };
 
@@ -30,6 +58,21 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
+    // Выкатили новую версию, а у человека открыта старая страница: адреса
+    // кусков бандла содержат хеш содержимого, старые после выкладки исчезают,
+    // и ленивая подгрузка шага падает — «Importing a module script failed».
+    // Человек при этом ничего не делал неправильно, а перезагрузка страницы
+    // чинит это полностью. 11.09.2026 так оборвался ровно один визит с
+    // телефона; поймали только потому, что теперь есть цель render_error.
+    //
+    // Перезагружаемся сами, но ровно один раз за вкладку: если дело не в
+    // выкладке, второй заход даст ту же ошибку, и цикл перезагрузок был бы
+    // хуже самой аварии.
+    if (isStaleChunk(error) && markReloadOnce()) {
+      ymGoal("stale_reload", { where: this.props.where || "app" });
+      window.location.reload();
+      return;
+    }
     ymGoal("render_error", {
       where: this.props.where || "app",
       error: `${error?.name || "Error"}: ${safeMessage(error)}`,
