@@ -117,7 +117,11 @@ def main():
         f = line.split("\t")
         if len(f) < 5 or f[0] == "CampaignId":
             continue
-        v = stats[(int(f[0]), f[1])]
+        # Имя площадки приходит как есть, иногда с пробелами по краям
+        # (« ru.yandex.weatherplugin»). Директ такое имя не принимает и
+        # отклоняет ВЕСЬ список исключений кампании — 12.09.2026 из-за одного
+        # такого пробела не применилась вся чистка ретаргетинга.
+        v = stats[(int(f[0]), f[1].strip())]
         v[0] += int(f[2]); v[1] += int(f[3]); v[2] += float(f[4])
 
     # Сверяем БЕЗ учёта регистра: отчёт отдаёт «com.MadOut.BIG», а Директ
@@ -126,7 +130,7 @@ def main():
     known = {cid: {s.lower() for s in items} for cid, items in current.items()}
     found = collections.defaultdict(list)
     for (cid, site), v in stats.items():
-        if v[1] == 0 or site.lower() in KEEP or site.lower() in known.get(cid, ()):
+        if not site or v[1] == 0 or site.lower() in KEEP or site.lower() in known.get(cid, ()):
             continue
         if not TLD.search(site.lower()):
             found[cid].append((site.lower(), v[1], v[2]))
@@ -153,8 +157,40 @@ def main():
         ups.append({"Id": cid, "ExcludedSites": {"Items": merged}})
         print("\n%d: было %d → стало %d" % (cid, len(current[cid]), len(merged)))
     res = direct(token, "campaigns", "update", {"Campaigns": ups})
-    for r in res.get("result", {}).get("UpdateResults", []):
-        print("  %d: %s" % (r["Id"], r.get("Errors") or "OK"))
+    # Ответ на неудачное обновление НЕ содержит Id — только Errors. Раньше
+    # здесь стояло r["Id"], и скрипт падал с KeyError ровно в том месте, где
+    # должен был сказать, что чистка не применилась: вывод «было 168 → стало
+    # 172» уже напечатан, ошибка съедена, отчёт врал. 12.09.2026 так и вышло.
+    results = res.get("result", {}).get("UpdateResults", [])
+    bad = 0
+    for i, r in enumerate(results):
+        cid = r.get("Id", ups[i]["Id"] if i < len(ups) else "?")
+        errs = r.get("Errors") or r.get("Warnings")
+        if r.get("Errors"):
+            bad += 1
+            print("  %s: НЕ ПРИМЕНЕНО — %s" % (cid, errs))
+        else:
+            print("  %s: OK" % cid)
+    if bad or len(results) != len(ups):
+        sys.exit("чистка применилась не полностью: %d из %d кампаний" %
+                 (len(ups) - bad, len(ups)))
+
+    # Перечитываем и убеждаемся, что исключения ДЕЙСТВИТЕЛЬНО на месте.
+    # «API ответило OK» и «площадка исключена» — разные утверждения, а цена
+    # ошибки здесь в том, что отчёт владельцу говорит о сделанной работе,
+    # которой не было.
+    after = {c["Id"]: {x.lower() for x in (c.get("ExcludedSites", {}).get("Items") or [])}
+             for c in direct(token, "campaigns", "get",
+                             {"SelectionCriteria": {"Ids": list(found)},
+                              "FieldNames": ["Id", "ExcludedSites"]})
+                        .get("result", {}).get("Campaigns", [])}
+    missing = [(cid, site) for cid, items in found.items()
+               for site, _, _ in items if site not in after.get(cid, ())]
+    if missing:
+        for cid, site in missing:
+            print("  %d: площадки НЕТ в списке после обновления — %s" % (cid, site))
+        sys.exit("проверка после записи не сошлась")
+    print("  проверено перечитыванием: все площадки на месте")
 
 
 if __name__ == "__main__":
