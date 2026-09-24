@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import Home from "./pages/Home.jsx";
 import Deductions from "./pages/Deductions.jsx";
@@ -33,6 +33,12 @@ const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
 
+// Редирект с сохранением запроса: <Navigate to="/"> отбрасывает search.
+function RedirectHome() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/", search }} replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -58,9 +64,13 @@ export default function App() {
         <Route path="situaciya/inaya" element={<SituationInaya />} />
         <Route path="kabinet" element={<Cabinet />} />
         <Route path="operator" element={<Operator />} />
-        {/* Старый адрес лендинга: сюда ведут все объявления Директа —
-            редирект сохраняет их работоспособность без перемодерации. */}
-        <Route path="deklaraciya" element={<Navigate to="/" replace />} />
+        {/* Старый адрес лендинга: сюда ведут 88 из 109 объявлений Директа —
+            редирект сохраняет их работоспособность без перемодерации.
+            Запрос переносим: до перехода на чистые URL метки жили ВНЕ решётки
+            и редирект их не касался, а теперь они в запросе пути — обычный
+            <Navigate to="/"> выбросил бы utm у восьми из десяти платных
+            визитов, и вся атрибуция в Метрике поехала бы. */}
+        <Route path="deklaraciya" element={<RedirectHome />} />
         <Route path="deklaraciya/tarify" element={lazyPage(<SelfServiceTariffs />)} />
         <Route path="deklaraciya/kontakty" element={lazyPage(<SelfServiceContacts />)} />
         <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />

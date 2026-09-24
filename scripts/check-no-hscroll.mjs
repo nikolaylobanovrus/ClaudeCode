@@ -10,56 +10,34 @@
 // Запуск: node scripts/check-no-hscroll.mjs
 // Требует собранный dist/ (npm run build) — проверяем ровно то, что уедет
 // на сервер. Ненулевой код возврата = есть горизонтальный вылет.
-import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
-import { chromium } from "playwright";
-
-const ROOT = new URL("../dist/", import.meta.url).pathname;
-const PORT = 4399;
+import { serveDist, launchChromium } from "./_serve-dist.mjs";
 
 // Ширины реальных телефонов и увеличенный системный шрифт: именно на нём
 // вылезала липкая панель, а при обычном всё было в порядке.
 const WIDTHS = [320, 360, 390, 412];
 const FONT_SCALES = [1, 1.5];
+// Список страниц берём из общего src/data/routes.js, а не держим копию:
+// с хеш-адресами здесь была отдельная копия, и после перехода на чистые URL
+// все девять адресов схлопнулись бы в главную — проверка вёрстки девять раз
+// проверяла бы один экран и ничего бы не заметила.
 const PAGES = [
-  "#/",
-  "#/deklaraciya/anketa",
-  "#/deklaraciya/instrukciya",
-  "#/deklaraciya/kalkulyator-naloga-s-prodazhi",
-  "#/deklaraciya/tarify",
-  "#/vychety",
-  "#/tarify",
-  "#/kak-rabotaem",
-  "#/pod-klyuch",
+  "/",
+  "/deklaraciya/anketa",
+  "/deklaraciya/instrukciya",
+  "/deklaraciya/kalkulyator-naloga-s-prodazhi",
+  "/deklaraciya/tarify",
+  "/vychety",
+  "/tarify",
+  "/kak-rabotaem",
+  "/pod-klyuch",
 ];
 
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".json": "application/json",
-};
+// Стенд СТРОГИЙ: несуществующий путь отдаёт 404, а не главную. Иначе
+// опечатка в списке страниц не видна — проверка молча прогоняет один и тот
+// же экран девять раз и всегда зелёная.
+const { base: BASE, close: closeServer } = await serveDist({ fallback: "404" });
 
-const server = createServer(async (req, res) => {
-  const path = decodeURIComponent(req.url.split("?")[0]);
-  const file = join(ROOT, normalize(path === "/" ? "/index.html" : path));
-  try {
-    const body = await readFile(file);
-    res.writeHead(200, { "Content-Type": MIME[extname(file)] || "application/octet-stream" });
-    res.end(body);
-  } catch {
-    // SPA-фолбэк, как в nginx на сервере
-    res.writeHead(200, { "Content-Type": MIME[".html"] });
-    res.end(await readFile(join(ROOT, "index.html")));
-  }
-});
-await new Promise((r) => server.listen(PORT, r));
-
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium",
-});
+const browser = await launchChromium();
 
 const problems = [];
 for (const width of WIDTHS) {
@@ -72,7 +50,13 @@ for (const width of WIDTHS) {
   await ctx.route(/mc\.yandex\.ru|top-fwz1\.mail\.ru|supabase\.co/, (r) => r.abort());
   const page = await ctx.newPage();
   for (const path of PAGES) {
-    await page.goto(`http://127.0.0.1:${PORT}/${path}`, { waitUntil: "domcontentloaded" });
+    const resp = await page.goto(BASE + path, { waitUntil: "domcontentloaded" });
+    // Код ответа проверяем явно: страница 404 тоже никуда не едет вбок, и без
+    // этой строчки опечатка в списке выглядит как успешно пройденная проверка.
+    if (resp && !resp.ok()) {
+      problems.push(`${path} — сервер ответил ${resp.status()}: такой страницы в сборке нет`);
+      continue;
+    }
     await page.waitForTimeout(700);
     const accept = page.getByRole("button", { name: /Принять/ });
     if (await accept.count()) await accept.first().click().catch(() => {});
@@ -105,7 +89,7 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 await browser.close();
-server.close();
+await closeServer();
 
 if (problems.length) {
   console.error("Горизонтальный скролл на телефоне:\n  " + problems.join("\n  "));

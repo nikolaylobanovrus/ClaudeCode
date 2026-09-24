@@ -68,13 +68,17 @@ export async function serveDist({ root, fallback = "index" } = {}) {
         return res.writeHead(404).end("нет dist/ — соберите: npm run build");
       }
     }
-    // Строгий режим: как боевой nginx после этапа C.
+    // Строгий режим: как боевой nginx после этапа C. Файл читаем ДО отправки
+    // заголовков — иначе на отсутствующем 404.html получаем вторую попытку
+    // writeHead и падение сервера вместо честного ответа.
+    let body = null;
     try {
-      res.writeHead(404, { "Content-Type": MIME[".html"] });
-      return res.end(await readFile(join(ROOT, "404.html")));
+      body = await readFile(join(ROOT, "404.html"));
     } catch {
-      return res.writeHead(404).end("не найдено");
+      /* тела нет — ответим коротким текстом */
     }
+    res.writeHead(404, { "Content-Type": MIME[body ? ".html" : ".txt"] });
+    return res.end(body || "не найдено (нет dist/404.html — запустите npm run prerender)");
   });
 
   await new Promise((r) => server.listen(0, "127.0.0.1", r));

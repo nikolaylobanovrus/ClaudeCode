@@ -3,9 +3,10 @@
 //
 //   npm run check:wizard
 //
-// Сборку делает сам npm-скрипт: стенду нужен хеш-роутер и мёртвый адрес
-// базы, а обычный `npm run build` кладёт в dist/ сборку без хеш-роутера — на
-// ней проверка молча висит на первом же шаге и выглядит как поломка сайта.
+// Сборку делает сам npm-скрипт: стенду нужен мёртвый адрес базы, чтобы
+// заказы не уходили в боевую. С 24.09.2026 сборка идёт БЕЗ хеш-роутера —
+// такая же, как уезжает на сервер. Проверять конфигурацию, которой на бою
+// нет, значит проверять не тот сайт.
 //
 // Зачем. 10.09.2026 шаг «Расходы» падал у вернувшихся с сохранённым
 // черновиком: «Далее» не работало, ошибок не было, в отчётах это выглядело
@@ -166,7 +167,7 @@ async function payAndDocs(page) {
 async function run(name, scenario, width) {
   console.log("\n=== " + name);
   const { ctx, page, errors, goals } = await newPage(width);
-  await page.goto(BASE + "/#/deklaraciya/anketa");
+  await page.goto(BASE + "/deklaraciya/anketa");
   await page.waitForSelector(".wiz__heading", { timeout: 15000 });
   try { await scenario(page); }
   catch (e) { fail("сценарий оборвался: " + e.message.slice(0, 200)); }

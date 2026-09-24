@@ -40,7 +40,7 @@ export default function ChatWidget() {
       await sendFormEmail("Вопрос из чата на сайте", {
         "Телефон": phone.trim(),
         "Вопрос": question.trim() || "—",
-        "Страница": window.location.hash || window.location.pathname,
+        "Страница": window.location.pathname + window.location.search,
       });
       ymGoal("chat_question");
       setSent(true);

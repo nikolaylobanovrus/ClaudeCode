@@ -168,7 +168,7 @@ export async function buildInstructionPdf({ year, types = [] }) {
 
   gap(8);
   text(
-    "Вопросы? Мы на связи: +7 (920) 837-91-93, страница инструкции — налог-сервис.рф/#/deklaraciya/instrukciya",
+    "Вопросы? Мы на связи: +7 (920) 837-91-93, страница инструкции — налог-сервис.рф/deklaraciya/instrukciya",
     { size: 9, color: MUTED }
   );
 

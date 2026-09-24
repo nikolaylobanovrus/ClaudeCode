@@ -82,7 +82,7 @@ export default function SelfServiceKalkulyator() {
     if (acquireDate) p.set("acq", acquireDate);
     if (saleDate) p.set("sold", saleDate);
     if (isRealty && realtyBasis !== "purchase") p.set("basis", realtyBasis);
-    return `/?${p.toString()}#/deklaraciya/anketa`;
+    return `/deklaraciya/anketa?${p.toString()}`;
   }, [isRealty, objectKind, price, expenses, cadastral, acquireDate, saleDate, realtyBasis]);
 
   return (

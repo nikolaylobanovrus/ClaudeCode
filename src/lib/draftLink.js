@@ -20,8 +20,8 @@ export function draftLink(draft) {
     const slim = {};
     for (const f of FIELDS) slim[f] = draft[f];
     const code = encodeURIComponent(b64encode(JSON.stringify(slim)));
-    const url = `${window.location.origin}/?d=${code}#/deklaraciya/anketa`;
-    return url.length <= 2000 ? url : `${window.location.origin}/#/deklaraciya/anketa`;
+    const url = `${window.location.origin}/deklaraciya/anketa?d=${code}`;
+    return url.length <= 2000 ? url : `${window.location.origin}/deklaraciya/anketa`;
   } catch {
     return null;
   }
