@@ -175,9 +175,21 @@ Pages остаётся живым запасом: если VPS упадёт, A-�
 вручную (репозиторий там не клонируется целиком, тянется только ветка со
 сборкой):
 
+Скрипт лежит в `/opt/nalog-servis/` — именно оттуда его запускает systemd
+(см. `ExecStart` в nalog-servis-pull.service). Копировать со своей машины не
+нужно, репозиторий публичный — сервер скачает файл сам:
+
 ```
-scp deploy/nalog-servis-pull.sh root@СЕРВЕР:/root/nalog-servis-pull.sh   # или curl с github
+cp /opt/nalog-servis/nalog-servis-pull.sh /opt/nalog-servis/nalog-servis-pull.sh.bak
+curl -fsSL -o /opt/nalog-servis/nalog-servis-pull.sh \
+  https://raw.githubusercontent.com/nikolaylobanovrus/ClaudeCode/claude/tax-deduction-declaration-site-dfit30/deploy/nalog-servis-pull.sh
+chmod +x /opt/nalog-servis/nalog-servis-pull.sh
+bash -n /opt/nalog-servis/nalog-servis-pull.sh && /opt/nalog-servis/nalog-servis-pull.sh
 ```
+
+Таймер подхватит новый скрипт сам, перезапускать systemd не надо. Откат —
+`cp …bak …sh`. Сайт от этой правки не зависит: скрипт только раскладывает
+файлы, сама сборка уже лежит в ветке `deploy/nalog-servis-dist`.
 
 Что изменилось: ассеты прошлой сборки больше не стираются мгновенно
 (`rsync --delete`), а живут ещё трое суток. Причина — у человека с открытой
