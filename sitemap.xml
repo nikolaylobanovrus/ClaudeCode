@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Сайт — SPA на hash-роутере (#/...), поэтому HTTP-адрес всех страниц —
+     это корень. До внедрения пререндера отдельные разделы не являются
+     самостоятельными URL, поэтому в карте только главная. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://налог-сервис.рф/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
