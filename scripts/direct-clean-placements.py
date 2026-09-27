@@ -57,13 +57,25 @@ def oauth():
 
 
 def direct(token, service, method, params):
+    """Обычный вызов API. С повторами на обрыв связи: прокси иногда рвёт
+    соединение на полуслове, и падение здесь отменяет всю дневную чистку —
+    ровно так и вышло 19 и 27.09.2026. Отказ самого API (HTTP-ошибка) —
+    другое дело, его пробрасываем сразу: повторять бессмысленно."""
     body = json.dumps({"method": method, "params": params}, ensure_ascii=False).encode()
     req = urllib.request.Request(
         API + service, data=body,
         headers={"Authorization": "Bearer " + token, "Accept-Language": "ru",
                  "Content-Type": "application/json; charset=utf-8"})
-    with urllib.request.urlopen(req, timeout=90) as r:
-        return json.loads(r.read().decode())
+    last = None
+    for attempt in range(6):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                return json.loads(r.read().decode())
+        except (urllib.error.URLError, OSError) as e:
+            last = e
+            print("   связь оборвалась (%s), повтор…" % str(e)[:60])
+            time.sleep(3 * (attempt + 1))
+    sys.exit("не достучались до API Директа: %s" % last)
 
 
 def placements(token, date_from, date_to):
