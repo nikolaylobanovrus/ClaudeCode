@@ -140,10 +140,15 @@ export async function buildOfficialPdf2025(model) {
     const X = 351.8;
     const s = kind === "sale";
     const income = s ? sale.taxable : calc.totalIncome;
+    // Строка 020 — доходы, не подлежащие налогообложению (итог Приложения 4,
+    // строка 120); 030 = 010 − 020. У дохода от продажи необлагаемой части не
+    // бывает. Пока в 020 стоял жёсткий ноль, у человека с матпомощью в справке
+    // налог считался и с неё.
+    const exempt = s ? 0 : calc.exempt.total;
     pen.left(s ? sale.groupCode : "01", X, 710, 2); // 001 код группы доходов
     pen.money(income, X, 683, 13); // 010 доходы
-    pen.money(0, X, 659, 13); // 020 не облагаемые
-    pen.money(income, X, 630, 13); // 030 облагаемые
+    pen.money(exempt, X, 659, 13); // 020 не облагаемые
+    pen.money(income - exempt, X, 630, 13); // 030 облагаемые
     pen.money(s ? sale.deduction : calc.totalDeduction, X, 602, 13); // 040 вычеты
     pen.money(0, X, 573, 13); // 050 расходы
     pen.money(s ? sale.base : calc.taxBase, X, 548, 13); // 060 налоговая база

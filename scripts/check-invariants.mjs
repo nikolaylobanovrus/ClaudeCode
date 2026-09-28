@@ -98,6 +98,7 @@ function draftFor(year, types, incomeKey, extra = {}) {
       byAgent: "", simplified: "",
     },
     bank: { bik: "047501711", account: "40702810007710002545" },
+    exempt: extra.exempt ?? { matPom: "", pensContrib: "" },
     sales: extra.sales ?? [],
   };
 }
@@ -126,9 +127,12 @@ async function inspect(id, draft) {
   for (const k of ["totalIncome", "totalWithheld", "totalDeduction", "taxBase", "assessed", "refund"])
     check(id, c[k] >= 0, `${k} отрицательное: ${c[k]}`);
 
-  // 3. База = доход минус вычеты, не ниже нуля.
-  check(id, c.taxBase === Math.max(0, c.totalIncome - c.totalDeduction),
-        `база ${c.taxBase} ≠ max(0, ${c.totalIncome} − ${c.totalDeduction})`);
+  // 3. База = ОБЛАГАЕМЫЙ доход минус вычеты, не ниже нуля. Облагаемый — это
+  //    строка 030 Раздела 2, то есть общий доход за вычетом необлагаемого
+  //    (Приложение 4); раньше здесь стоял общий доход, потому что необлагаемое
+  //    всегда было нулём.
+  check(id, c.taxBase === Math.max(0, c.taxableIncome - c.totalDeduction),
+        `база ${c.taxBase} ≠ max(0, ${c.taxableIncome} − ${c.totalDeduction})`);
 
   // 4. Возврат не больше удержанного налога — иначе ФНС вернёт чужие деньги.
   check(id, c.refund <= c.totalWithheld,
@@ -145,9 +149,9 @@ async function inspect(id, draft) {
         `исчислено ${c.assessed} ≠ по шкале ${taxOn(c.taxBase, draft.year, "main")}`);
 
   // 5в. Вычетов не может быть больше дохода — контрольное соотношение
-  //     Раздела 2: строка 040 ≤ строка 030.
-  check(id, c.totalDeduction <= c.totalIncome,
-        `вычетов ${c.totalDeduction} больше дохода ${c.totalIncome}`);
+  //     Раздела 2: строка 040 ≤ строка 030 (именно 030, облагаемый доход).
+  check(id, c.totalDeduction <= c.taxableIncome,
+        `вычетов ${c.totalDeduction} больше облагаемого дохода ${c.taxableIncome}`);
 
   // 6. Социальная группа не выше годового лимита.
   check(id, c.applied.socialGroup <= r.socialGroup,
@@ -186,6 +190,17 @@ async function inspect(id, draft) {
       check(id, rest >= 0, `${what}: остаток на будущее отрицательный (${rest})`);
     }
   }
+
+  // 7в. Доходы, не подлежащие налогообложению (Приложение 4).
+  //     Строки Раздела 2: 030 = 010 − 020, и вычеты применяются уже к 030.
+  //     Если необлагаемое перестанет вычитаться (или вычтется дважды), база
+  //     поедет молча: формально всё положительное, лимиты соблюдены.
+  check(id, c.exempt.total === Math.min(c.exempt.matPom + c.exempt.pensContrib, c.totalIncome),
+        `итог Приложения 4 ${c.exempt.total} ≠ сумме строк 040 и 100`);
+  check(id, c.taxableIncome === Math.max(0, c.totalIncome - c.exempt.total),
+        `облагаемый доход ${c.taxableIncome} ≠ ${c.totalIncome} − ${c.exempt.total}`);
+  check(id, c.exempt.matPom <= 4_000, `матпомощь ${c.exempt.matPom} выше 4 000 ₽`);
+  check(id, c.exempt.pensContrib <= 12_000, `взносы по 56-ФЗ ${c.exempt.pensContrib} выше 12 000 ₽`);
 
   // 8. Стандартный вычет: месяцев не больше 12, заявленное не больше положенного.
   if (c.standard) {
@@ -327,6 +342,18 @@ for (const [label, extra, kind, want] of EXACT) {
   // (XML, печать, перенос на будущее).
   run(`частичный вычет — ${label}`, draft);
 }
+// Необлагаемые доходы (Приложение 4): матпомощь и взносы работодателя по
+// 56-ФЗ входят в общую сумму дохода из справки, но налогом не облагаются.
+// Отдельно — превышение лимита и случай, когда необлагаемого назвали больше,
+// чем всего дохода.
+for (const [label, ex, ik] of [
+  ["в пределах лимитов", { matPom: "4000", pensContrib: "12000" }, "обычный"],
+  ["сверх лимитов", { matPom: "50000", pensContrib: "90000" }, "обычный"],
+  ["больше всего дохода", { matPom: "4000", pensContrib: "12000" }, "ноль удержано"],
+  ["только матпомощь", { matPom: "3000", pensContrib: "" }, "маленький"],
+])
+  run(`необлагаемые доходы — ${label}`,
+      draftFor(2025, ["lechenie", "kvartira"], ik, { exempt: ex }));
 run("пенсионер, старый год", draftFor(2022, ["kvartira"], "обычный", { pensioner: true }));
 run("ИИС с 2024 (219.2)", draftFor(2025, ["iis"], "обычный", { newIis: true }));
 run("уточнённая", draftFor(2025, TYPES, "обычный", { correction: 2 }));

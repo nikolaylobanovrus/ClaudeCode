@@ -251,6 +251,9 @@ export async function buildOfficialPdfLegacy(model) {
     // Возврат: зарплата и вычеты, налог к возврату — строка 160.
     const s = kind === "sale";
     const income = s ? sale.taxable : calc.totalIncome;
+    // Строка 020 — доходы, не подлежащие налогообложению (итог Приложения 4);
+    // 030 = 010 − 020. У дохода от продажи необлагаемой части не бывает.
+    const exempt = s ? 0 : calc.exempt.total;
     const base = s ? sale.base : calc.taxBase;
     pen.left(s ? sale.groupCode : CODES.incomeKind, x, code, 2); // 001
     // 061 — часть базы по ставке абз. 2 п. 1 ст. 224 (13% до 5 млн),
@@ -258,7 +261,7 @@ export async function buildOfficialPdfLegacy(model) {
     // Раньше в 061 уходила ВСЯ база, сколько бы её ни было.
     const split = baseSplit(base, model.year, s ? "sale" : "main");
     const mv = {
-      "010": income, "020": 0, "030": income,
+      "010": income, "020": exempt, "030": income - exempt,
       "040": s ? sale.deduction : calc.totalDeduction, "050": 0, "060": base,
       "061": split.low, "062": split.high, "063": 0,
     };

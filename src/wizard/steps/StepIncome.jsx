@@ -8,6 +8,8 @@ import { ymGoal } from "../../lib/metrika.js";
 export default function StepIncome({ errors }) {
   const { draft, dispatch } = useWizard();
 
+  const setExempt = (patch) => dispatch({ type: "PATCH", section: "exempt", patch });
+
   const totalIncome = draft.incomes.reduce((s, i) => s + (Number(i.income) || 0), 0);
   const totalWithheld = draft.incomes.reduce((s, i) => s + (Number(i.withheld) || 0), 0);
 
@@ -98,6 +100,36 @@ export default function StepIncome({ errors }) {
       <button type="button" className="btn btn--ghost" onClick={() => dispatch({ type: "ADD_INCOME" })}>
         + Добавить работодателя
       </button>
+
+      {/* Приложение 4 — доходы, не подлежащие налогообложению.
+          Блок сознательно не свёрнут в «дополнительно»: человек не знает, что
+          у него есть необлагаемый доход, — он просто переписывает общую сумму
+          из справки, и освобождённая часть молча облагается налогом. Поэтому
+          спрашиваем прямо здесь, рядом с той самой общей суммой. */}
+      <fieldset className="wiz__group" style={{ marginTop: 18 }}>
+        <legend>Необлагаемые суммы из справки</legend>
+        <p className="wiz__note">
+          Заполняйте, только если в разделе 3 справки о доходах есть вычет с
+          кодом 503 или 620. Обычно этих строк нет — тогда пропустите блок.
+        </p>
+        <div className="wiz__row">
+          <Field label="Материальная помощь работодателя, ₽" hint={HINTS.exemptMatPom}>
+            <MoneyInput
+              value={draft.exempt.matPom}
+              onChange={(v) => setExempt({ matPom: v })}
+            />
+          </Field>
+          <Field
+            label="Взносы работодателя на накопительную пенсию, ₽"
+            hint={HINTS.exemptPension}
+          >
+            <MoneyInput
+              value={draft.exempt.pensContrib}
+              onChange={(v) => setExempt({ pensContrib: v })}
+            />
+          </Field>
+        </div>
+      </fieldset>
 
       {totalIncome > 0 && (
         <p className="wiz__note" style={{ marginTop: 12 }}>

@@ -2743,13 +2743,17 @@ h4 {
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.18);
 }
-.wiz__employer {
+/* Рамка вокруг группы полей: блок работодателя и «Необлагаемые суммы»
+   (Приложение 4) выглядят одинаково — это один и тот же приём вёрстки. */
+.wiz__employer,
+.wiz__group {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 6px 18px 10px;
   margin: 0 0 16px;
 }
-.wiz__employer legend {
+.wiz__employer legend,
+.wiz__group legend {
   font-weight: 700;
   padding: 0 6px;
 }
