@@ -56,12 +56,27 @@ create table if not exists public.operators (
 alter table public.operators enable row level security;
 revoke all on table public.operators from anon, authenticated;
 
--- ВАЖНО: впишите сюда свою операторскую учётную запись, иначе после миграции
--- кабинет /operator перестанет что-либо показывать. Адрес — тот, под которым
--- вы входите в кабинет оператора.
+-- Операторская учётная запись. На 28.09.2026 в проекте она ровно одна —
+-- nalog-service@internet.ru (адрес и так открыто указан на сайте, см.
+-- src/data/content.js). Если операторов станет больше, допишите строки.
 insert into public.operators (user_id, email)
-select id, email from auth.users where email = 'ВПИШИТЕ_ПОЧТУ_ОПЕРАТОРА'
+select id, email from auth.users where email = 'nalog-service@internet.ru'
 on conflict (user_id) do nothing;
+
+-- Страховка от самого дорогого исхода: пустой список операторов.
+-- Политики ниже пускают только тех, кто есть в этой таблице. Если seed выше
+-- никого не нашёл (опечатка в адресе, другая учётная запись), то после
+-- миграции кабинет /operator останется без доступа к клиентам, заявкам и
+-- документам, а причина будет выглядеть как «всё сломалось».
+-- Поэтому останавливаемся ДО смены политик: SQL Editor выполняет скрипт одной
+-- транзакцией, и всё откатится.
+do $$
+begin
+  if not exists (select 1 from public.operators) then
+    raise exception
+      'Список операторов пуст: seed никого не нашёл в auth.users. Политики не меняем — иначе кабинет оператора останется без доступа. Проверьте адрес в insert выше.';
+  end if;
+end $$;
 
 -- --- 2. Признак «я оператор» --------------------------------------------------
 -- security definer: сама таблица закрыта, проверку делает функция.
@@ -131,5 +146,21 @@ revoke execute on function public.operator_paid_order() from public, anon;
 grant execute on function public.operator_paid_order() to authenticated;
 
 -- --- 5. Проверка --------------------------------------------------------------
--- Должна вернуть одну строку — вашу операторскую учётную запись.
--- select o.email, o.added_at from public.operators o;
+-- Выполняется сразу: список операторов и политики, которые теперь спрашивают
+-- is_operator(). Если в первом результате пусто — что-то пошло не так (хотя
+-- сюда мы бы и не дошли, см. страховку выше).
+select email, added_at from public.operators;
+
+select tablename, policyname
+from pg_policies
+where schemaname in ('public', 'storage')
+  and qual like '%is_operator%'
+order by tablename, policyname;
+
+-- Что проверить руками после миграции:
+--   1. Войти в /operator — списки клиентов, заявок и заказов должны
+--      открываться как раньше.
+--   2. Открыть карточку клиента с загруженными файлами — файлы должны
+--      скачиваться (политика на storage.objects тоже переписана).
+-- Если что-то из этого перестало работать, сообщите: значит учётная запись,
+-- под которой вы входите, не та, что попала в public.operators.
