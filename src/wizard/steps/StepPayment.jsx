@@ -21,7 +21,7 @@ import {
   fetchOrderStatus,
   isTestPayment,
 } from "../../lib/payments.js";
-import { getOperatorToken } from "../../lib/supabase.js";
+import { hasOperatorSession, clearOperatorSession } from "../../lib/supabase.js";
 import { ymGoal, ymGoalOnce, ymPurchase } from "../../lib/metrika.js";
 
 // Работает ли хранилище прямо сейчас. Приватный режим Safari и запрет
@@ -141,8 +141,21 @@ export default function StepPayment({ onPaid, calc }) {
   // браузере) — документы формируются без оплаты. Заказ создаётся в базе
   // сразу оплаченным (RPC доступна только роли authenticated), поэтому
   // серверная проверка на шаге «Документы» проходит как обычно.
-  const operator = Boolean(getOperatorToken());
+  // Признак держим в состоянии, а не читаем из localStorage на каждый рендер:
+  // человеку нужна возможность выйти из этого режима прямо здесь (кнопка ниже).
+  // Срок сессии проверяется внутри hasOperatorSession — истёкший токен больше
+  // не считается оператором, иначе экран оплаты подменялся навсегда.
+  const [operator, setOperator] = useState(() => hasOperatorSession());
   const [opExpired, setOpExpired] = useState(false);
+
+  // Выход из режима оператора прямо с шага оплаты. Без него человек с чужой
+  // (или своей давней) сессией оператора в этом браузере оказывался в тупике:
+  // кнопки «Оплатить 199 ₽» на экране нет вовсе.
+  const leaveOperator = () => {
+    clearOperatorSession();
+    setOpExpired(false);
+    setOperator(false);
+  };
 
   const startOperator = async () => {
     if (hash === null) return;
@@ -287,6 +300,12 @@ export default function StepPayment({ onPaid, calc }) {
             </div>
           )}
           {error && <div className="form__error">{error}</div>}
+          <p className="card__text" style={{ marginTop: 12 }}>
+            Вы не оператор и попали сюда случайно?{" "}
+            <button type="button" className="link-btn" onClick={leaveOperator}>
+              Выйти из режима оператора и оплатить как обычно
+            </button>
+          </p>
         </div>
       </div>
     );

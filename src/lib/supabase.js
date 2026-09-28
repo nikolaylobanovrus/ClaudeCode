@@ -120,6 +120,29 @@ export function getOperatorToken() {
   return readSession()?.access_token || "";
 }
 
+// Есть ли ДЕЙСТВУЮЩАЯ сессия оператора.
+//
+// Отличается от getOperatorToken() тем, что смотрит на срок. Мастер до этого
+// решал «оператор или нет» по одному наличию строки в localStorage, а токен
+// живёт час — и потом у человека оставался вечный признак оператора. Экран
+// оплаты в этом режиме подменяется на «Сформировать без оплаты», обычной
+// кнопки там нет вовсе: заплатить становится физически нечем.
+//
+// expires_at = 0 — legacy-сессия старого формата, срок неизвестен; считаем её
+// живой, как и раньше, иначе разлогинили бы тех, кто ничего не делал.
+export function hasOperatorSession() {
+  const s = readSession();
+  if (!s?.access_token) return false;
+  return !s.expires_at || s.expires_at > Date.now();
+}
+
+// Завершить сессию оператора. Нужна не только кнопке «Выйти» в кабинете:
+// вход в клиентский личный кабинет — это другая роль, и держать обе сразу
+// незачем (см. setLoggedIn в account.js).
+export function clearOperatorSession() {
+  writeSession(null);
+}
+
 // Момент истечения access_token (мс эпохи); 0 — неизвестно (legacy-сессия).
 export function operatorTokenExpiresAt() {
   return readSession()?.expires_at || 0;

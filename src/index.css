@@ -2761,6 +2761,17 @@ h4 {
   cursor: pointer;
   margin-left: 10px;
 }
+/* Кнопка, выглядящая ссылкой: действие меняет состояние, а не адрес, поэтому
+   это <button> (иначе с клавиатуры и для скринридера получается ложная ссылка). */
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--blue-700);
+  text-decoration: underline;
+  cursor: pointer;
+}
 .wiz__child {
   display: flex;
   align-items: center;

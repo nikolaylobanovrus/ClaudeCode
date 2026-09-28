@@ -2,6 +2,8 @@
 // поэтому аккаунт живёт в браузере пользователя, а бизнес получает
 // регистрационные данные письмом (FormSubmit) с ID клиента в теме.
 
+import { clearOperatorSession } from "./supabase.js";
+
 const KEY = "ns.account.v1";
 
 export function getAccount() {
@@ -58,6 +60,14 @@ export function isLoggedIn() {
 }
 
 export function setLoggedIn(value) {
+  // Клиент и оператор — разные роли, и держать обе сессии сразу нельзя.
+  //
+  // 28.09.2026: человек вошёл обычным клиентом в браузере, где когда-то
+  // открывали кабинет оператора, дошёл до оплаты — и получил экран «Режим
+  // оператора» без кнопки оплаты. Токен оператора лежал в localStorage и
+  // никем не убирался: выход из клиентского кабинета его не трогает, а вход
+  // клиентом — тем более.
+  if (value) clearOperatorSession();
   try {
     localStorage.setItem(SESSION_KEY, value ? "1" : "0");
   } catch {
