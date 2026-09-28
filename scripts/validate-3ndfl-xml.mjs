@@ -127,6 +127,20 @@ const scenarios = [
     minYear: 2024,
     apply: (d) => { d.iis.newAccount = true; },
   },
+  // Вычет, часть которого уже получена за прошлые годы. Строки 100 и 110
+  // Приложения 7 мы печатали на бумаге, а в XML не выгружали — файл и
+  // распечатка расходились, и в файле остаток выглядел ничем не обоснованным.
+  //
+  // Проверяем в обе стороны: ВычНовЗачПред есть во всех схемах, а
+  // ВычПроцЗачПред появился только с 2024 года — за 2022–2023 его писать
+  // нельзя, иначе личный кабинет отвергнет файл по схеме.
+  {
+    tag: "вычет частично получен ранее",
+    patch: { priorDeduction: "800000", priorInterest: "120000" },
+    must: ["ВычНовЗачПред"],
+    mustFrom: { 2024: ["ВычПроцЗачПред"] },
+    mustNotBefore: { 2024: ["ВычПроцЗачПред"] },
+  },
 ];
 
 // Продажа имущества (Приложение 6, налог к уплате): проверяем для лет из
@@ -284,6 +298,29 @@ for (const year of [...YEARS].sort((a, b) => a - b)) {
     if (!checkKbk(bytes, "refund", `${year} (${sc.tag})`)) failed++;
     // Полноту проверяем на базовом сценарии: остальные — его вариации.
     if (sc.tag === "квартира" && !checkContains(bytes, year, `${year} (${sc.tag})`)) failed++;
+    // Точечные требования сценария: что обязано быть в XML и чего в нём быть
+    // не должно. Без этого сценарий мог бы «проходить схему», не задействовав
+    // проверяемый код вовсе.
+    {
+      const text = Buffer.from(bytes).toString("latin1");
+      const want = [
+        ...(sc.must || []),
+        ...Object.entries(sc.mustFrom || {}).flatMap(([y, ns]) => (year >= Number(y) ? ns : [])),
+      ];
+      const unwanted = Object.entries(sc.mustNotBefore || {}).flatMap(([y, ns]) =>
+        year < Number(y) ? ns : []
+      );
+      for (const name of want)
+        if (!text.includes(cp1251(name))) {
+          failed++;
+          console.log(`✗ ${year} (${sc.tag}): в XML нет ${name}`);
+        }
+      for (const name of unwanted)
+        if (text.includes(cp1251(name))) {
+          failed++;
+          console.log(`✗ ${year} (${sc.tag}): в XML есть ${name}, которого нет в схеме этого года`);
+        }
+    }
     try {
       execFileSync("xmllint", ["--noout", "--schema", schema, xmlPath], {
         stdio: ["ignore", "ignore", "pipe"],
