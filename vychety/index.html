@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru"><head>
+    <script>/* Старые адреса с решёткой → чистые URL.
+ *
+ * Встраивается первым тегом в <head> (см. плагин в vite.config.js) и только
+ * в сборку с обычным роутером. Почему именно первым, а не в main.jsx: сразу
+ * за ним в <head> инициализируется Яндекс.Метрика с `url: location.href` —
+ * отработай шим позже, и каждый рекламный визит записался бы со старым
+ * адресом, а отчёт «страницы входа» стал бы бесполезным.
+ *
+ * Зачем вообще: 109 действующих объявлений Директа ведут на адреса вида
+ * «/?utm_source=…#/deklaraciya». Перемодерировать их ради переезда нельзя —
+ * это дни простоя. Плюс закладки людей, ссылки в уже скачанных PDF-инструкциях
+ * и статьи, которые мы будем публиковать. Шим остаётся в коде навсегда.
+ *
+ * Отдельно про склейку параметров: она сделана строками, а НЕ через
+ * URLSearchParams. Тот декодирует «+» как пробел и переэнкодит значения, а у
+ * нас через query ходят ссылка-черновик ?d=<base64 до 2000 символов> и метки
+ * Директа. Порча хотя бы одного символа означает потерянный черновик.
+ */
+(function () {
+  try {
+    var hash = window.location.hash;
+    // Обычные якоря (#faq) не трогаем — только маршруты вида #/путь.
+    if (hash.indexOf("#/") !== 0) return;
+
+    var rest = hash.slice(1); // «/deklaraciya/anketa?a=b» или «/deklaraciya&erid=x»
+
+    // Рекламные площадки дописывают свои параметры после решётки через «&»
+    // (Telega.in: «#/deklaraciya&erid=…»). Для роутера это часть пути, поэтому
+    // разделителем считаем и «?», и «&» — что встретится раньше.
+    var q = rest.indexOf("?");
+    var a = rest.indexOf("&");
+    var cut = q < 0 ? a : a < 0 ? q : Math.min(q, a);
+
+    var path = cut < 0 ? rest : rest.slice(0, cut);
+    var tail = cut < 0 ? "" : rest.slice(cut + 1);
+
+    if (!path || path.charAt(0) !== "/") return;
+
+    var search = window.location.search;
+    if (tail) search = search ? search + "&" + tail : "?" + tail;
+
+    window.history.replaceState(null, "", path + search);
+  } catch (e) {
+    /* Сломанный шим в самом начале <head> — это белый экран на всём сайте.
+       Цена ошибки должна быть «остался старый адрес», и не больше. */
+  }
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#0b5cff">
+
+    <!-- Primary SEO -->
+    <title>Виды налоговых вычетов — за что можно вернуть НДФЛ | Налог-сервис</title>
+    
+    
+    
+    <meta name="robots" content="index, follow, max-image-preview:large">
+
+    <!-- Open Graph -->
+    
+    
+    
+    
+    
+    
+    
+
+    <!-- Twitter -->
+    
+    
+    
+    
+
+    <!-- Structured data: Organization (базовое, для краулеров и ИИ-поиска) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Налог-сервис",
+        "url": "https://налог-сервис.рф/",
+        "logo": "https://налог-сервис.рф/favicon.svg",
+        "description": "Сервис возврата налоговых вычетов (НДФЛ) под ключ: имущественный, за лечение, обучение, ИИС.",
+        "areaServed": "RU",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+7-920-837-91-93",
+          "contactType": "customer service",
+          "availableLanguage": "Russian"
+        }
+      }
+    </script>
+
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+          m[i].l=1*new Date();
+          for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+          k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=110487569', 'ym');
+
+      // Просмотры страниц SPA шлёт ymHit в Layout (hash-роутер);
+      // trackHash не включаем, чтобы хиты не задваивались.
+      ym(110487569, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <!-- /Yandex.Metrika counter (noscript-пиксель — в body: в head он невалиден) -->
+    <script type="module" crossorigin="" src="/assets/index-D6zIprJb.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-piUBJ2u0.css">
+  <link rel="canonical" href="https://налог-сервис.рф/vychety" data-rh="true"><meta name="description" content="Имущественный вычет за квартиру и ипотеку, социальные вычеты за лечение и обучение, вычет по ИИС и страхованию жизни. Узнайте, сколько можно вернуть, и оформите вычет под ключ." data-rh="true"><meta property="og:type" content="website" data-rh="true"><meta property="og:site_name" content="Налог-сервис" data-rh="true"><meta property="og:title" content="Виды налоговых вычетов — за что можно вернуть НДФЛ | Налог-сервис" data-rh="true"><meta property="og:description" content="Имущественный вычет за квартиру и ипотеку, социальные вычеты за лечение и обучение, вычет по ИИС и страхованию жизни. Узнайте, сколько можно вернуть, и оформите вычет под ключ." data-rh="true"><meta property="og:url" content="https://налог-сервис.рф/vychety" data-rh="true"><meta property="og:locale" content="ru_RU" data-rh="true"><meta property="og:image" content="https://налог-сервис.рф/og-image.svg" data-rh="true"><meta name="twitter:card" content="summary_large_image" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"ItemList","itemListElement":[{"@type":"ListItem","position":1,"name":"Купили квартиру или дом","description":"Верните 13% со стоимости купленной недвижимости — до 260 000 ₽ с покупки и дополнительно до 390 000 ₽ по процентам ипотеки."},{"@type":"ListItem","position":2,"name":"Платили за ипотеку","description":"Верните 13% с уплаченных процентов по ипотеке — до 390 000 ₽ за весь срок кредита."},{"@type":"ListItem","position":3,"name":"Платили за лечение","description":"Верните 13% с расходов на лечение и лекарства. По дорогостоящему лечению — без ограничения по сумме."},{"@type":"ListItem","position":4,"name":"Платили за обучение","description":"Верните 13% за оплату своего обучения (до 19 500 ₽ в год) и до 14 300 ₽ за обучение каждого ребёнка (лимит 110 000 ₽ в год с 2024 года)."},{"@type":"ListItem","position":5,"name":"Открыли инвестиционный счёт","description":"Верните 13% с суммы, внесённой на ИИС, — до 52 000 ₽ в год."},{"@type":"ListItem","position":6,"name":"Платили за страхование жизни","description":"Верните 13% со взносов по договорам добровольного страхования жизни сроком от 5 лет."},{"@type":"ListItem","position":7,"name":"Платили за спорт и фитнес","description":"Верните 13% с оплаты фитнес-клуба, бассейна или спортивных секций — своих и детей. Действует с расходов 2022 года."},{"@type":"ListItem","position":8,"name":"Программа долгосрочных сбережений","description":"Верните 13% со взносов по программе долгосрочных сбережений, договору негосударственного пенсионного обеспечения или страхования жизни от 10 лет. Совокупно до 400 000 ₽ взносов в год."},{"@type":"ListItem","position":9,"name":"Есть дети","description":"С 2025 года работодатель обязан давать вычет на детей сам. Если он его не дал или дал не за все месяцы — разницу возвращают по декларации."},{"@type":"ListItem","position":10,"name":"3-НДФЛ для иностранных граждан","description":"Подготовим декларацию 3-НДФЛ для иностранных граждан с учётом всех особенностей налогообложения."},{"@type":"ListItem","position":11,"name":"Продали недвижимость или автомобиль","description":"Правильно рассчитаем налог и уменьшим его законными способами при продаже квартиры, дома или автомобиля."}]}</script></head>
+  <body>
+    <noscript><div><img src="https://mc.yandex.ru/watch/110487569" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- Пиксель VK Рекламы: JS-часть подключается из src/lib/vkpixel.js -->
+    <noscript><div><img src="https://top-fwz1.mail.ru/counter?id=3783010;js=na" style="position:absolute; left:-9999px;" alt="Top.Mail.Ru" /></div></noscript>
+    <div id="root"><div class="site"><header class="navbar"><div class="navbar__inner container"><a class="navbar__brand" href="/pod-klyuch"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r0-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r0-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r0-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg><span>Налог<span class="navbar__brand-accent">-сервис</span></span></a><a href="tel:+79208379193" class="navbar__phone-top" aria-label="Позвонить: +7 (920) 837-91-93"><span class="navbar__phone-top-ico" aria-hidden="true">📞</span><span class="navbar__phone-top-txt"><span class="navbar__phone-label">Помощь</span><span class="navbar__phone-top-num">+7 (920) 837-91-93</span></span></a><button class="navbar__toggle" aria-label="Меню" aria-expanded="false"><span></span><span></span><span></span></button><nav class="navbar__nav"><a aria-current="page" class="navbar__link is-active" href="/vychety">Виды вычетов</a><a class="navbar__link" href="/kak-rabotaem">Как работаем</a><a class="navbar__link" href="/tarify">Тарифы</a><a class="navbar__link" href="/kontakty">Контакты</a><a class="navbar__link" href="/vhod">Кабинет</a><span class="navbar__phone"><span class="navbar__phone-label">Помощь</span> <a href="tel:+79208379193">+7 (920) 837-91-93</a></span><a class="btn btn--primary navbar__cta" href="/kontakty">Оставить заявку</a></nav></div></header><main class="site__main"><section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="Хлебные крошки"><a href="/pod-klyuch">Главная</a><span>/ Виды вычетов</span></nav><span class="eyebrow hero__eyebrow">Виды вычетов</span><h1 class="page-hero__title">За что можно вернуть налог</h1><p class="page-hero__subtitle">Государство возвращает 13% НДФЛ с ваших расходов. Мы подготовим декларацию 3-НДФЛ по любой из ситуаций.</p></div></section><section class="section"><div class="container"><div class="deduction-grid"><article class="deduction"><div class="deduction__icon" aria-hidden="true">🏠</div><h2 class="deduction__title">Купили квартиру или дом</h2><p class="deduction__text">Верните 13% со стоимости купленной недвижимости — до 260 000 ₽ с покупки и дополнительно до 390 000 ₽ по процентам ипотеки.</p><span class="deduction__limit">Вернём до 260 000 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">🏦</div><h2 class="deduction__title">Платили за ипотеку</h2><p class="deduction__text">Верните 13% с уплаченных процентов по ипотеке — до 390 000 ₽ за весь срок кредита.</p><span class="deduction__limit">Вернём до 390 000 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">⚕️</div><h2 class="deduction__title">Платили за лечение</h2><p class="deduction__text">Верните 13% с расходов на лечение и лекарства. По дорогостоящему лечению — без ограничения по сумме.</p><span class="deduction__limit">Вернём до 19 500 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">🎓</div><h2 class="deduction__title">Платили за обучение</h2><p class="deduction__text">Верните 13% за оплату своего обучения (до 19 500 ₽ в год) и до 14 300 ₽ за обучение каждого ребёнка (лимит 110 000 ₽ в год с 2024 года).</p><span class="deduction__limit">Вернём до 19 500 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">📈</div><h2 class="deduction__title">Открыли инвестиционный счёт</h2><p class="deduction__text">Верните 13% с суммы, внесённой на ИИС, — до 52 000 ₽ в год.</p><span class="deduction__limit">Вернём до 52 000 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">🛡️</div><h2 class="deduction__title">Платили за страхование жизни</h2><p class="deduction__text">Верните 13% со взносов по договорам добровольного страхования жизни сроком от 5 лет.</p><span class="deduction__limit">Вернём до 19 500 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">⚽</div><h2 class="deduction__title">Платили за спорт и фитнес</h2><p class="deduction__text">Верните 13% с оплаты фитнес-клуба, бассейна или спортивных секций — своих и детей. Действует с расходов 2022 года.</p><span class="deduction__limit">Вернём до 19 500 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">🏦</div><h2 class="deduction__title">Программа долгосрочных сбережений</h2><p class="deduction__text">Верните 13% со взносов по программе долгосрочных сбережений, договору негосударственного пенсионного обеспечения или страхования жизни от 10 лет. Совокупно до 400 000 ₽ взносов в год.</p><span class="deduction__limit">Вернём до 52 000 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">👶</div><h2 class="deduction__title">Есть дети</h2><p class="deduction__text">С 2025 года работодатель обязан давать вычет на детей сам. Если он его не дал или дал не за все месяцы — разницу возвращают по декларации.</p><span class="deduction__limit">Вернём до 5 400 ₽</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">🌍</div><h2 class="deduction__title">3-НДФЛ для иностранных граждан</h2><p class="deduction__text">Подготовим декларацию 3-НДФЛ для иностранных граждан с учётом всех особенностей налогообложения.</p><span class="deduction__limit">Вернём по ситуации</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article><article class="deduction"><div class="deduction__icon" aria-hidden="true">🚗</div><h2 class="deduction__title">Продали недвижимость или автомобиль</h2><p class="deduction__text">Правильно рассчитаем налог и уменьшим его законными способами при продаже квартиры, дома или автомобиля.</p><span class="deduction__limit">Вернём по ситуации</span><a class="deduction__link" href="/kontakty">Оформить вычет →</a></article></div></div></section><section class="cta"><div class="cta__inner container"><h2 class="cta__title">Не нашли свою ситуацию?</h2><p class="cta__text">Задайте вопрос эксперту — бесплатно проконсультируем и подскажем, на какой вычет вы имеете право.</p><div class="cta__actions"><a class="btn btn--green btn--lg" href="/registraciya">Сформировать декларацию онлайн</a><a class="btn btn--light btn--lg" href="/kontakty">Получить консультацию</a></div></div></section></main><footer class="footer"><div class="container"><div class="footer__grid"><div><a class="footer__brand" href="/pod-klyuch"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r1-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r1-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r1-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg>Налог-сервис</a><p class="footer__tagline">Онлайн-сервис профессиональной помощи по заполнению декларации 3-НДФЛ и оформлению налогового вычета.</p></div><nav class="footer__col"><h4 class="footer__title">Разделы</h4><a href="/vychety">Виды вычетов</a><a href="/kak-rabotaem">Как работаем</a><a href="/tarify">Тарифы</a><a href="/kontakty">Контакты</a></nav><nav class="footer__col"><h4 class="footer__title">Документы</h4><a href="/politika-konfidencialnosti">Политика конфиденциальности</a><a href="/publichnaya-oferta">Публичная оферта</a></nav><div class="footer__col"><h4 class="footer__title">Контакты</h4><a href="tel:+79208379193">+7 (920) 837-91-93</a><a href="mailto:NALOG-SERVICE@INTERNET.RU">nalog-service@internet.ru</a><div class="messengers" style="margin-top: 8px;"><a class="messenger messenger--tg" href="https://t.me/+79208379193" target="_blank" rel="noreferrer">Telegram</a><a class="messenger messenger--max" href="https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA" target="_blank" rel="noreferrer">Max</a></div></div></div></div><div class="footer__disclaimer"><div class="container">ООО «Информкарт» · ИНН 7420010847 · ОГРН 1067420016168 · 456404, Челябинская обл., Чебаркульский р-он, п. Тимирязевский, ул. Чайковского, д. 11. Услуги оказываются на основании <a href="/publichnaya-oferta" style="text-decoration: underline;">Публичной оферты</a>. Сайт носит информационный характер и не является публичной офертой в части индивидуальных условий.</div></div><div class="footer__bottom container"><span>© 2026 Налог-сервис. Все права защищены.</span><span>Возврат налоговых вычетов НДФЛ по всей России<span style="opacity: 0.45; margin-left: 10px; font-size: 11px;">сборка 2026-09-28 15:42 UTC</span></span></div></footer><div class="cookie" role="dialog" aria-label="Использование файлов cookie"><p>ООО «Информкарт» использует файлы cookie для персонализации сервисов и удобства пользования сайтом. Подробнее — в <a href="/politika-konfidencialnosti">Политике конфиденциальности</a>.</p><button class="btn btn--primary">Принять</button></div><div class="chatw"><button type="button" class="chatw__fab" aria-label="Открыть чат помощи" aria-expanded="false">💬</button></div><div class="mobile-cta"><a href="tel:+79208379193" class="btn btn--ghost">Позвонить</a><a class="btn btn--primary" href="/kontakty">Заявка</a></div></div></div>
+    <noscript>
+      Для работы сайта включите JavaScript. Налог-сервис — возврат налоговых
+      вычетов НДФЛ под ключ. Телефон: +7 (920) 837-91-93.
+    </noscript>
+  
+
+</body></html>
