@@ -20,7 +20,7 @@
 // пререндера здесь — краулер и первая отрисовка, а не серверный рендеринг.
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ROUTES, routeFile } from "../src/data/routes.js";
+import { ROUTES, REDIRECTS, routeFile } from "../src/data/routes.js";
 import { serveDist, launchChromium, blockExternals } from "./_serve-dist.mjs";
 
 const DIST = new URL("../dist/", import.meta.url).pathname;
@@ -129,6 +129,27 @@ for (const route of ROUTES) {
 
   rendered.push([routeFile(route.path), html]);
   console.log(`   ✓ ${route.path.padEnd(44)} ${(html.length / 1024).toFixed(0)} КБ`);
+}
+
+// Старые адреса, которые приложение само уводит на другую страницу
+// (REDIRECTS в routes.js). Страницы как таковой нет — пререндерить нечего, но
+// ФАЙЛ на диске нужен.
+//
+// Повод: 28.09.2026, первая же выкладка чистых URL. Адрес /deklaraciya отдавал
+// 403 Forbidden. Каталог dist/deklaraciya/ существует (в нём лежат anketa,
+// instrukciya и калькулятор), index.html в нём не было, автолистинг у nginx
+// выключен — отсюда и «Forbidden» вместо сайта.
+//
+// Кладём оболочку приложения: она загрузится, роутер увидит /deklaraciya и
+// уведёт на «/», сохранив метки (см. RedirectHome в App.jsx). Индексации
+// такая страница не подлежит, а canonical показывает поисковику настоящий
+// адрес — на случай, если он всё же дойдёт сюда раньше редиректа.
+for (const [from, to] of REDIRECTS) {
+  const html = shell
+    .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex, follow" />')
+    .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${SITE}${to}" />`);
+  rendered.push([routeFile(from), html]);
+  console.log(`   · ${from.padEnd(44)} редирект на ${to}, кладём оболочку`);
 }
 
 // Отдельно — тело для error_page: то, что nginx отдаст на несуществующий путь.

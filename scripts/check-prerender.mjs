@@ -12,7 +12,7 @@
 // Поэтому проверяем по файлам, а не по логу предыдущего шага.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { ROUTES, routeFile } from "../src/data/routes.js";
+import { ROUTES, REDIRECTS, routeFile } from "../src/data/routes.js";
 
 const DIST = new URL("../dist/", import.meta.url).pathname;
 const SITE = "https://налог-сервис.рф";
@@ -83,6 +83,22 @@ for (const route of ROUTES) {
     problems.push(`${route.path} — в HTML попал адрес стенда 127.0.0.1`);
   const metrika = one(html, /mc\.yandex\.ru\/metrika/g);
   if (metrika > 1) problems.push(`${route.path} — счётчик Метрики продублирован (${metrika} раз)`);
+}
+
+// Адреса-редиректы: файл обязан существовать и быть закрыт от индексации.
+// Без файла nginx отдаёт 403 на каталог без index.html — так 28.09.2026 лёг
+// адрес /deklaraciya на боевом сайте.
+for (const [from, to] of REDIRECTS) {
+  const file = routeFile(from);
+  try {
+    const html = await readFile(join(DIST, file), "utf8");
+    if (!/<meta[^>]+name="robots"[^>]+content="[^"]*noindex/.test(html))
+      problems.push(`${from} — редирект, но без noindex`);
+    if (!html.includes(`href="${SITE}${to}"`))
+      problems.push(`${from} — canonical не указывает на ${to}`);
+  } catch {
+    problems.push(`${from} — нет файла dist/${file}: nginx отдаст 403 на каталог без index.html`);
+  }
 }
 
 // 404 — тело для error_page в nginx.

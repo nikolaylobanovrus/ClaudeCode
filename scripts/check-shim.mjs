@@ -47,6 +47,11 @@ const CASES = [
   ["хвост через & (Telega.in)", "/#/deklaraciya&erid=abc123", "/?erid=abc123"],
   ["калькулятор из объявления", "/#/deklaraciya/kalkulyator-naloga-s-prodazhi",
     "/deklaraciya/kalkulyator-naloga-s-prodazhi"],
+  // Не про шим, но проверяется тем же стендом: у /deklaraciya нет своей
+  // страницы, приложение уводит его на «/». На диске под этим адресом обязан
+  // лежать файл — иначе nginx видит каталог deklaraciya/ без index.html и
+  // отдаёт 403 Forbidden (так и случилось на боевом 28.09.2026).
+  ["чистый /deklaraciya", "/deklaraciya?utm_source=yandex", "/?utm_source=yandex"],
   ["чистый адрес не трогаем", "/deklaraciya/instrukciya", "/deklaraciya/instrukciya"],
   ["чистый адрес с метками", "/deklaraciya/anketa?utm_source=x", "/deklaraciya/anketa?utm_source=x"],
 ];
