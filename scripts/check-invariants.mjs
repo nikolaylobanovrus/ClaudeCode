@@ -73,7 +73,9 @@ function draftFor(year, types, incomeKey, extra = {}) {
                 buildMethod: "bought", address: "г. Челябинск, ул. Ленина, 1",
                 cadastral: "74:36:0000000:1", cost: extra.cost ?? "2500000",
                 dateReg: `${year}-03-15`, dateAct: "",
-                priorDeduction: extra.prior ?? "", interestPaid: "250000", priorInterest: "" },
+                priorDeduction: extra.prior ?? "",
+                interestPaid: extra.interest ?? "250000",
+                priorInterest: extra.priorInt ?? "" },
     standard: {
       children: Array.from({ length: kids }, (_, i) => ({
         order: String(Math.min(3, i + 1)), disabled: extra.disabled && i === 0,
@@ -154,6 +156,36 @@ async function inspect(id, draft) {
   // 7. Имущественные лимиты.
   check(id, c.applied.property <= 2_000_000, `имущественный ${c.applied.property} выше 2 млн`);
   check(id, c.applied.interest <= 3_000_000, `проценты ${c.applied.interest} выше 3 млн`);
+
+  // 7б. Имущественный вычет нельзя получить дважды с одних и тех же денег.
+  //
+  //     Оба поля анкеты накопительные: «стоимость жилья» и «уплаченные
+  //     проценты» — за всё время, «получено ранее» — тоже за всё время.
+  //     Значит заявленное за этот год + перенесённое на будущее +
+  //     использованное ранее не может превысить ни саму потраченную сумму,
+  //     ни лимит.
+  //
+  //     Проверка появилась после боевого случая: проценты 2 028 629,82 ₽, из
+  //     них 1 520 908,73 ₽ уже получены, а декларация просила ещё
+  //     1 479 091,27 ₽ — в сумме 3 млн, то есть на миллион больше, чем человек
+  //     вообще заплатил банку. Лимитные проверки выше это пропускали: каждая
+  //     часть по отдельности в лимит укладывалась.
+  {
+    const nm = (v) => { const x = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(x) ? x : 0; };
+    const pr = draft.property || {};
+    const pairs = [
+      ["имущественный", c.applied.property, c.carryover.property, nm(pr.priorDeduction), nm(pr.cost), 2_000_000],
+      ["проценты", c.applied.interest, c.carryover.interest, nm(pr.priorInterest), nm(pr.interestPaid), 3_000_000],
+    ];
+    for (const [what, applied, rest, prior, total, limit] of pairs) {
+      const claimed = applied + rest + prior;
+      check(id, claimed <= limit + 1,
+            `${what}: заявлено ${applied} + остаток ${rest} + получено ранее ${prior} = ${claimed} — выше лимита ${limit}`);
+      check(id, claimed <= Math.max(total, prior) + 1,
+            `${what}: заявлено ${applied} + остаток ${rest} + получено ранее ${prior} = ${claimed} — больше фактически потраченных ${total}`);
+      check(id, rest >= 0, `${what}: остаток на будущее отрицательный (${rest})`);
+    }
+  }
 
   // 8. Стандартный вычет: месяцев не больше 12, заявленное не больше положенного.
   if (c.standard) {
@@ -265,6 +297,36 @@ run("обучение двух детей по 150k", draftFor(2025, ["obuchenie
 run("сбережения сверх 400k", draftFor(2025, ["sberezheniya"], "обычный", { bigSavings: true }));
 run("жильё дороже лимита", draftFor(2025, ["kvartira", "ipoteka"], "обычный", { cost: "9000000" }));
 run("вычет уже использован", draftFor(2025, ["kvartira"], "обычный", { prior: "2000000" }));
+
+// 5б. Частично полученный вычет: остаток считается от САМОЙ потраченной суммы,
+//     а не от лимита. Здесь проверяются не инварианты, а точные числа — это
+//     ровно тот расчёт, который человек сверяет с налоговой построчно.
+//
+//     Первая строка — цифры клиента от 28.09.2026 (проценты и полученное
+//     ранее — его, доход наш): остаток должен быть 507 721,09 ₽, а выходило
+//     1 479 091,27 ₽, потому что полученное ранее вычиталось только из лимита.
+//     Доход берём заведомо большой, чтобы упереться в сам вычет, а не в доход.
+const EXACT = [
+  ["ипотека: получено 1 520 908,73 из 2 028 629,82", { interest: "2028629.82", priorInt: "1520908.73" }, "interest", 507_721.09],
+  ["ипотека: получено больше, чем уплачено", { interest: "1000000", priorInt: "1200000" }, "interest", 0],
+  ["ипотека: проценты 4 млн, получен 1 млн", { interest: "4000000", priorInt: "1000000" }, "interest", 2_000_000],
+  ["ипотека: ничего не получено, проценты выше лимита", { interest: "4000000" }, "interest", 3_000_000],
+  ["квартира: 1,5 млн, получен 1 млн", { cost: "1500000", prior: "1000000" }, "property", 500_000],
+  ["квартира: 9 млн, получено 1,2 млн", { cost: "9000000", prior: "1200000" }, "property", 800_000],
+  ["квартира: лимит выбран полностью", { cost: "9000000", prior: "2000000" }, "property", 0],
+];
+for (const [label, extra, kind, want] of EXACT) {
+  const id = `#точный ${label}`;
+  const draft = draftFor(2025, ["kvartira", "ipoteka"], "высокий (прогрессия)", extra);
+  const c = computeDeclaration(draft);
+  const got = Math.round((c.applied[kind] + c.carryover[kind]) * 100) / 100;
+  check(id, Math.abs(got - want) < 0.01, `остаток вычета ${got} ≠ ${want}`);
+  n++;
+  // Те же анкеты прогоняем и через общие инварианты: точное число проверяет
+  // одну цифру, а инвариант 7б — что она согласована с остальной декларацией
+  // (XML, печать, перенос на будущее).
+  run(`частичный вычет — ${label}`, draft);
+}
 run("пенсионер, старый год", draftFor(2022, ["kvartira"], "обычный", { pensioner: true }));
 run("ИИС с 2024 (219.2)", draftFor(2025, ["iis"], "обычный", { newIis: true }));
 run("уточнённая", draftFor(2025, TYPES, "обычный", { correction: 2 }));

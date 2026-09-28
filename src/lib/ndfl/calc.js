@@ -322,24 +322,36 @@ export function computeDeclaration(draft) {
     );
   }
 
+  // Имущественный вычет: сколько ЕЩЁ можно заявить.
+  //
+  // Оба поля анкеты — накопительные: «Стоимость жилья» и «Проценты,
+  // уплаченные банку» человек берёт из договора и справки банка за всё время,
+  // а рядом указывает, сколько вычета уже получил за прошлые годы. Значит
+  // использованное надо вычесть из САМОЙ суммы, а не только из лимита.
+  //
+  // Раньше здесь стояло min(уплачено, лимит − использовано) — и вычитание
+  // применялось лишь к лимиту. У человека с процентами 2 028 629,82 ₽, из
+  // которых 1 520 908,73 ₽ уже получены, остаток равен 507 721,09 ₽, а
+  // считалось 1 479 091,27 ₽ — почти втрое больше положенного. Декларация с такой
+  // суммой не прошла бы камеральную проверку: у налоговой свой учёт
+  // использованного вычета.
+  const claimRest = (total, used, limit) =>
+    Math.max(0, Math.min(num(total), limit) - num(used));
+
   const propertyEligible = has("kvartira")
-    ? Math.min(
-        num(draft.property?.cost),
-        Math.max(0, LIMITS.property - num(draft.property?.priorDeduction))
-      )
+    ? claimRest(draft.property?.cost, draft.property?.priorDeduction, LIMITS.property)
     : 0;
   const interestEligible = has("ipoteka")
-    ? Math.min(
-        num(draft.property?.interestPaid),
-        Math.max(0, LIMITS.interest - num(draft.property?.priorInterest))
-      )
+    ? claimRest(draft.property?.interestPaid, draft.property?.priorInterest, LIMITS.interest)
     : 0;
   // Лимит 3 млн по процентам ввёл ФЗ от 23.07.2013 № 212-ФЗ и только для
   // кредитов, взятых С 2014 года. По более старой ипотеке проценты
   // принимаются полностью, без потолка. Дату кредита анкета не спрашивает,
   // поэтому режем по лимиту, но говорим человеку — иначе он молча потеряет
   // вычет, на который имеет право.
-  if (has("ipoteka") && num(draft.property?.interestPaid) > interestEligible) {
+  // Сравниваем с ЛИМИТОМ, а не с остатком: иначе предупреждение о потолке
+  // в 3 млн срабатывало бы у каждого, кто просто получал вычет раньше.
+  if (has("ipoteka") && num(draft.property?.interestPaid) > LIMITS.interest) {
     warnings.push(
       `Проценты по ипотеке учтены в пределах ${fmtRub(LIMITS.interest)} — это лимит для кредитов, ` +
         "взятых с 2014 года. Если ваш кредит оформлен раньше, лимита нет и вычет положен со всей " +

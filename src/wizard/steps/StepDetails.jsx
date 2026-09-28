@@ -153,7 +153,8 @@ export default function StepDetails({ errors, calc }) {
                   error={errors["property.interestPaid"]}
                   onChange={(v) => setP({ interestPaid: v })} />
               </Field>
-              <Field label="Вычет по процентам, использованный ранее, ₽">
+              <Field label="Вычет по процентам, использованный ранее, ₽"
+                hint={HINTS.priorInterest}>
                 <MoneyInput value={draft.property.priorInterest}
                   onChange={(v) => setP({ priorInterest: v })} />
               </Field>
