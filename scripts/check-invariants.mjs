@@ -224,6 +224,17 @@ async function inspect(id, draft) {
     check(id, c.sale.deduction <= c.sale.taxable + 1,
           `вычет с продажи ${c.sale.deduction} больше дохода ${c.sale.taxable}`);
   }
+  // 10б. Нет листа — обязано быть предупреждение, и наоборот. Иначе человек
+  //      либо унесёт в инспекцию неполный комплект молча, либо получит
+  //      предупреждение о том, чего на самом деле не случилось.
+  {
+    const said = (c.warnings || []).some((w) => w.includes("Приложение 4"));
+    const need = c.exempt.total > 0 && Number(draft.year) <= 2024;
+    check(id, said === need,
+          need ? "нет листа Приложения 4 за старый год, но предупреждения нет"
+               : "предупреждение про Приложение 4 там, где лист есть");
+  }
+
   // 11. Предупреждения — без ПДн и не пустые строки.
   for (const w of c.warnings || []) {
     check(id, typeof w === "string" && w.trim().length > 0, "пустое предупреждение");
@@ -259,6 +270,11 @@ async function inspect(id, draft) {
     // Приложение 5 обязано физически присутствовать, когда на нём есть данные.
     if (model.needsApp5)
       check(id, pages >= 6, `needsApp5, но страниц ${pages} — Приложения 5 в PDF нет`);
+    // То же для Приложения 4. Лист есть только в бланке 2025 года; за
+    // 2022–2024 его в ассете нет, и расчёт вместо листа выдаёт предупреждение
+    // (проверяется ниже) — поэтому условие по году.
+    if (model.needsApp4 && Number(draft.year) >= 2025)
+      check(id, pages >= 6, `needsApp4, но страниц ${pages} — Приложения 4 в PDF нет`);
   } catch (e) {
     problems.push(`${id}: PDF УПАЛ — ${e.message}`);
   }
@@ -354,6 +370,11 @@ for (const [label, ex, ik] of [
 ])
   run(`необлагаемые доходы — ${label}`,
       draftFor(2025, ["lechenie", "kvartira"], ik, { exempt: ex }));
+// За 2022–2024 листа Приложения 4 в бланке нет — там обязано быть
+// предупреждение вместо листа.
+for (const year of [2022, 2023, 2024])
+  run(`необлагаемые доходы ${year} (листа в бланке нет)`,
+      draftFor(year, ["lechenie"], "обычный", { exempt: { matPom: "4000", pensContrib: "12000" } }));
 run("пенсионер, старый год", draftFor(2022, ["kvartira"], "обычный", { pensioner: true }));
 run("ИИС с 2024 (219.2)", draftFor(2025, ["iis"], "обычный", { newIis: true }));
 run("уточнённая", draftFor(2025, TYPES, "обычный", { correction: 2 }));

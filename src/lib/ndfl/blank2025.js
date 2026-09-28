@@ -8,7 +8,7 @@ import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-2025.pdf (порядок задан при нарезке бланка).
 // app6 — лист Приложения 6 (доходы от продажи), добавлен восьмой страницей.
-const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9, raschet5: 10 };
+const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9, raschet5: 10, app4: 11 };
 
 export async function buildOfficialPdf2025(model) {
   const { person, calc } = model;
@@ -38,6 +38,8 @@ export async function buildOfficialPdf2025(model) {
   if (sale)
     for (const part of chunk(sale.items, 3))
       sheets.push({ tpl: PG.app1, fill: (pen) => fillApp1Sale(pen, part) });
+  // Приложение 4 по форме идёт перед Приложением 5 — так и в комплекте.
+  if (refundSide && model.needsApp4) sheets.push({ tpl: PG.app4, fill: fillApp4 });
   // Лист нужен не только под социальные вычеты: на нём же стандартный
   // вычет на детей (раздел 1) и долгосрочные сбережения (раздел 6).
   if (model.needsApp5) {
@@ -353,6 +355,23 @@ export async function buildOfficialPdf2025(model) {
       pen.money(iisAmount, 14.4, 45.4, 12); // 150 внесено на ИИС
       pen.left("0", 269.2, 45.4, 1); // 160
     }
+  }
+
+  // --- Приложение 4: доходы, не подлежащие налогообложению ----------------------
+  // Лист добавлен в ассет 28.09.2026 (страница 9 машиночитаемого шаблона ФНС,
+  // штрихкод 0332 3090). Из тринадцати его строк анкета собирает две; остальные
+  // виды необлагаемых доходов (подарки, призы, выигрыши, матпомощь при рождении
+  // ребёнка) мы не спрашиваем и не печатаем.
+  //
+  // Координаты сняты с векторного PDF формы по точкам-разделителям «руб . коп»
+  // и сверены отрисовкой. Слева от точки восемь знакомест под рубли — как на
+  // остальных денежных строках формы.
+  function fillApp4(pen) {
+    const X = 422.1;
+    const e = calc.exempt;
+    if (e.matPom > 0) pen.money(e.matPom, X, 579.9, 8); // 040 матпомощь работодателя
+    if (e.pensContrib > 0) pen.money(e.pensContrib, X, 273.6, 8); // 100 взносы по 56-ФЗ
+    pen.money(e.total, X, 138.5, 8); // 120 общая сумма
   }
 
   // --- Приложение 7: имущественный вычет ---------------------------------------
