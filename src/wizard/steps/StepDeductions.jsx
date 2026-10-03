@@ -1,6 +1,6 @@
 // Шаг 1: отчётный год и виды вычетов. Несколько вычетов объединяются
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
-import { useWizard } from "../WizardContext.jsx";
+import { useWizard, clearDraft } from "../WizardContext.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
 import { wizardDeductions, HINTS, SALE_SLUGS, modeOf, saleKindOf } from "../../data/wizard.js";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../../lib/ndfl/refs.js";
 import { Hint } from "../fields.jsx";
 import { ymGoal } from "../../lib/metrika.js";
+import { hasOperatorSession } from "../../lib/supabase.js";
 
 // Подпись о сроке возврата под выбором года: возврат возможен за три
 // последних года, за более старые налоговая откажет. Для пенсионера с
@@ -41,6 +42,34 @@ function yearNote(year, pensionerTransfer) {
 
 export default function StepDeductions({ errors }) {
   const { draft, dispatch } = useWizard();
+
+  // Кнопка оператора «Очистить анкету».
+  //
+  // Оператор заполняет декларации разным людям подряд в одном браузере, а
+  // черновик живёт в localStorage и переезжает на следующего клиента. Чистить
+  // поля руками — работа, в которой легко что-нибудь пропустить, и цена
+  // пропуска высокая: чужие ФИО, ИНН, паспорт или счёт в готовой декларации.
+  //
+  // Клиенту такая кнопка не нужна и опасна (сотрёт собственную анкету, в том
+  // числе оплаченную), поэтому показывается только при живой сессии оператора.
+  const operator = hasOperatorSession();
+  const wipe = () => {
+    const ok = window.confirm(
+      "Очистить анкету полностью?\n\n" +
+        "Сотрутся все поля: год, вычеты, доходы, расходы, личные данные, " +
+        "паспорт и счёт — а также список оплаченных комплектов в этом браузере.\n\n" +
+        "Отменить это будет нельзя."
+    );
+    if (!ok) return;
+    // Порядок важен: сначала хранилище, потом состояние. Иначе первое же
+    // автосохранение подмешает обратно purchases и неподтверждённый заказ
+    // из localStorage (см. mergeStored в src/lib/draftStore.js).
+    clearDraft();
+    dispatch({ type: "RESET_ALL" });
+    ymGoal("operator_wipe");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const mode = modeOf(draft);
   const saleActive = mode === "sale";
   const mixed = mode === "mixed";
@@ -127,6 +156,18 @@ export default function StepDeductions({ errors }) {
 
   return (
     <div>
+      {operator && (
+        <div className="doc-note doc-note--ok" style={{ marginBottom: 14 }}>
+          <strong>Режим оператора.</strong> Перед новым клиентом очистите анкету —
+          иначе в неё попадут данные предыдущего.
+          <div className="doc-actions" style={{ marginTop: 10 }}>
+            <button type="button" className="btn btn--ghost" onClick={wipe}>
+              Очистить анкету полностью
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="form__field">
         <label className="wiz__q">
           {saleActive ? "За какой год декларируем продажу" : "За какой год возвращаем налог"}

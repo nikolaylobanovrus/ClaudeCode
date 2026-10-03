@@ -18,7 +18,8 @@
     "check:wizard": "VITE_SB_URL=http://127.0.0.1:9 vite build && node scripts/check-wizard.mjs",
     "check:invariants": "node --loader ./scripts/_url-loader.mjs scripts/check-invariants.mjs",
     "check:consistency": "node --loader ./scripts/_url-loader.mjs scripts/check-consistency.mjs",
-    "check:purchase": "node scripts/check-purchase.mjs"
+    "check:purchase": "node scripts/check-purchase.mjs",
+    "check:wipe": "vite build && node scripts/check-operator-wipe.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

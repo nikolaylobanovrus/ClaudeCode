@@ -143,5 +143,56 @@ if (DRAFT_KEY !== "ns.decl.draft.v1") { failures++; console.log("✗ ключ ч
   }
 }
 
+// --- Очистка анкеты оператором: из хранилища ничего не возвращается --------
+//
+// Оператор заводит анкеты разных людей в одном браузере, и кнопка «Очистить
+// анкету» обязана не оставить ничего. Тонкость здесь одна и неочевидная:
+// обнулить состояние мало. Автосохранение пишет черновик через mergeStored,
+// а тот сознательно достаёт из хранилища purchases и неподтверждённый заказ —
+// защита клиента от потери оплаченного. После очистки она сработала бы против
+// нас и вернула чужое. Поэтому хранилище надо стирать ОТДЕЛЬНО (clearDraft),
+// и проверяем мы именно это.
+{
+  const mkStorage = () => {
+    const data = {};
+    return {
+      getItem: (k) => (k in data ? data[k] : null),
+      setItem: (k, v) => { data[k] = String(v); },
+      removeItem: (k) => { delete data[k]; },
+    };
+  };
+  const prev = {
+    ...paidDraft,
+    purchases: [purchase],
+    order: { id: "order-waiting-1", status: "waiting" },
+  };
+  // Пустая анкета — то, что отдаёт RESET_ALL (важны только эти два поля:
+  // остальное mergeStored не трогает).
+  const empty = { purchases: [], order: null };
+
+  const say = (label, ok) => {
+    if (!ok) failures++;
+    console.log(`${ok ? "✓" : "✗"} ${label}`);
+  };
+
+  // 1. Хранилище не стёрли — чужое возвращается. Это и есть та ошибка,
+  //    от которой защищает порядок «сначала clearDraft, потом dispatch».
+  const storage = mkStorage();
+  storage.setItem(DRAFT_KEY, JSON.stringify(prev));
+  const leaked = mergeStored({ ...empty }, storage);
+  say(
+    "без очистки хранилища чужое возвращается (так и должно быть видно)",
+    leaked.purchases.length > 0 && leaked.order?.status === "waiting"
+  );
+
+  // 2. Стёрли — не возвращается ничего.
+  storage.removeItem(DRAFT_KEY);
+  const wiped = mergeStored({ ...empty }, storage);
+  say(
+    "после очистки хранилища не возвращается ни покупка, ни заказ",
+    wiped.purchases.length === 0 && !wiped.order
+  );
+}
+
 console.log(failures ? `\nПРОВАЛОВ: ${failures}` : "\nДоступ к оплаченному ведёт себя правильно.");
 process.exit(failures ? 1 : 0);

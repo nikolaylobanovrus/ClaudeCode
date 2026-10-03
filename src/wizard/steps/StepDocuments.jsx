@@ -3,7 +3,7 @@
 // Доступ строго по оплаченному заказу: статус перепроверяется в базе.
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useWizard, initialDraft } from "../WizardContext.jsx";
+import { useWizard, initialDraft, clearDraft } from "../WizardContext.jsx";
 import { restoreFromSnapshot } from "../../lib/draftStore.js";
 import { company, selfService } from "../../data/content.js";
 import { hasSale, hasRefund, modeOf } from "../../data/wizard.js";
@@ -12,6 +12,7 @@ import { claimOrder, fetchOrderStatus } from "../../lib/payments.js";
 import { computeDraftHash, draftSnapshot, findPurchase } from "../../lib/draftHash.js";
 import { downloadBlob, toFile, canShareFiles, shareFiles, mailtoHref } from "../../lib/share.js";
 import { ymGoal } from "../../lib/metrika.js";
+import { hasOperatorSession } from "../../lib/supabase.js";
 
 const PDF_MIME = "application/pdf";
 
@@ -236,6 +237,25 @@ export default function StepDocuments({ onUnpaid }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Та же беда, что и на первом шаге, но опаснее: кнопка ниже обещает «с
+  // новыми данными», а RESET_KEEP_PERSONAL сознательно сохраняет personal и
+  // bank. Клиенту это и нужно — он тот же человек, просто другой год. А у
+  // оператора следующая анкета — ДРУГОЙ ЧЕЛОВЕК, и в неё переезжают ФИО, ИНН,
+  // паспорт и банковский счёт предыдущего клиента. Поэтому оператору даём
+  // полную очистку и говорим об этом прямо в подписи кнопки.
+  const operator = hasOperatorSession();
+  const startNewClient = () => {
+    const ok = window.confirm(
+      "Начать анкету нового клиента?\n\n" +
+        "Данные текущего клиента будут стёрты полностью, включая паспорт и счёт."
+    );
+    if (!ok) return;
+    clearDraft();
+    dispatch({ type: "RESET_ALL" });
+    ymGoal("operator_wipe", { where: "documents" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const shareAll = async () => {
     const ok = await shareFiles({
       files,
@@ -380,13 +400,19 @@ export default function StepDocuments({ onUnpaid }) {
       </p>
 
       <div className="doc-actions" style={{ marginTop: 18 }}>
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => dispatch({ type: "RESET_KEEP_PERSONAL" })}
-        >
-          Заполнить ещё одну декларацию — с новыми данными
-        </button>
+        {operator ? (
+          <button type="button" className="btn btn--ghost" onClick={startNewClient}>
+            Начать анкету нового клиента — очистить все поля
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => dispatch({ type: "RESET_KEEP_PERSONAL" })}
+          >
+            Заполнить ещё одну декларацию — с новыми данными
+          </button>
+        )}
       </div>
       <p className="wiz__note">
         Каждая декларация оплачивается отдельно. Ваши личные данные и счёт
