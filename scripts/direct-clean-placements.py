@@ -31,13 +31,16 @@ import collections
 import json
 import re
 import sys
+from pathlib import Path
 import time
 import urllib.error
 import urllib.request
 
 CAMPAIGNS = [712863931, 714198177]  # РСЯ: ретаргетинг и «под ключ»
 API = "https://api.direct.yandex.com/json/v5/"
-TOKENS = "/root/.ndfl-tokens"
+# Токен берётся из переменной окружения, иначе из файла — см. _ndfl_tokens.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _ndfl_tokens import token  # noqa: E402
 
 # Зоны, после которых имя — это сайт, а не пакет приложения.
 TLD = re.compile(
@@ -49,11 +52,7 @@ KEEP = {"dsp.yandex.ru", "dsp-mintagral.yandex.ru", "yandex.ru"}
 
 
 def oauth():
-    with open(TOKENS) as f:
-        for line in f:
-            if line.startswith("YANDEX_OAUTH="):
-                return line.split("=", 1)[1].strip().strip("\"'")
-    sys.exit("не найден YANDEX_OAUTH в " + TOKENS)
+    return token("YANDEX_OAUTH")
 
 
 def direct(token, service, method, params):

@@ -27,13 +27,16 @@ import argparse
 import json
 import re
 import sys
+from pathlib import Path
 import time
 import urllib.error
 import urllib.request
 
 CAMPAIGNS = [712712814, 713623101, 714198176]  # поисковые: у РСЯ запросов нет
 API = "https://api.direct.yandex.com/json/v5/"
-TOKENS = "/root/.ndfl-tokens"
+# Токен берётся из переменной окружения, иначе из файла — см. _ndfl_tokens.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _ndfl_tokens import token  # noqa: E402
 
 GOV = re.compile(
     r"(налогов(ая|ой|ую)|фнс|инспекци)[^|]*?"
@@ -52,11 +55,7 @@ DIY = re.compile(
 
 
 def oauth():
-    with open(TOKENS) as f:
-        for line in f:
-            if line.startswith("YANDEX_OAUTH="):
-                return line.split("=", 1)[1].strip().strip("\"'")
-    sys.exit("не найден YANDEX_OAUTH в " + TOKENS)
+    return token("YANDEX_OAUTH")
 
 
 def queries(token, date_from, date_to):
