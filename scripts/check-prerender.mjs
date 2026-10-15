@@ -101,12 +101,51 @@ for (const [from, to] of REDIRECTS) {
   }
 }
 
-// 404 — тело для error_page в nginx.
+// 404 — тело для error_page в nginx. Проверяется той же меркой, что страницы
+// из ROUTES: раньше здесь стояла одна строчка про «похоже на страницу не
+// найдено», и этого хватило, чтобы на боевом полгода жили два <meta robots>,
+// два canonical (статический — на главную!), два description и две копии
+// счётчика. Нашлось глазами, а не проверкой — значит проверка была не та.
 try {
   const html = await readFile(join(DIST, "404.html"), "utf8");
   if (!/notfound/.test(html)) problems.push("404.html — не похоже на страницу «не найдено»");
+
+  const r = one(html, /<meta[^>]+name="robots"/g);
+  if (r !== 1) problems.push(`404.html — robots встречается ${r} раз, нужен ровно один`);
+  if (!/<meta[^>]+name="robots"[^>]+content="[^"]*noindex/.test(html))
+    problems.push("404.html — без noindex");
+  if (/<meta[^>]+name="robots"[^>]+content="index/.test(html))
+    problems.push("404.html — рядом с noindex остался «index, follow»");
+
+  const c = one(html, /<link[^>]+rel="canonical"/g);
+  if (c !== 1) problems.push(`404.html — canonical встречается ${c} раз, нужен ровно один`);
+  // Статический canonical из шаблона указывает на главную. Остаться он не
+  // должен: иначе каждый несуществующий адрес объявлял себя главной.
+  const ch = (html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/) || [])[1];
+  if (ch === SITE + "/" || ch === SITE)
+    problems.push("404.html — canonical указывает на главную");
+
+  const d = one(html, /<meta[^>]+name="description"/g);
+  if (d !== 1) problems.push(`404.html — description встречается ${d} раз, нужен ровно один`);
+
+  const m = one(html, /mc\.yandex\.ru\/metrika/g);
+  if (m > 1) problems.push(`404.html — счётчик Метрики продублирован (${m} раз)`);
+  if (html.includes("127.0.0.1")) problems.push("404.html — в HTML попал адрес стенда 127.0.0.1");
 } catch {
   problems.push("404.html — нет файла");
+}
+
+// Оболочки редиректов — тем же набором: один robots, один canonical.
+for (const [from] of REDIRECTS) {
+  try {
+    const html = await readFile(join(DIST, routeFile(from)), "utf8");
+    const r = one(html, /<meta[^>]+name="robots"/g);
+    if (r !== 1) problems.push(`${from} — robots встречается ${r} раз, нужен ровно один`);
+    const c = one(html, /<link[^>]+rel="canonical"/g);
+    if (c !== 1) problems.push(`${from} — canonical встречается ${c} раз, нужен ровно один`);
+  } catch {
+    /* отсутствие файла уже сообщено выше */
+  }
 }
 
 // Карта сайта: ровно индексируемые страницы, ни больше ни меньше.

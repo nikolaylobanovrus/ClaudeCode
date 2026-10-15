@@ -92,7 +92,20 @@ for (const route of ROUTES) {
     continue;
   }
 
-  const html = await page.evaluate(() => {
+  const html = await snapshot(page);
+  rendered.push([routeFile(route.path), html]);
+  console.log(`   ✓ ${route.path.padEnd(44)} ${(html.length / 1024).toFixed(0)} КБ`);
+}
+
+// Снимок страницы с вычищенными дублями. Выделено в функцию 15.10.2026:
+// 404.html собиралась мимо этой чистки (через page.content()), и на боевом
+// в ней жили два <meta robots> (статический «index, follow» рядом с
+// helmet-овским «noindex»), два canonical — причём статический указывал на
+// главную, — два description и лишняя копия счётчика Метрики. Одна и та же
+// чистка обязана применяться ко ВСЕМ снимкам, иначе разница находится не
+// проверкой, а глазами на живом сайте.
+async function snapshot(page) {
+  return page.evaluate(() => {
     // 1. Счётчики, дописанные в runtime: в сохранённом файле им не место,
     //    статический тег Метрики в index.html и так остаётся.
     document
@@ -126,9 +139,6 @@ for (const route of ROUTES) {
     }
     return "<!doctype html>\n" + document.documentElement.outerHTML;
   });
-
-  rendered.push([routeFile(route.path), html]);
-  console.log(`   ✓ ${route.path.padEnd(44)} ${(html.length / 1024).toFixed(0)} КБ`);
 }
 
 // Старые адреса, которые приложение само уводит на другую страницу
@@ -156,7 +166,7 @@ for (const [from, to] of REDIRECTS) {
 try {
   await page.goto(base + "/takogo-puti-net-" + Date.now(), { waitUntil: "load", timeout: TIMEOUT });
   await page.waitForSelector(".notfound", { timeout: TIMEOUT });
-  rendered.push(["404.html", "<!doctype html>\n" + (await page.content())]);
+  rendered.push(["404.html", await snapshot(page)]);
   console.log("   ✓ 404.html");
 } catch (e) {
   problems.push(`404.html — не отрисовалась: ${String(e.message).slice(0, 120)}`);
