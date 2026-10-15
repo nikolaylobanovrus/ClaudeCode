@@ -11,6 +11,12 @@ export default function Seo({
   path = "/",
   jsonLd = [],
   noindex = false,
+  // canonical={false} — для страниц, у которых канонического адреса НЕТ.
+  // Единственный такой случай — 404: её адреса не существует (тело отдаёт
+  // nginx через error_page на любой путь), и объявлять каноническим «/404»
+  // значит показывать поисковику ссылку на страницу, которая сама отдаёт 404.
+  // Плюс canonical рядом с noindex — противоречивая пара сигналов.
+  canonical = true,
 }) {
   const url = BASE + path;
   const blocks = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
@@ -19,7 +25,7 @@ export default function Seo({
     <Helmet>
       <title>{title}</title>
       <meta name="description" content={description} />
-      <link rel="canonical" href={url} />
+      {canonical && <link rel="canonical" href={url} />}
       {noindex && <meta name="robots" content="noindex, follow" />}
 
       <meta property="og:type" content="website" />

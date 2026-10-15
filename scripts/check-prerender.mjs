@@ -117,13 +117,12 @@ try {
   if (/<meta[^>]+name="robots"[^>]+content="index/.test(html))
     problems.push("404.html — рядом с noindex остался «index, follow»");
 
+  // canonical у 404 не должно быть ВООБЩЕ: её адреса не существует (тело
+  // отдаёт nginx на любой несуществующий путь), а canonical рядом с noindex —
+  // противоречивая пара. Прежде их было два, и статический указывал на
+  // главную: каждый мусорный адрес объявлял себя главной страницей.
   const c = one(html, /<link[^>]+rel="canonical"/g);
-  if (c !== 1) problems.push(`404.html — canonical встречается ${c} раз, нужен ровно один`);
-  // Статический canonical из шаблона указывает на главную. Остаться он не
-  // должен: иначе каждый несуществующий адрес объявлял себя главной.
-  const ch = (html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/) || [])[1];
-  if (ch === SITE + "/" || ch === SITE)
-    problems.push("404.html — canonical указывает на главную");
+  if (c !== 0) problems.push(`404.html — canonical ${c} шт., а у страницы 404 его быть не должно`);
 
   const d = one(html, /<meta[^>]+name="description"/g);
   if (d !== 1) problems.push(`404.html — description встречается ${d} раз, нужен ровно один`);

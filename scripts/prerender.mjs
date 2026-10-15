@@ -104,8 +104,8 @@ for (const route of ROUTES) {
 // главную, — два description и лишняя копия счётчика Метрики. Одна и та же
 // чистка обязана применяться ко ВСЕМ снимкам, иначе разница находится не
 // проверкой, а глазами на живом сайте.
-async function snapshot(page) {
-  return page.evaluate(() => {
+async function snapshot(page, { dropCanonical = false } = {}) {
+  return page.evaluate((drop) => {
     // 1. Счётчики, дописанные в runtime: в сохранённом файле им не место,
     //    статический тег Метрики в index.html и так остаётся.
     document
@@ -137,8 +137,12 @@ async function snapshot(page) {
         if (!n.hasAttribute("data-rh")) n.remove();
       });
     }
+    // Страница без канонического адреса (404): статический canonical из
+    // шаблона указывает на главную, а helmet-двойника теперь нет — значит
+    // чистка по парам до него не дойдёт. Убираем явно.
+    if (drop) document.querySelectorAll('link[rel="canonical"]').forEach((n) => n.remove());
     return "<!doctype html>\n" + document.documentElement.outerHTML;
-  });
+  }, dropCanonical);
 }
 
 // Старые адреса, которые приложение само уводит на другую страницу
@@ -166,7 +170,7 @@ for (const [from, to] of REDIRECTS) {
 try {
   await page.goto(base + "/takogo-puti-net-" + Date.now(), { waitUntil: "load", timeout: TIMEOUT });
   await page.waitForSelector(".notfound", { timeout: TIMEOUT });
-  rendered.push(["404.html", await snapshot(page)]);
+  rendered.push(["404.html", await snapshot(page, { dropCanonical: true })]);
   console.log("   ✓ 404.html");
 } catch (e) {
   problems.push(`404.html — не отрисовалась: ${String(e.message).slice(0, 120)}`);

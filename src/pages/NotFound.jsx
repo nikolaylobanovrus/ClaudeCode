@@ -9,6 +9,7 @@ export default function NotFound() {
         description="Запрашиваемая страница не найдена."
         path="/404"
         noindex
+        canonical={false}
       />
       <section className="notfound container">
         <div className="notfound__code">404</div>
