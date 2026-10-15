@@ -22,6 +22,20 @@ export function loadAsset(url) {
   return assetCache.get(url);
 }
 
+// Прогрев кэша: загрузить байты заранее и не свалиться, если сети нет.
+// Неудачную попытку выкидываем из кэша — иначе отказ запомнится навсегда,
+// и печать на шаге «Документы» упадёт на пустом обещании.
+export function preloadAsset(url) {
+  return loadAsset(url).catch(() => {
+    assetCache.delete(url);
+  });
+}
+
+// Моноширинный шрифт нужен для любого года — греем его отдельно от бланка.
+export function preloadMono() {
+  return preloadAsset(monoUrl);
+}
+
 // Деньги: рубли и копейки раздельно (в форме они по разные стороны точки).
 const rubKop = (n) => {
   const v = Math.max(0, Number(n) || 0);

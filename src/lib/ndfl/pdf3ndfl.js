@@ -6,11 +6,18 @@
 //  - 2025+: приказ от 20.10.2025 № ЕД-7-11/913@ (blank2025.js);
 //  - 2022–2024: приказы 880@ / 903@ (ред. 615@) / 757@ (blankLegacy.js).
 // Движок печати и происхождение бланков: blankPdf.js, docs/fns-blank-2025.md.
-import { buildOfficialPdf2025 } from "./blank2025.js";
-import { buildOfficialPdfLegacy } from "./blankLegacy.js";
+import { buildOfficialPdf2025, preloadBlank2025 } from "./blank2025.js";
+import { buildOfficialPdfLegacy, preloadBlankLegacy } from "./blankLegacy.js";
 
 export async function buildDeclarationPdf(model) {
   return model.year >= 2025
     ? buildOfficialPdf2025(model)
     : buildOfficialPdfLegacy(model);
+}
+
+// Прогрев бланка под год декларации: двоичные файлы (бланк ФНС и шрифт) —
+// больше мегабайта, и до 15.10.2026 они начинали качаться только когда
+// человек уже заплатил. Греем заранее, с шага оплаты.
+export function preloadBlank(year) {
+  return Number(year) >= 2025 ? preloadBlank2025() : preloadBlankLegacy(Number(year));
 }

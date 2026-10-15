@@ -1,5 +1,6 @@
 // Шаг «Проверка»: сводка введённого и расчёт (возврат ИЛИ налог к уплате).
 // calc приходит из WizardShell — расчёт выполняется один раз на рендер.
+import { useEffect } from "react";
 import { useWizard } from "../WizardContext.jsx";
 import { wizardDeductions, stepsFor, stepIndexIn } from "../../data/wizard.js";
 import { yearRules, SALE_OBJECTS } from "../../lib/ndfl/refs.js";
@@ -13,9 +14,18 @@ const objectLabelOf = (o) =>
 const saleObjectsLabel = (sale) => sale.items.map(objectLabelOf).join(", ");
 import { fmtRub } from "../../lib/format.js";
 import { ymGoal } from "../../lib/metrika.js";
+import { preloadDocEngine } from "../../lib/preloadDocs.js";
 
 export default function StepReview({ calc, errors = {} }) {
   const { draft, dispatch } = useWizard();
+
+  // Пока человек читает сводку и расчёт — тихо качаем движок документов
+  // (~2,5 МБ pdf-lib и шрифтов). Это последний экран перед оплатой, и дальше
+  // эти куски понадобятся в любом случае. Ждать их ПОСЛЕ оплаты хуже всего:
+  // деньги уже списаны, а человек смотрит на «Готовим документы…».
+  useEffect(() => {
+    preloadDocEngine();
+  }, []);
   const p = draft.personal;
   const goto = (key) => dispatch({ type: "GOTO", step: stepIndexIn(stepsFor(draft), key) });
   // Реквизиты доходов, отложенные на шаге «Доходы», спрашиваются здесь:

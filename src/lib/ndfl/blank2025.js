@@ -2,13 +2,19 @@
 // № ЕД-7-11/913@, КНД 1151020). Движок и правила печати — blankPdf.js;
 // происхождение бланка и метод извлечения координат — docs/fns-blank-2025.md.
 import blankUrl from "../../assets/ndfl/blank-2025.pdf?url";
-import { assembleOnBlank, fillRows, chunk } from "./blankPdf.js";
+import { assembleOnBlank, fillRows, chunk, preloadAsset, preloadMono } from "./blankPdf.js";
 import { CODES } from "./refs.js";
 import { digits } from "../format.js";
 
 // Индексы страниц внутри blank-2025.pdf (порядок задан при нарезке бланка).
 // app6 — лист Приложения 6 (доходы от продажи), добавлен восьмой страницей.
 const PG = { title: 0, r1: 1, r1app: 2, r2: 3, app1: 4, app5a: 5, app5b: 6, app7: 7, app6: 8, raschet: 9, raschet5: 10, app4: 11 };
+
+// Прогрев: бланк 2025 года (767 КБ) + моноширинный шрифт. Вызывается с шага
+// оплаты, до того как человек нажал кнопку (см. lib/preloadDocs.js).
+export function preloadBlank2025() {
+  return Promise.all([preloadAsset(blankUrl), preloadMono()]);
+}
 
 export async function buildOfficialPdf2025(model) {
   const { person, calc } = model;

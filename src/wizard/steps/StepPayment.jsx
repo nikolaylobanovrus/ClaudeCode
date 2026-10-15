@@ -23,6 +23,7 @@ import {
 } from "../../lib/payments.js";
 import { hasOperatorSession, clearOperatorSession } from "../../lib/supabase.js";
 import { ymGoal, ymGoalOnce, ymPurchase } from "../../lib/metrika.js";
+import { preloadDocAssets } from "../../lib/preloadDocs.js";
 
 // Работает ли хранилище прямо сейчас. Приватный режим Safari и запрет
 // «сайт не может хранить данные» ведут себя одинаково: setItem бросает.
@@ -81,6 +82,14 @@ export default function StepPayment({ onPaid, calc }) {
     ymGoalOnce("wizard_payment_step");
   }, []);
 
+  // Пока человек читает карточку оплаты (или ждёт вебхук после возврата с
+  // ЮKassa) — догреваем бланк ФНС и шрифты под его год. Это второй этап
+  // предзагрузки: код движка уже скачан на шаге «Проверка». Смысл один —
+  // не заставлять ждать мегабайты того, кто уже заплатил.
+  useEffect(() => {
+    preloadDocAssets(Number(draft.year) || null);
+  }, [draft.year]);
+
   // Заказ оплачен (поллинг или возврат с ЮKassa) → фиксируем покупку.
   // Хеш и снимок данных записаны в заказ при его создании — покупка всегда
   // соответствует данным, за которые клиент реально заплатил, даже если
@@ -110,6 +119,36 @@ export default function StepPayment({ onPaid, calc }) {
     });
   }, [paidOrder, hash]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Автопереход к документам.
+  //
+  // Человеку на этом экране написано: «подтверждение придёт в течение минуты,
+  // и документы откроются автоматически». До 15.10.2026 это было неправдой:
+  // поллинг видел оплату, обновлял состояние и останавливался, а onPaid
+  // вызывался только по нажатию кнопки. Обещание в интерфейсе должно быть
+  // правдой — либо делаем, либо не обещаем.
+  //
+  // Два условия, и оба обязательны:
+  //
+  //   sawPayment — оплату увидел поллинг в этом сеансе. Без этого условия
+  //     экран уводил бы вперёд КАЖДЫЙ раз, когда он отрисован для уже
+  //     оплаченной анкеты, и человек, нажавший «Назад» на «Документах», не
+  //     смог бы уйти с шага оплаты: его бросало бы обратно по кругу.
+  //
+  //   purchase — покупка уже записана соседним эффектом (он объявлен выше,
+  //     поэтому в том же коммите отрабатывает раньше). Уйти со страницы до
+  //     него нельзя: StepPayment размонтируется, ADD_PURCHASE не выполнится,
+  //     и оплата не будет зафиксирована ни в состоянии, ни в целях Метрики.
+  //
+  // Оба флага живут в refs и сбрасываются при размонтировании шага — именно
+  // поэтому «Назад» с «Документов» не уводит человека вперёд по кругу.
+  const sawPayment = useRef(false);
+  const advanced = useRef(false);
+  useEffect(() => {
+    if (!sawPayment.current || advanced.current || !purchase) return;
+    advanced.current = true;
+    onPaid();
+  }, [purchase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Поллинг статуса: после редиректа с ЮKassa (или в соседней вкладке)
   // заказ становится paid — открываем документы автоматически.
   // paid и canceled — терминальные статусы, дальше не опрашиваем.
@@ -121,8 +160,10 @@ export default function StepPayment({ onPaid, calc }) {
       try {
         const status = await fetchOrderStatus(order);
         if (!alive) return;
-        if (status !== order.status)
+        if (status !== order.status) {
+          if (status === "paid") sawPayment.current = true;
           dispatch({ type: "SET_ORDER", order: { ...order, status } });
+        }
         if (status === "paid" || status === "canceled") return;
       } catch {
         /* сеть мигнула — попробуем в следующем тике */
@@ -164,6 +205,11 @@ export default function StepPayment({ onPaid, calc }) {
     setOpExpired(false);
     try {
       const created = await createOperatorPaidOrder();
+      // Кнопка обещает «сформировать документы» — значит после неё должны
+      // открыться документы, а не ещё один экран с ещё одной кнопкой.
+      // Оператор заполняет анкеты весь день, и этот лишний клик он делал
+      // на каждой (см. sawPayment выше: ту же роль играет здесь).
+      sawPayment.current = true;
       dispatch({
         type: "SET_ORDER",
         order: { ...created, draftHash: hash, snapshot: draftSnapshot(draft) },
@@ -232,8 +278,11 @@ export default function StepPayment({ onPaid, calc }) {
         window.location.href = current.confirmationUrl;
         return;
       }
-      // Тестовый режим: имитируем успешную оплату.
+      // Тестовый режим: имитируем успешную оплату. Переход к документам тут
+      // такой же автоматический, как после возврата с ЮKassa: оплату мы
+      // увидели сами, в этом же сеансе (см. sawPayment выше).
       const paidMock = await payMockOrder(current);
+      if (paidMock?.status === "paid") sawPayment.current = true;
       dispatch({ type: "SET_ORDER", order: paidMock });
     } catch (e) {
       // Цель Метрики: платёж не создался. Без неё сбой ЮKassa или edge-функции
@@ -258,7 +307,7 @@ export default function StepPayment({ onPaid, calc }) {
     return (
       <div>
         <div className="doc-note doc-note--ok">
-          Оплата получена. Спасибо! Документы уже формируются.
+          Оплата получена. Спасибо!
         </div>
         <button type="button" className="btn btn--primary btn--lg" onClick={onPaid}>
           Перейти к документам

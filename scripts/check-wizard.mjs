@@ -69,6 +69,10 @@ async function newPage(width = 1280) {
     if (m.type() === "error" && !/ERR_UNSAFE_PORT|ERR_CONNECTION|Failed to load resource/.test(t))
       errors.push("console: " + t.slice(0, 160));
   });
+  // Что страница действительно качала: по этому проверяется предзагрузка
+  // движка документов (куски бандла) и бланка ФНС.
+  page.__reqs = [];
+  page.on("request", (r) => page.__reqs.push(r.url()));
   await page.exposeFunction("__goal", (n, p) => goals.push([n, p]));
   await page.addInitScript(() => {
     window.ym = (id, act, name, params) => { if (act === "reachGoal") window.__goal(name, params); };
@@ -145,23 +149,81 @@ const BANK = async (page) => {
   await fill(page, "Номер счёта", "40702810007710002545");
 };
 
+const asked = (page, re) => page.__reqs.some((u) => re.test(u));
+
+// Шаг «Проверка»: код движка документов должен качаться уже сейчас, ДО
+// оплаты. Иначе человек ждёт его после того, как заплатил, — ровно то, что
+// исправлено 15.10.2026.
+//
+// Имена кусков бандла: pdf-lib и fontkit сборщик сводит в один chunk
+// fontkit.es-*.js (1,1 МБ) — это самый тяжёлый кусок всего сайта. Кусок
+// pdf-*.js к документам отношения не имеет: это pdfjs для распознавания
+// загруженных справок.
+async function enginePreloaded(page) {
+  await page.waitForTimeout(1500);
+  const miss = [
+    [/\/assets\/fontkit[^/]+\.js/, "pdf-lib + fontkit"],
+    [/\/assets\/pdf3ndfl-[^/]+\.js/, "печать декларации"],
+    [/\/assets\/pdfPage-[^/]+\.js/, "печать заявления"],
+    [/\/assets\/xml3ndfl-[^/]+\.js/, "XML"],
+    [/\/assets\/model-[^/]+\.js/, "модель"],
+    [/\/assets\/instrukciya-[^/]+\.js/, "инструкция"],
+  ].filter(([re]) => !asked(page, re)).map(([, n]) => n);
+  if (miss.length) fail("на «Проверке» не предзагружен движок документов: " + miss.join(", "));
+  else ok("на «Проверке» движок документов (pdf-lib, fontkit, печать, XML) уже качается");
+}
+
+// Шаг «Оплата»: двоичные файлы — бланк ФНС нужного года и шрифты.
+async function assetsPreloaded(page, year = 2025) {
+  await page.waitForTimeout(1500);
+  const miss = [
+    [new RegExp(`/assets/blank-${year}-[^/]+\\.pdf`), `бланк ${year}`],
+    [/\/assets\/LiberationMono-Bold-[^/]+\.ttf/, "моношрифт"],
+    [/\/assets\/LiberationSans-Regular-[^/]+\.ttf/, "шрифт заявления"],
+  ].filter(([re]) => !asked(page, re)).map(([, n]) => n);
+  if (miss.length) fail("на «Оплате» не предзагружены файлы бланка: " + miss.join(", "));
+  else ok("на «Оплате» бланк ФНС и шрифты уже скачаны — после оплаты ждать нечего");
+}
+
 async function payAndDocs(page) {
   // Экран оплаты: mock-провайдер, кнопка создаёт заказ и сразу «оплачивает».
   const payBtn = page.locator("button.btn--primary", { hasText: /Оплатить|Я оплатил/ }).first();
   if (!(await payBtn.count())) { fail("на экране оплаты нет кнопки оплаты"); return; }
   await payBtn.click();
-  await page.waitForTimeout(1800);
-  // После «оплаты» экран меняется: нужен ещё один клик по кнопке перехода.
-  if (/оплат/i.test(await heading(page))) {
-    const go = page.locator("button.btn--primary").first();
-    if (await go.count()) { await go.click(); await page.waitForTimeout(1200); }
-  }
+  await page.waitForTimeout(2500);
+  // Документы обязаны открыться САМИ, без второго клика: ровно это обещано
+  // человеку на экране ожидания («документы откроются автоматически»).
+  // Поэтому второй клик здесь не делается — если он понадобился, это провал.
   const h = await heading(page);
-  if (!/документ/i.test(h)) { fail(`после оплаты ожидались «Документы», получили «${h}»`); return; }
-  ok("оплата прошла, открылись «Документы»");
+  if (!/документ/i.test(h)) {
+    fail(`после оплаты документы не открылись сами: «${h}»`);
+    return;
+  }
+  ok("оплата прошла, «Документы» открылись САМИ, без второго клика");
   const docs = await page.locator("button, a").filter({ hasText: /Скачать|декларац|XML|Заявление|Инструкц/i }).count();
   if (docs < 2) fail(`на «Документах» слишком мало кнопок выдачи: ${docs}`);
   else ok(`кнопок выдачи документов: ${docs}`);
+
+  // Обратная сторона автоперехода: человек должен иметь право уйти назад.
+  // Если автопереход срабатывает на КАЖДОМ показе оплаченного шага, кнопка
+  // «Оплата» в полосе шагов становится ловушкой — уводит вперёд сама.
+  const dot = page.locator(".wiz__dot", { hasText: "Оплата" }).first();
+  if (!(await dot.count())) { fail("в полосе шагов нет кнопки «Оплата»"); return; }
+  if (await dot.isDisabled()) { fail("шаг «Оплата» недоступен после оплаты — вернуться нельзя"); return; }
+  await dot.click();
+  await page.waitForTimeout(2500);
+  const back = await heading(page);
+  if (!/оплат/i.test(back)) {
+    fail(`«Назад» на оплату зацикливает: автопереход снова увёл на «${back}»`);
+    return;
+  }
+  ok("возврат на «Оплату» работает — автопереход не зацикливает");
+  const again = page.locator("button.btn--primary", { hasText: /Перейти к документам/ }).first();
+  if (!(await again.count())) { fail("на оплаченном шаге нет кнопки «Перейти к документам»"); return; }
+  await again.click();
+  await page.waitForTimeout(1500);
+  if (!/документ/i.test(await heading(page))) fail("кнопка «Перейти к документам» не вернула на документы");
+  else ok("кнопка «Перейти к документам» по-прежнему работает");
 }
 
 async function run(name, scenario, width) {
@@ -239,7 +301,9 @@ await run("Возврат: все девять вычетов", async (page) => 
   if (!(await clickNext(page, "шаг 4→5"))) return;
   await BANK(page);
   if (!(await clickNext(page, "шаг 5→6"))) return;
+  await enginePreloaded(page);
   if (!(await clickNext(page, "проверка→оплата"))) return;
+  await assetsPreloaded(page, 2025);
   await payAndDocs(page);
 });
 

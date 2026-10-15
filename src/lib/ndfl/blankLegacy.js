@@ -19,7 +19,7 @@
 import blank2022Url from "../../assets/ndfl/blank-2022.pdf?url";
 import blank2023Url from "../../assets/ndfl/blank-2023.pdf?url";
 import blank2024Url from "../../assets/ndfl/blank-2024.pdf?url";
-import { assembleOnBlank, fillRows, chunk } from "./blankPdf.js";
+import { assembleOnBlank, fillRows, chunk, preloadAsset, preloadMono } from "./blankPdf.js";
 import { CODES, baseSplit } from "./refs.js";
 import { digits } from "../format.js";
 
@@ -138,6 +138,15 @@ const MAPS = {
     raschet: { cadNum: [14.2, 714.6], cadX: 14.2, docX: 334.8, rub: 13, yTop: 633.8, yBot: 580.4 },
   },
 };
+
+// Прогрев бланка нужного года + моноширинного шрифта (см. preloadDocs.js).
+// Год вне 2022–2024 — молча ничего не греем: печать по нему всё равно
+// невозможна, и ошибку покажет сама сборка.
+export function preloadBlankLegacy(year) {
+  const M = MAPS[year];
+  if (!M) return Promise.resolve();
+  return Promise.all([preloadAsset(M.blankUrl), preloadMono()]);
+}
 
 export async function buildOfficialPdfLegacy(model) {
   const M = MAPS[model.year];

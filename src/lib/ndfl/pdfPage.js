@@ -25,6 +25,14 @@ function loadFontBytes() {
   return fontBytesPromise;
 }
 
+// Прогрев: те же байты, тот же кэш обещания — вызов из preloadDocs.js до
+// оплаты. Ошибку глотаем: это ускорение, а не функциональность.
+export function preloadFonts() {
+  return loadFontBytes().catch(() => {
+    fontBytesPromise = null;
+  });
+}
+
 export async function createDoc() {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
