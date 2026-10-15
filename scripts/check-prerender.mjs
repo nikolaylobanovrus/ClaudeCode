@@ -32,8 +32,19 @@ for (const route of ROUTES) {
   }
 
   // Страницы за логином кладутся оболочкой сознательно: содержимого там нет
-  // и быть не должно. Проверяем только, что файл на месте (см. выше).
-  if (route.gated) continue;
+  // и быть не должно. Но голова у оболочки обязана быть своя: до 15.10.2026
+  // они уезжали с головой ГЛАВНОЙ страницы — «robots: index, follow» и
+  // «canonical» на главную, хотя в routes.js у всех index: false.
+  if (route.gated) {
+    if (!/<meta[^>]+name="robots"[^>]+content="[^"]*noindex/.test(html))
+      problems.push(`${route.path} — оболочка за логином без noindex`);
+    if (/<meta[^>]+name="robots"[^>]+content="index/.test(html))
+      problems.push(`${route.path} — оболочка за логином помечена «index, follow»`);
+    const gc = one(html, /<link[^>]+rel="canonical"/g);
+    if (gc !== 0)
+      problems.push(`${route.path} — в оболочке за логином canonical (${gc} шт.), он там не нужен`);
+    continue;
+  }
 
   const title = (html.match(/<title[^>]*>([^<]*)<\/title>/) || [])[1] || "";
   if (!title) problems.push(`${route.path} — пустой <title>`);

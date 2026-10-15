@@ -57,10 +57,26 @@ page.on("console", (m) => {
 // routes.js). Читаем ДО обхода: дальше dist/index.html будет перезаписан.
 const shell = await readFile(join(DIST, "index.html"), "utf8");
 
+// Оболочка для страниц за логином — не та же, что для главной.
+//
+// Повод, 15.10.2026: /kabinet и семь страниц «ситуаций» уезжали на бой с
+// головой главной страницы — то есть со статическим «robots: index, follow»
+// и с «canonical: https://налог-сервис.рф/». Каждая закрытая страница
+// объявляла себя главной и разрешала себя индексировать, хотя в routes.js у
+// всех index: false. Снимок им не делается (браузер немедленно уходит на
+// регистрацию), поэтому до них не доходила и чистка дублей.
+//
+// Что ставим: noindex (как в routes.js) и НИ ОДНОГО canonical. Канонический
+// адрес не нужен там, где индексации нет, а на клиенте react-helmet добавит
+// свой — так в живом DOM остаётся ровно один. Та же логика, что у 404.
+const gatedShell = shell
+  .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex, follow" />')
+  .replace(/<link rel="canonical"[^>]*>\s*/, "");
+
 for (const route of ROUTES) {
   if (route.gated) {
-    rendered.push([routeFile(route.path), shell]);
-    console.log(`   · ${route.path.padEnd(44)} за логином, кладём оболочку`);
+    rendered.push([routeFile(route.path), gatedShell]);
+    console.log(`   · ${route.path.padEnd(44)} за логином, кладём оболочку (noindex)`);
     continue;
   }
   errors.length = 0;
