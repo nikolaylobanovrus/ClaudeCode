@@ -11,6 +11,7 @@
 //
 // Поэтому проверяем по файлам, а не по логу предыдущего шага.
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { ROUTES, REDIRECTS, routeFile } from "../src/data/routes.js";
 
@@ -21,6 +22,57 @@ const titles = new Map();
 
 const one = (html, re) => (html.match(re) || []).length;
 
+// --- Картинка превью ссылок -------------------------------------------------
+// Повод, 15.10.2026: og:image полгода указывал на og-image.svg. Файл был и
+// отдавался с кодом 200, поэтому «проверка по коду ответа» ничего бы не
+// заметила — а превью в формате SVG не показывает ни один мессенджер и ни
+// одна соцсеть. Ссылка пересылалась без картинки, и узнать об этом можно было
+// только переслав её себе. Поэтому проверяем не наличие файла, а пригодность:
+// растровый формат, файл на диске и размеры, совпадающие с мета-тегами.
+const RASTER = /\.(png|jpe?g)$/i;
+let ogSize = null; // настоящие размеры картинки, из самого файла
+try {
+  const png = await readFile(join(DIST, "og-image.png"));
+  // IHDR лежит в первых 24 байтах PNG — внешних библиотек не нужно.
+  if (png.subarray(1, 4).toString() === "PNG")
+    ogSize = { w: png.readUInt32BE(16), h: png.readUInt32BE(20), bytes: png.length };
+  else problems.push("og-image.png — это не PNG");
+} catch {
+  problems.push("og-image.png — нет файла в сборке (node scripts/build-og-image.mjs)");
+}
+if (ogSize && ogSize.bytes > 5 * 1024 * 1024)
+  problems.push(`og-image.png — ${(ogSize.bytes / 1048576).toFixed(1)} МБ, площадки режут больше 5 МБ`);
+
+function checkOg(html, label) {
+  const n = one(html, /<meta[^>]+property="og:image"[^>]*>/g);
+  if (n !== 1) {
+    problems.push(`${label} — og:image ${n} шт., нужен ровно один`);
+    return;
+  }
+  const src = (html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/) || [])[1] || "";
+  if (!RASTER.test(src)) {
+    problems.push(`${label} — og:image ведёт на ${src}: превью показывают только растр (PNG/JPEG)`);
+    return;
+  }
+  // Файл обязан лежать в сборке: ссылка на картинку, которой нет, выглядит
+  // в точности как рабочая — до первой пересылки ссылки.
+  const path = src.replace(SITE, "").replace(/^\//, "");
+  if (!path) problems.push(`${label} — og:image пустой`);
+  else if (!existsSync(join(DIST, path)))
+    problems.push(`${label} — og:image ведёт на ${src}, а файла в сборке нет`);
+  const w = (html.match(/<meta[^>]+property="og:image:width"[^>]+content="(\d+)"/) || [])[1];
+  const h = (html.match(/<meta[^>]+property="og:image:height"[^>]+content="(\d+)"/) || [])[1];
+  if (!w || !h) {
+    problems.push(`${label} — у og:image нет размеров (og:image:width/height)`);
+  } else if (ogSize && (Number(w) !== ogSize.w || Number(h) !== ogSize.h)) {
+    problems.push(
+      `${label} — в тегах ${w}×${h}, а в файле ${ogSize.w}×${ogSize.h}: площадка покажет обрезанную карточку`
+    );
+  }
+  const tw = (html.match(/<meta[^>]+name="twitter:image"[^>]+content="([^"]+)"/) || [])[1];
+  if (tw && !RASTER.test(tw)) problems.push(`${label} — twitter:image ведёт на ${tw}, нужен растр`);
+}
+
 for (const route of ROUTES) {
   const file = routeFile(route.path);
   let html;
@@ -30,6 +82,10 @@ for (const route of ROUTES) {
     problems.push(`${route.path} — нет файла dist/${file}`);
     continue;
   }
+
+  // Картинка превью — у всех страниц, включая оболочки за логином: ссылку
+  // пересылают на любую из них.
+  checkOg(html, route.path);
 
   // Страницы за логином кладутся оболочкой сознательно: содержимого там нет
   // и быть не должно. Но голова у оболочки обязана быть своя: до 15.10.2026
@@ -140,6 +196,7 @@ try {
 
   const m = one(html, /mc\.yandex\.ru\/metrika/g);
   if (m > 1) problems.push(`404.html — счётчик Метрики продублирован (${m} раз)`);
+  checkOg(html, "404.html");
   if (html.includes("127.0.0.1")) problems.push("404.html — в HTML попал адрес стенда 127.0.0.1");
 } catch {
   problems.push("404.html — нет файла");
@@ -153,6 +210,7 @@ for (const [from] of REDIRECTS) {
     if (r !== 1) problems.push(`${from} — robots встречается ${r} раз, нужен ровно один`);
     const c = one(html, /<link[^>]+rel="canonical"/g);
     if (c !== 1) problems.push(`${from} — canonical встречается ${c} раз, нужен ровно один`);
+    checkOg(html, from);
   } catch {
     /* отсутствие файла уже сообщено выше */
   }
