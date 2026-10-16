@@ -20,6 +20,10 @@ const MAIN_LINKS = [
 const SELF_LINKS = [
   { to: "/", scrollTo: "sd-vychety", label: "Виды вычетов" },
   { to: "/", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
+  // Инструкция по отправке в кабинет ФНС — отдельная страница раздела и
+  // одна из трёх индексируемых. До 16.10.2026 на неё не вело НИ ОДНОЙ
+  // ссылки с сайта: поисковик знал о ней только из sitemap.xml.
+  { to: "/deklaraciya/instrukciya", label: "Инструкция" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },
   { to: "/deklaraciya/kontakty", label: "Контакты" },
 ];

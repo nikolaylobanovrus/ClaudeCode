@@ -282,6 +282,15 @@ export default function SelfService() {
               </div>
             ))}
           </div>
+          {/* Последний шаг — отправка в ФНС, и именно на нём люди
+              останавливаются. Ссылка стоит здесь, а не в конце страницы. */}
+          <p className="section__subtitle" style={{ textAlign: "center" }}>
+            Что делать с готовыми файлами —{" "}
+            <Link to="/deklaraciya/instrukciya">
+              пошаговая инструкция по отправке в личный кабинет ФНС
+            </Link>
+            .
+          </p>
         </div>
       </section>
 

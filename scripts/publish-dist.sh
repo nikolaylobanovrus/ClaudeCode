@@ -40,6 +40,12 @@ echo "==> пререндер страниц"
 node scripts/prerender.mjs
 node scripts/check-prerender.mjs
 
+# Внутренние ссылки: ни одной в никуда (после этапа C это честный 404) и ни
+# одной индексируемой страницы без входящих — /deklaraciya/instrukciya прожила
+# так полгода, её не видел никто, кроме sitemap.xml.
+echo "==> внутренние ссылки"
+node scripts/check-links.mjs
+
 echo "==> старые ссылки с решёткой"
 node scripts/check-shim.mjs
 

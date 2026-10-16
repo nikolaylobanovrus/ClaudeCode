@@ -182,6 +182,15 @@ export default function SelfServiceInstrukciya() {
             <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
               Заполнить декларацию
             </Link>
+            {/* Соседняя страница раздела: продажа имущества — самый частый
+                повод подавать 3-НДФЛ не ради возврата, а по обязанности. */}
+            <p>
+              Продали квартиру или машину?{" "}
+              <Link to="/deklaraciya/kalkulyator-naloga-s-prodazhi">
+                Посчитайте налог с продажи
+              </Link>{" "}
+              — за минуту и без регистрации.
+            </p>
           </div>
         </div>
       </section>
