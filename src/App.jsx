@@ -30,6 +30,8 @@ const SelfServiceContacts = lazy(() => import("./pages/SelfServiceContacts.jsx")
 const Wizard = lazy(() => import("./pages/Wizard.jsx"));
 const SelfServiceInstrukciya = lazy(() => import("./pages/SelfServiceInstrukciya.jsx"));
 const SelfServiceVychetKvartira = lazy(() => import("./pages/SelfServiceVychetKvartira.jsx"));
+const SelfServiceVychetIpoteka = lazy(() => import("./pages/SelfServiceVychetIpoteka.jsx"));
+const SelfServiceVychetLechenie = lazy(() => import("./pages/SelfServiceVychetLechenie.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -81,6 +83,14 @@ export default function App() {
         <Route
           path="deklaraciya/vychet-za-kvartiru"
           element={lazyPage(<SelfServiceVychetKvartira />)}
+        />
+        <Route
+          path="deklaraciya/vychet-za-ipoteku"
+          element={lazyPage(<SelfServiceVychetIpoteka />)}
+        />
+        <Route
+          path="deklaraciya/vychet-za-lechenie"
+          element={lazyPage(<SelfServiceVychetLechenie />)}
         />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"

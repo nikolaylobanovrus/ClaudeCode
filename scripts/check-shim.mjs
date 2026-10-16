@@ -115,32 +115,36 @@ console.log("\n=== параметры доезжают до приложения
 // ситуацией. Проверяется целиком, от нажатия: ссылка с параметром легко
 // переживает правку вёрстки и так же легко теряет параметр — а вместе с ним
 // и шаг, который мы обещали человеку сэкономить.
-{
+// Кнопка «Рассчитать мой вычет» есть на каждом лендинге и обязана открывать
+// анкету с УЖЕ отмеченной ситуацией. Ссылка с параметром легко переживает
+// правку вёрстки и так же легко теряет параметр — а вместе с ним и шаг,
+// который мы обещали человеку сэкономить.
+for (const [path, tile] of [
+  ["/deklaraciya/vychet-za-kvartiru", "Купили квартиру"],
+  ["/deklaraciya/vychet-za-ipoteku", "Платили за ипотеку"],
+  ["/deklaraciya/vychet-za-lechenie", "Платили за лечение"],
+]) {
   // ОТДЕЛЬНЫЙ контекст, а не общий: предыдущие сценарии оставили в хранилище
   // черновик, а он намеренно важнее параметра ?s= — человеку не затирают
   // начатую анкету ради предвыбора. Проверять надо путь нового посетителя.
   const fresh = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await blockExternals(fresh);
   const page = await fresh.newPage();
-  await page.goto(base + "/deklaraciya/vychet-za-kvartiru", { waitUntil: "load", timeout: 20000 });
+  await page.goto(base + path, { waitUntil: "load", timeout: 20000 });
   const btn = page.locator("a", { hasText: "Рассчитать мой вычет" }).first();
   if (!(await btn.count())) {
     failures++;
-    console.log("✗ на лендинге нет кнопки «Рассчитать мой вычет»");
+    console.log(`✗ ${path} — нет кнопки «Рассчитать мой вычет»`);
   } else {
     await btn.click();
     await page.waitForURL(/deklaraciya\/anketa/, { timeout: 20000 }).catch(() => {});
     await page.waitForSelector(".wiz__heading", { timeout: 20000 }).catch(() => {});
     // Плитка отмечается эффектом ПОСЛЕ монтирования — считать сразу рано.
     await page.waitForSelector(".wiz__type.is-active", { timeout: 20000 }).catch(() => {});
-    const active = await page
-      .locator(".wiz__type.is-active", { hasText: "Купили квартиру" })
-      .count();
+    const active = await page.locator(".wiz__type.is-active", { hasText: tile }).count();
     const good = active === 1;
     if (!good) failures++;
-    console.log(
-      `${good ? "✓" : "✗"} кнопка лендинга открыла анкету с отмеченной покупкой жилья`
-    );
+    console.log(`${good ? "✓" : "✗"} ${path} → анкета с отмеченным «${tile}»`);
   }
   await fresh.close();
 }

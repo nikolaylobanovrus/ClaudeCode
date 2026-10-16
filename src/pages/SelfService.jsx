@@ -261,11 +261,10 @@ export default function SelfService() {
               подвале: человек читает «какие вычеты можно оформить» ровно
               тогда, когда ищет свой случай. */}
           <p className="sd-grid__note">
-            Купили квартиру или дом?{" "}
-            <Link to="/deklaraciya/vychet-za-kvartiru">
-              Сколько вернут и какие нужны документы
-            </Link>{" "}
-            — разбор с примерами.
+            Подробные разборы с примерами и документами:{" "}
+            <Link to="/deklaraciya/vychet-za-kvartiru">вычет за квартиру</Link>,{" "}
+            <Link to="/deklaraciya/vychet-za-ipoteku">по процентам ипотеки</Link>,{" "}
+            <Link to="/deklaraciya/vychet-za-lechenie">за лечение</Link>.
           </p>
           <p className="sd-grid__note">
             Продали квартиру или машину и не знаете, будет ли налог?{" "}

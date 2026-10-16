@@ -26,6 +26,8 @@ const PAGES = [
   "/deklaraciya/instrukciya",
   "/deklaraciya/kalkulyator-naloga-s-prodazhi",
   "/deklaraciya/vychet-za-kvartiru",
+  "/deklaraciya/vychet-za-ipoteku",
+  "/deklaraciya/vychet-za-lechenie",
   "/deklaraciya/tarify",
   "/vychety",
   "/tarify",

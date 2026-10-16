@@ -28,6 +28,8 @@ export const ROUTES = [
   // Лендинг под поисковый запрос, а не служебная страница раздела: priority
   // выше остальных внутренних, обновляться будет по мере изменений лимитов.
   { path: "/deklaraciya/vychet-za-kvartiru", index: true, changefreq: "monthly", priority: "0.9" },
+  { path: "/deklaraciya/vychet-za-ipoteku", index: true, changefreq: "monthly", priority: "0.9" },
+  { path: "/deklaraciya/vychet-za-lechenie", index: true, changefreq: "monthly", priority: "0.9" },
   // Служебные страницы раздела: живой контент, но дублируют главную по смыслу.
   { path: "/deklaraciya/tarify", index: false },
   { path: "/deklaraciya/kontakty", index: false },

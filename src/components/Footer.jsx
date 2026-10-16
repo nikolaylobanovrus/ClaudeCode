@@ -17,6 +17,8 @@ const SELF_SECTIONS = [
   // есть на каждой странице, поэтому ссылка отсюда — самый дешёвый способ
   // дать им входящие (до 16.10.2026 у инструкции их не было вовсе).
   { to: "/deklaraciya/vychet-za-kvartiru", label: "Вычет за квартиру" },
+  { to: "/deklaraciya/vychet-za-ipoteku", label: "Вычет по ипотеке" },
+  { to: "/deklaraciya/vychet-za-lechenie", label: "Вычет за лечение" },
   { to: "/deklaraciya/instrukciya", label: "Инструкция" },
   { to: "/deklaraciya/kalkulyator-naloga-s-prodazhi", label: "Калькулятор налога" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },
