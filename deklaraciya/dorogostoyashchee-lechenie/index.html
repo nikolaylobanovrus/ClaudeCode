@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru"><head>
+    <script>/* Старые адреса с решёткой → чистые URL.
+ *
+ * Встраивается первым тегом в <head> (см. плагин в vite.config.js) и только
+ * в сборку с обычным роутером. Почему именно первым, а не в main.jsx: сразу
+ * за ним в <head> инициализируется Яндекс.Метрика с `url: location.href` —
+ * отработай шим позже, и каждый рекламный визит записался бы со старым
+ * адресом, а отчёт «страницы входа» стал бы бесполезным.
+ *
+ * Зачем вообще: 109 действующих объявлений Директа ведут на адреса вида
+ * «/?utm_source=…#/deklaraciya». Перемодерировать их ради переезда нельзя —
+ * это дни простоя. Плюс закладки людей, ссылки в уже скачанных PDF-инструкциях
+ * и статьи, которые мы будем публиковать. Шим остаётся в коде навсегда.
+ *
+ * Отдельно про склейку параметров: она сделана строками, а НЕ через
+ * URLSearchParams. Тот декодирует «+» как пробел и переэнкодит значения, а у
+ * нас через query ходят ссылка-черновик ?d=<base64 до 2000 символов> и метки
+ * Директа. Порча хотя бы одного символа означает потерянный черновик.
+ */
+(function () {
+  try {
+    var hash = window.location.hash;
+    // Обычные якоря (#faq) не трогаем — только маршруты вида #/путь.
+    if (hash.indexOf("#/") !== 0) return;
+
+    var rest = hash.slice(1); // «/deklaraciya/anketa?a=b» или «/deklaraciya&erid=x»
+
+    // Рекламные площадки дописывают свои параметры после решётки через «&»
+    // (Telega.in: «#/deklaraciya&erid=…»). Для роутера это часть пути, поэтому
+    // разделителем считаем и «?», и «&» — что встретится раньше.
+    var q = rest.indexOf("?");
+    var a = rest.indexOf("&");
+    var cut = q < 0 ? a : a < 0 ? q : Math.min(q, a);
+
+    var path = cut < 0 ? rest : rest.slice(0, cut);
+    var tail = cut < 0 ? "" : rest.slice(cut + 1);
+
+    if (!path || path.charAt(0) !== "/") return;
+
+    var search = window.location.search;
+    if (tail) search = search ? search + "&" + tail : "?" + tail;
+
+    window.history.replaceState(null, "", path + search);
+  } catch (e) {
+    /* Сломанный шим в самом начале <head> — это белый экран на всём сайте.
+       Цена ошибки должна быть «остался старый адрес», и не больше. */
+  }
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#0b5cff">
+
+    <!-- Primary SEO -->
+    <title>Вычет за дорогостоящее лечение: код 2 и возврат без лимита | Налог-сервис</title>
+    
+    
+    
+    <meta name="robots" content="index, follow, max-image-preview:large">
+
+    <!-- Open Graph -->
+    
+    
+    
+    
+    
+    <!-- Картинка превью — ТОЛЬКО растр. SVG в этом месте не понимает ни один
+         мессенджер и ни одна соцсеть (проверено 15.10.2026: ссылка
+         пересылалась без картинки). Файлы рисуются из одноимённых SVG
+         командой node scripts/build-og-image.mjs. Здесь — карточка
+         самозаполнения: корень сайта это оно. Страницы «под ключ» подставят
+         свою через <Seo> (выбор по пути — ogImageFor в routes.js). Размеры
+         дублируются тегами: по ним площадка строит карточку, не дожидаясь
+         загрузки файла. -->
+    
+    
+    
+    
+    
+    
+
+    <!-- Twitter -->
+    
+    
+    
+    
+    
+
+    <!-- Structured data: Organization (базовое, для краулеров и ИИ-поиска) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Налог-сервис",
+        "url": "https://налог-сервис.рф/",
+        "logo": "https://налог-сервис.рф/favicon.svg",
+        "description": "Сервис возврата налоговых вычетов (НДФЛ) под ключ: имущественный, за лечение, обучение, ИИС.",
+        "areaServed": "RU",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+7-920-837-91-93",
+          "contactType": "customer service",
+          "availableLanguage": "Russian"
+        }
+      }
+    </script>
+
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+          m[i].l=1*new Date();
+          for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+          k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=110487569', 'ym');
+
+      // Просмотры страниц SPA шлёт ymHit в Layout (hash-роутер);
+      // trackHash не включаем, чтобы хиты не задваивались.
+      ym(110487569, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <!-- /Yandex.Metrika counter (noscript-пиксель — в body: в head он невалиден) -->
+    <script type="module" crossorigin="" src="/assets/index-BiE6PBWj.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-BycNIFTw.css">
+  <link rel="modulepreload" as="script" crossorigin="" href="/assets/SelfServiceDorogostoyashcheeLechenie-BYnlvAwy.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/DeductionLanding-CJKxbic2.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/format-BgXA9SMT.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/refs-b9oNh1Z6.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/instrukciya-pRtjeIN0.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/pdfPage-DsoEM8nt.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/fontkit.es-CybV2vR2.js"><link rel="canonical" href="https://налог-сервис.рф/deklaraciya/dorogostoyashchee-lechenie" data-rh="true"><meta name="description" content="Дорогостоящее лечение в 3-НДФЛ: код «2» в справке, лимита нет — возвращают 13% со всей суммы в пределах удержанного налога. Что входит в перечень (ЭКО, операции, имплантация), чем отличается от кода «1» и какие документы нужны." data-rh="true"><meta property="og:type" content="website" data-rh="true"><meta property="og:site_name" content="Налог-сервис" data-rh="true"><meta property="og:title" content="Вычет за дорогостоящее лечение: код 2 и возврат без лимита | Налог-сервис" data-rh="true"><meta property="og:description" content="Дорогостоящее лечение в 3-НДФЛ: код «2» в справке, лимита нет — возвращают 13% со всей суммы в пределах удержанного налога. Что входит в перечень (ЭКО, операции, имплантация), чем отличается от кода «1» и какие документы нужны." data-rh="true"><meta property="og:url" content="https://налог-сервис.рф/deklaraciya/dorogostoyashchee-lechenie" data-rh="true"><meta property="og:locale" content="ru_RU" data-rh="true"><meta property="og:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta property="og:image:type" content="image/jpeg" data-rh="true"><meta property="og:image:width" content="1200" data-rh="true"><meta property="og:image:height" content="630" data-rh="true"><meta property="og:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><meta name="twitter:card" content="summary_large_image" data-rh="true"><meta name="twitter:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta name="twitter:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Чем дорогостоящее лечение отличается от обычного?","acceptedAnswer":{"@type":"Answer","text":"Лимитом. У обычного лечения (код «1» в справке) расходы считаются в пределах общего социального лимита 150 000 ₽ в год. У дорогостоящего (код «2») лимита нет: вычет берётся со всей суммы, а ограничивает только удержанный у вас за год НДФЛ."}},{"@type":"Question","name":"Что относится к дорогостоящему?","acceptedAnswer":{"@type":"Answer","text":"Перечень утверждён постановлением Правительства от 08.04.2020 № 458: ЭКО и лечение бесплодия, сложные хирургические операции, лечение онкологии, трансплантация, протезирование с имплантацией, выхаживание недоношенных детей и другие виды. Решает не название услуги, а код в справке."}},{"@type":"Question","name":"Кто ставит код?","acceptedAnswer":{"@type":"Answer","text":"Клиника при выдаче справки об оплате медицинских услуг. Налоговая считает строго по справке и код не меняет. Если вы уверены, что лечение дорогостоящее, а в справке стоит «1», обращайтесь в клинику — переоформление бесплатно."}},{"@type":"Question","name":"Сколько вернут при лечении на 500 000 ₽?","acceptedAnswer":{"@type":"Answer","text":"13% — 65 000 ₽, если за год с вас удержали столько налога. Если удержали меньше, вернут только удержанное: остаток на следующий год не переносится."}},{"@type":"Question","name":"Можно ли вернуть за лечение родственника?","acceptedAnswer":{"@type":"Answer","text":"Да: за супруга, родителей и детей до 18 лет (с 2024 года — до 24 при очном обучении). Плательщиком в справке должны быть вы."}},{"@type":"Question","name":"Лекарства и расходники тоже считаются?","acceptedAnswer":{"@type":"Answer","text":"Дорогие расходные материалы учитываются, если клиника их не имела и вы купили их сами для дорогостоящего лечения — нужна справка клиники об этом и чеки. Обычные лекарства идут по рецептам и относятся к коду «1»."}}]}</script><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"HowTo","name":"Как получить вычет за дорогостоящее лечение","step":[{"@type":"HowToStep","name":"Взять справку об оплате медицинских услуг","text":"С кодом услуги «2» — его ставит клиника."},{"@type":"HowToStep","name":"Проверить код","text":"Код «1» означает обычное лечение и лимит 150 000 ₽ в год."},{"@type":"HowToStep","name":"Заполнить декларацию","text":"Суммы по кодам «1» и «2» вносятся раздельно."},{"@type":"HowToStep","name":"Подать в налоговую","text":"Через Личный кабинет ФНС, почтой или лично."}]}</script></head>
+  <body>
+    <noscript><div><img src="https://mc.yandex.ru/watch/110487569" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- Пиксель VK Рекламы: JS-часть подключается из src/lib/vkpixel.js -->
+    <noscript><div><img src="https://top-fwz1.mail.ru/counter?id=3783010;js=na" style="position:absolute; left:-9999px;" alt="Top.Mail.Ru" /></div></noscript>
+    <div id="root"><div class="site"><header class="navbar"><div class="navbar__inner container"><a class="navbar__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r0-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r0-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r0-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg><span>Налог<span class="navbar__brand-accent">-сервис</span></span></a><a href="tel:+79208379193" class="navbar__phone-top" aria-label="Позвонить: +7 (920) 837-91-93"><span class="navbar__phone-top-ico" aria-hidden="true">📞</span><span class="navbar__phone-top-txt"><span class="navbar__phone-label">Помощь</span><span class="navbar__phone-top-num">+7 (920) 837-91-93</span></span></a><button class="navbar__toggle" aria-label="Меню" aria-expanded="false"><span></span><span></span><span></span></button><nav class="navbar__nav"><a class="navbar__link" href="/">Виды вычетов</a><a class="navbar__link" href="/">Как работаем</a><a class="navbar__link" href="/deklaraciya/instrukciya">Инструкция</a><a class="navbar__link" href="/deklaraciya/tarify">Тарифы</a><a class="navbar__link" href="/deklaraciya/kontakty">Контакты</a><span class="navbar__phone"><span class="navbar__phone-label">Помощь</span> <a href="tel:+79208379193">+7 (920) 837-91-93</a></span><a class="btn btn--primary navbar__cta" href="/deklaraciya/anketa">Заполнить декларацию</a></nav></div></header><main class="site__main"><section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="Хлебные крошки"><a href="/">Заполнить самому</a><span>/ Дорогостоящее лечение</span></nav><h1 class="page-hero__title">Вычет за дорогостоящее лечение: без лимита</h1><p class="page-hero__subtitle">У дорогостоящего лечения (код <strong>«2»</strong> в справке) лимита нет: возвращают 13% со всей суммы, а ограничивает только удержанный за год НДФЛ. У обычного лечения — потолок 150&nbsp;000&nbsp;₽ в год.</p><div class="hero__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=lechenie">Рассчитать мой вычет</a></div><p class="page-hero__note">Бесплатно и без регистрации: сумма к возврату видна до оплаты.</p></div></section><section class="section"><div class="container instr"><article class="card instr__block"><h2>Сколько вернут</h2><ul class="instr__steps"><li><strong>Код «2» — лимита нет.</strong> 13% со всей суммы расходов.</li><li><strong>Ограничение одно — удержанный НДФЛ</strong> за тот же год: больше, чем с вас удержали, не вернут.</li><li><strong>Остаток не переносится</strong> на следующий год — в отличие от имущественного вычета.</li><li><strong>Код «1»</strong> — в общем социальном лимите 150&nbsp;000&nbsp;₽, к возврату до 19&nbsp;500&nbsp;₽ за всё вместе: лечение, обучение, спорт, страхование.</li></ul><p><strong>Пример.</strong> Операция за 500&nbsp;000&nbsp;₽ с кодом «2» — к возврату <strong>65&nbsp;000&nbsp;₽</strong> при зарплате, с которой удержали столько налога. Та же сумма с кодом «1» дала бы только 19&nbsp;500&nbsp;₽.</p></article><article class="card instr__block"><h2>Что входит в перечень</h2><p>Перечень дорогостоящих видов лечения утверждён постановлением Правительства от 08.04.2020 № 458. В нём, в частности:</p><ul class="instr__steps"><li>ЭКО и лечение бесплодия;</li><li>сложные хирургические операции, в том числе на сердце и суставах;</li><li>лечение онкологических заболеваний;</li><li>трансплантация органов и тканей;</li><li>ортопедическое лечение с имплантацией зубных протезов;</li><li>выхаживание недоношенных детей;</li><li>паллиативная помощь на дому с использованием медизделий.</li></ul><p>Но решает не название в перечне, а <strong>код в справке</strong>: именно он попадает в декларацию и определяет, применять ли лимит.</p></article><article class="card instr__block"><h2>Какие документы понадобятся</h2><ul class="instr__steps"><li>справка об оплате медицинских услуг для налоговых органов (с кодом услуги 1 или 2)</li><li>для лекарств: рецепт по форме и чеки</li><li>для расходных материалов — справка клиники о том, что они не входили в стоимость, и чеки;</li><li>для лечения родственника — документ о родстве.</li></ul><div class="instr__cta"><p>По теме: <a href="/deklaraciya/vychet-za-lechenie">вычет за лечение целиком</a>, <a href="/deklaraciya/vychet-za-lechenie-zubov">лечение зубов</a>, <a href="/deklaraciya/vychet-za-lechenie-blizkih">лечение родных</a>.</p><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=lechenie">Заполнить декларацию — 199&nbsp;₽</a></div></article></div></section><section class="section section--muted"><div class="container"><div class="section__head"><span class="eyebrow">Вопросы</span><h2 class="section__title">Частые вопросы про дорогостоящее лечение</h2></div><div class="faq"><div class="faq__item is-open"><button class="faq__q" aria-expanded="true">Чем дорогостоящее лечение отличается от обычного?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Лимитом. У обычного лечения (код «1» в справке) расходы считаются в пределах общего социального лимита 150&nbsp;000&nbsp;₽ в год. У дорогостоящего (код «2») лимита нет: вычет берётся со всей суммы, а ограничивает только удержанный у вас за год НДФЛ.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Что относится к дорогостоящему?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Перечень утверждён постановлением Правительства от 08.04.2020 № 458: ЭКО и лечение бесплодия, сложные хирургические операции, лечение онкологии, трансплантация, протезирование с имплантацией, выхаживание недоношенных детей и другие виды. Решает не название услуги, а код в справке.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Кто ставит код?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Клиника при выдаче справки об оплате медицинских услуг. Налоговая считает строго по справке и код не меняет. Если вы уверены, что лечение дорогостоящее, а в справке стоит «1», обращайтесь в клинику — переоформление бесплатно.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Сколько вернут при лечении на 500 000 ₽?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">13% — 65&nbsp;000&nbsp;₽, если за год с вас удержали столько налога. Если удержали меньше, вернут только удержанное: остаток на следующий год не переносится.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Можно ли вернуть за лечение родственника?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да: за супруга, родителей и детей до 18 лет (с 2024 года — до 24 при очном обучении). Плательщиком в справке должны быть вы.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Лекарства и расходники тоже считаются?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Дорогие расходные материалы учитываются, если клиника их не имела и вы купили их сами для дорогостоящего лечения — нужна справка клиники об этом и чеки. Обычные лекарства идут по рецептам и относятся к коду «1».</div></div></div></div></section><section class="cta"><div class="cta__inner container"><h2 class="cta__title">Вернуть налог за дорогостоящее лечение</h2><p class="cta__text">Нужна справка клиники с кодом «2». Декларация — 199&nbsp;₽, сумма возврата видна до оплаты.</p><div class="cta__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=lechenie">Начать заполнение</a><a href="https://t.me/+79208379193" class="btn btn--light btn--lg">Спросить в Telegram</a></div></div></section></main><footer class="footer"><div class="container"><div class="footer__grid"><div><a class="footer__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r1-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r1-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r1-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg>Налог-сервис</a><p class="footer__tagline">Онлайн-сервис профессиональной помощи по заполнению декларации 3-НДФЛ и оформлению налогового вычета.</p></div><nav class="footer__col"><h4 class="footer__title">Разделы</h4><a href="/">Виды вычетов</a><a href="/">Как работаем</a><a href="/deklaraciya/vychet-za-kvartiru">Вычет за квартиру</a><a href="/deklaraciya/vychet-za-ipoteku">Вычет по ипотеке</a><a href="/deklaraciya/vychet-za-lechenie">Вычет за лечение</a><a href="/deklaraciya/vychet-za-obuchenie">Вычет за обучение</a><a href="/deklaraciya/nalog-s-prodazhi-kvartiry">Налог с продажи квартиры</a><a href="/deklaraciya/nalog-s-prodazhi-avtomobilya">Налог с продажи авто</a><a href="/deklaraciya/vychet-na-detey">Вычет на детей</a><a href="/deklaraciya/vychet-za-sport">Вычет за спорт</a><a href="/deklaraciya/vychet-po-iis">Вычет по ИИС</a><a href="/deklaraciya/vychet-za-strahovanie-zhizni">Вычет за страхование</a><a href="/deklaraciya/vychet-po-pds">Вычет по ПДС</a><a href="/deklaraciya/utochnennaya-deklaraciya">Уточнённая декларация</a><a href="/deklaraciya/nalog-nerezidenta-s-prodazhi">Налог нерезидента</a><a href="/deklaraciya/vychet-za-lechenie-zubov">Вычет за лечение зубов</a><a href="/deklaraciya/vychet-suprugam">Вычет супругам</a><a href="/deklaraciya/vychet-pensioneram">Вычет пенсионерам</a><a href="/deklaraciya/vychet-za-tri-goda">Вычет за три года</a><a href="/deklaraciya/nalog-s-prodazhi-uchastka">Налог с продажи участка</a><a href="/deklaraciya/vychet-za-obuchenie-rebenka">Обучение ребёнка</a><a href="/deklaraciya/dorogostoyashchee-lechenie">Дорогостоящее лечение</a><a href="/deklaraciya/vychet-za-lechenie-blizkih">Лечение родных</a><a href="/deklaraciya/vychet-za-novostroyku">Вычет за новостройку</a><a href="/deklaraciya/ostatok-imushchestvennogo-vycheta">Остаток вычета</a><a href="/deklaraciya/nalog-s-prodazhi-podarennoy">Продажа подарка и наследства</a><a href="/deklaraciya/vychet-cherez-rabotodatelya">Вычет у работодателя</a><a href="/deklaraciya/sroki-vozvrata-naloga">Сроки возврата</a><a href="/deklaraciya/shtraf-za-nepodachu-deklaracii">Штраф за неподачу</a><a href="/deklaraciya/otkaz-nalogovoy">Отказ в вычете</a><a href="/deklaraciya/vychet-samozanyatym">Вычет самозанятым</a><a href="/deklaraciya/instrukciya">Инструкция</a><a href="/deklaraciya/kalkulyator-naloga-s-prodazhi">Калькулятор налога</a><a href="/deklaraciya/tarify">Тарифы</a><a href="/deklaraciya/kontakty">Контакты</a></nav><nav class="footer__col"><h4 class="footer__title">Документы</h4><a href="/politika-konfidencialnosti">Политика конфиденциальности</a><a href="/publichnaya-oferta">Публичная оферта</a></nav><div class="footer__col"><h4 class="footer__title">Контакты</h4><a href="tel:+79208379193">+7 (920) 837-91-93</a><a href="mailto:NALOG-SERVICE@INTERNET.RU">nalog-service@internet.ru</a><div class="messengers" style="margin-top: 8px;"><a class="messenger messenger--tg" href="https://t.me/+79208379193" target="_blank" rel="noreferrer">Telegram</a><a class="messenger messenger--max" href="https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA" target="_blank" rel="noreferrer">Max</a></div></div></div></div><div class="footer__disclaimer"><div class="container">ООО «Информкарт» · ИНН 7420010847 · ОГРН 1067420016168 · 456404, Челябинская обл., Чебаркульский р-он, п. Тимирязевский, ул. Чайковского, д. 11. Услуги оказываются на основании <a href="/publichnaya-oferta" style="text-decoration: underline;">Публичной оферты</a>. Сайт носит информационный характер и не является публичной офертой в части индивидуальных условий.</div></div><div class="footer__bottom container"><span>© 2026 Налог-сервис. Все права защищены.</span><span>Возврат налоговых вычетов НДФЛ по всей России<span style="opacity: 0.45; margin-left: 10px; font-size: 11px;">сборка 2026-10-16 20:10 UTC</span></span></div></footer><div class="cookie" role="dialog" aria-label="Использование файлов cookie"><p>ООО «Информкарт» использует файлы cookie для персонализации сервисов и удобства пользования сайтом. Подробнее — в <a href="/politika-konfidencialnosti">Политике конфиденциальности</a>.</p><button class="btn btn--primary">Принять</button></div><div class="chatw"><button type="button" class="chatw__fab" aria-label="Открыть чат помощи" aria-expanded="false">💬</button></div><div class="mobile-cta"><a href="tel:+79208379193" class="btn btn--ghost">Позвонить</a><a class="btn btn--primary" href="/deklaraciya/anketa">Заполнить</a></div></div></div>
+    <noscript>
+      Для работы сайта включите JavaScript. Налог-сервис — возврат налоговых
+      вычетов НДФЛ под ключ. Телефон: +7 (920) 837-91-93.
+    </noscript>
+  
+
+</body></html>

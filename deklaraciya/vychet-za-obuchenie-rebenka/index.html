@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru"><head>
+    <script>/* Старые адреса с решёткой → чистые URL.
+ *
+ * Встраивается первым тегом в <head> (см. плагин в vite.config.js) и только
+ * в сборку с обычным роутером. Почему именно первым, а не в main.jsx: сразу
+ * за ним в <head> инициализируется Яндекс.Метрика с `url: location.href` —
+ * отработай шим позже, и каждый рекламный визит записался бы со старым
+ * адресом, а отчёт «страницы входа» стал бы бесполезным.
+ *
+ * Зачем вообще: 109 действующих объявлений Директа ведут на адреса вида
+ * «/?utm_source=…#/deklaraciya». Перемодерировать их ради переезда нельзя —
+ * это дни простоя. Плюс закладки людей, ссылки в уже скачанных PDF-инструкциях
+ * и статьи, которые мы будем публиковать. Шим остаётся в коде навсегда.
+ *
+ * Отдельно про склейку параметров: она сделана строками, а НЕ через
+ * URLSearchParams. Тот декодирует «+» как пробел и переэнкодит значения, а у
+ * нас через query ходят ссылка-черновик ?d=<base64 до 2000 символов> и метки
+ * Директа. Порча хотя бы одного символа означает потерянный черновик.
+ */
+(function () {
+  try {
+    var hash = window.location.hash;
+    // Обычные якоря (#faq) не трогаем — только маршруты вида #/путь.
+    if (hash.indexOf("#/") !== 0) return;
+
+    var rest = hash.slice(1); // «/deklaraciya/anketa?a=b» или «/deklaraciya&erid=x»
+
+    // Рекламные площадки дописывают свои параметры после решётки через «&»
+    // (Telega.in: «#/deklaraciya&erid=…»). Для роутера это часть пути, поэтому
+    // разделителем считаем и «?», и «&» — что встретится раньше.
+    var q = rest.indexOf("?");
+    var a = rest.indexOf("&");
+    var cut = q < 0 ? a : a < 0 ? q : Math.min(q, a);
+
+    var path = cut < 0 ? rest : rest.slice(0, cut);
+    var tail = cut < 0 ? "" : rest.slice(cut + 1);
+
+    if (!path || path.charAt(0) !== "/") return;
+
+    var search = window.location.search;
+    if (tail) search = search ? search + "&" + tail : "?" + tail;
+
+    window.history.replaceState(null, "", path + search);
+  } catch (e) {
+    /* Сломанный шим в самом начале <head> — это белый экран на всём сайте.
+       Цена ошибки должна быть «остался старый адрес», и не больше. */
+  }
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#0b5cff">
+
+    <!-- Primary SEO -->
+    <title>Налоговый вычет за обучение ребёнка: до 14&nbsp;300&nbsp;₽ на каждого | Налог-сервис</title>
+    
+    
+    
+    <meta name="robots" content="index, follow, max-image-preview:large">
+
+    <!-- Open Graph -->
+    
+    
+    
+    
+    
+    <!-- Картинка превью — ТОЛЬКО растр. SVG в этом месте не понимает ни один
+         мессенджер и ни одна соцсеть (проверено 15.10.2026: ссылка
+         пересылалась без картинки). Файлы рисуются из одноимённых SVG
+         командой node scripts/build-og-image.mjs. Здесь — карточка
+         самозаполнения: корень сайта это оно. Страницы «под ключ» подставят
+         свою через <Seo> (выбор по пути — ogImageFor в routes.js). Размеры
+         дублируются тегами: по ним площадка строит карточку, не дожидаясь
+         загрузки файла. -->
+    
+    
+    
+    
+    
+    
+
+    <!-- Twitter -->
+    
+    
+    
+    
+    
+
+    <!-- Structured data: Organization (базовое, для краулеров и ИИ-поиска) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Налог-сервис",
+        "url": "https://налог-сервис.рф/",
+        "logo": "https://налог-сервис.рф/favicon.svg",
+        "description": "Сервис возврата налоговых вычетов (НДФЛ) под ключ: имущественный, за лечение, обучение, ИИС.",
+        "areaServed": "RU",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+7-920-837-91-93",
+          "contactType": "customer service",
+          "availableLanguage": "Russian"
+        }
+      }
+    </script>
+
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+          m[i].l=1*new Date();
+          for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+          k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=110487569', 'ym');
+
+      // Просмотры страниц SPA шлёт ymHit в Layout (hash-роутер);
+      // trackHash не включаем, чтобы хиты не задваивались.
+      ym(110487569, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <!-- /Yandex.Metrika counter (noscript-пиксель — в body: в head он невалиден) -->
+    <script type="module" crossorigin="" src="/assets/index-BiE6PBWj.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-BycNIFTw.css">
+  <link rel="modulepreload" as="script" crossorigin="" href="/assets/SelfServiceVychetObuchenieRebenka-Dr8tesms.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/DeductionLanding-CJKxbic2.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/format-BgXA9SMT.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/refs-b9oNh1Z6.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/instrukciya-pRtjeIN0.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/pdfPage-DsoEM8nt.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/fontkit.es-CybV2vR2.js"><link rel="canonical" href="https://налог-сервис.рф/deklaraciya/vychet-za-obuchenie-rebenka" data-rh="true"><meta name="description" content="Вычет за обучение ребёнка: 13% с суммы до 110&nbsp;000&nbsp;₽ в год на каждого ребёнка (до 2024 года — 50&nbsp;000&nbsp;₽). Очная форма, возраст до 24 лет, лицензия организации, детский сад и кружки, документы и декларация 3-НДФЛ за 199&nbsp;₽." data-rh="true"><meta property="og:type" content="website" data-rh="true"><meta property="og:site_name" content="Налог-сервис" data-rh="true"><meta property="og:title" content="Налоговый вычет за обучение ребёнка: до 14&nbsp;300&nbsp;₽ на каждого | Налог-сервис" data-rh="true"><meta property="og:description" content="Вычет за обучение ребёнка: 13% с суммы до 110&nbsp;000&nbsp;₽ в год на каждого ребёнка (до 2024 года — 50&nbsp;000&nbsp;₽). Очная форма, возраст до 24 лет, лицензия организации, детский сад и кружки, документы и декларация 3-НДФЛ за 199&nbsp;₽." data-rh="true"><meta property="og:url" content="https://налог-сервис.рф/deklaraciya/vychet-za-obuchenie-rebenka" data-rh="true"><meta property="og:locale" content="ru_RU" data-rh="true"><meta property="og:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta property="og:image:type" content="image/jpeg" data-rh="true"><meta property="og:image:width" content="1200" data-rh="true"><meta property="og:image:height" content="630" data-rh="true"><meta property="og:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><meta name="twitter:card" content="summary_large_image" data-rh="true"><meta name="twitter:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta name="twitter:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Сколько можно вернуть за обучение ребёнка?","acceptedAnswer":{"@type":"Answer","text":"13% расходов, но не больше чем с 110 000 ₽ в год на каждого ребёнка — до 14 300 ₽. За 2022 и 2023 годы лимит был меньше — 50 000 ₽."}},{"@type":"Question","name":"Этот лимит входит в общие 150 000 ₽?","acceptedAnswer":{"@type":"Answer","text":"Нет, он отдельный: обучение детей считается сверх общего социального лимита. Поэтому в одной декларации можно заявить и лечение, и своё обучение, и обучение детей."}},{"@type":"Question","name":"Обязательно ли очное обучение?","acceptedAnswer":{"@type":"Answer","text":"Да. За заочное, вечернее и дистанционное обучение ребёнка вычет не дают. Форму обучения подтверждает справка от учебного заведения; у дошкольных и дополнительных занятий форма обычно очная по умолчанию."}},{"@type":"Question","name":"До какого возраста ребёнка?","acceptedAnswer":{"@type":"Answer","text":"До 24 лет, пока он учится очно. Для подопечных — до 18 лет, а после окончания опеки вычет сохраняется до 24 лет при очном обучении."}},{"@type":"Question","name":"Детский сад, кружки, автошкола — подходят?","acceptedAnswer":{"@type":"Answer","text":"Да, если у организации есть лицензия на образовательную деятельность: платные занятия в саду, музыкальная и спортивная школы, курсы, автошкола. Питание и присмотр в саду в расходы не входят — нужна выделенная сумма за обучение."}},{"@type":"Question","name":"Платил муж, а договор на жену. Кто получит вычет?","acceptedAnswer":{"@type":"Answer","text":"Супруги могут заявить вычет независимо от того, на кого оформлены документы: расходы в браке общие. Но проще, когда плательщик и заявитель — один человек."}}]}</script></head>
+  <body>
+    <noscript><div><img src="https://mc.yandex.ru/watch/110487569" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- Пиксель VK Рекламы: JS-часть подключается из src/lib/vkpixel.js -->
+    <noscript><div><img src="https://top-fwz1.mail.ru/counter?id=3783010;js=na" style="position:absolute; left:-9999px;" alt="Top.Mail.Ru" /></div></noscript>
+    <div id="root"><div class="site"><header class="navbar"><div class="navbar__inner container"><a class="navbar__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r0-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r0-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r0-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg><span>Налог<span class="navbar__brand-accent">-сервис</span></span></a><a href="tel:+79208379193" class="navbar__phone-top" aria-label="Позвонить: +7 (920) 837-91-93"><span class="navbar__phone-top-ico" aria-hidden="true">📞</span><span class="navbar__phone-top-txt"><span class="navbar__phone-label">Помощь</span><span class="navbar__phone-top-num">+7 (920) 837-91-93</span></span></a><button class="navbar__toggle" aria-label="Меню" aria-expanded="false"><span></span><span></span><span></span></button><nav class="navbar__nav"><a class="navbar__link" href="/">Виды вычетов</a><a class="navbar__link" href="/">Как работаем</a><a class="navbar__link" href="/deklaraciya/instrukciya">Инструкция</a><a class="navbar__link" href="/deklaraciya/tarify">Тарифы</a><a class="navbar__link" href="/deklaraciya/kontakty">Контакты</a><span class="navbar__phone"><span class="navbar__phone-label">Помощь</span> <a href="tel:+79208379193">+7 (920) 837-91-93</a></span><a class="btn btn--primary navbar__cta" href="/deklaraciya/anketa">Заполнить декларацию</a></nav></div></header><main class="site__main"><section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="Хлебные крошки"><a href="/">Заполнить самому</a><span>/ Вычет за обучение ребёнка</span></nav><h1 class="page-hero__title">Налоговый вычет за обучение ребёнка</h1><p class="page-hero__subtitle">13% расходов на очное обучение ребёнка — с суммы до <strong>110&nbsp;000&nbsp;₽</strong> в год на каждого, то есть до <strong>14&nbsp;300&nbsp;₽</strong>. Этот лимит отдельный и не уменьшается лечением и своим обучением.</p><div class="hero__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=obuchenie">Рассчитать мой вычет</a></div><p class="page-hero__note">Бесплатно и без регистрации: сумма к возврату видна до оплаты.</p></div></section><section class="section"><div class="container instr"><article class="card instr__block"><h2>Сколько вернут</h2><ul class="instr__steps"><li><strong>110&nbsp;000&nbsp;₽ в год на каждого ребёнка</strong> — лимит с 2024 года, к возврату до 14&nbsp;300&nbsp;₽.</li><li><strong>Лимит отдельный</strong>: он не входит в общий социальный, то есть лечение и своё обучение его не уменьшают.</li><li><strong>Считается по каждому ребёнку</strong>: двое детей — два лимита.</li><li><strong>Остаток не переносится</strong> на следующий год.</li></ul><p><strong>Пример.</strong> Двое детей, за год оплачено 120 000 ₽ и 80 000 ₽. К возврату 14&nbsp;300&nbsp;₽ за первого (лимит) и 10&nbsp;400&nbsp;₽ за второго — вместе 24&nbsp;700&nbsp;₽.</p></article><article class="card instr__block"><h2>Условия, на которых чаще всего спотыкаются</h2><ul class="instr__steps"><li><strong>Очная форма.</strong> За заочное и вечернее обучение ребёнка вычета нет.</li><li><strong>Возраст до 24 лет.</strong> В год, когда исполняется 24, расходы учитываются до даты окончания обучения.</li><li><strong>Лицензия у организации.</strong> Её реквизиты указывают в договоре; у зарубежных школ нужен документ, подтверждающий статус образовательного учреждения.</li><li><strong>Платит родитель.</strong> Если в чеках плательщик — сам ребёнок, налоговая откажет.</li></ul></article><article class="card instr__block"><h2>За какие годы можно подать</h2><p>За три последних года. В 2026 году открыты годы: <strong>2025, 2024, 2023</strong>. Лимит у каждого года свой:</p><ul class="instr__steps"><li><strong>2025</strong> — 110&nbsp;000&nbsp;₽ на ребёнка, к возврату до 14&nbsp;300&nbsp;₽</li><li><strong>2024</strong> — 110&nbsp;000&nbsp;₽ на ребёнка, к возврату до 14&nbsp;300&nbsp;₽</li><li><strong>2023</strong> — 50&nbsp;000&nbsp;₽ на ребёнка, к возврату до 6&nbsp;500&nbsp;₽</li></ul></article><article class="card instr__block"><h2>Какие документы понадобятся</h2><ul class="instr__steps"><li>договор с учебной организацией</li><li>платёжные документы (чеки, квитанции)</li><li>для ребёнка: свидетельство о рождении и справка об очной форме обучения</li></ul><div class="instr__cta"><p>Своё обучение считается по другому лимиту — <a href="/deklaraciya/vychet-za-obuchenie">разбор про обучение</a>. Есть ещё <a href="/deklaraciya/vychet-na-detey">стандартный вычет на детей</a> — он работает каждый месяц и не связан с расходами.</p><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=obuchenie">Заполнить декларацию — 199&nbsp;₽</a></div></article></div></section><section class="section section--muted"><div class="container"><div class="section__head"><span class="eyebrow">Вопросы</span><h2 class="section__title">Частые вопросы про вычет за обучение ребёнка</h2></div><div class="faq"><div class="faq__item is-open"><button class="faq__q" aria-expanded="true">Сколько можно вернуть за обучение ребёнка?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">13% расходов, но не больше чем с 110&nbsp;000&nbsp;₽ в год на каждого ребёнка — до 14&nbsp;300&nbsp;₽. За 2022 и 2023 годы лимит был меньше — 50&nbsp;000&nbsp;₽.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Этот лимит входит в общие 150 000 ₽?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Нет, он отдельный: обучение детей считается сверх общего социального лимита. Поэтому в одной декларации можно заявить и лечение, и своё обучение, и обучение детей.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Обязательно ли очное обучение?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да. За заочное, вечернее и дистанционное обучение ребёнка вычет не дают. Форму обучения подтверждает справка от учебного заведения; у дошкольных и дополнительных занятий форма обычно очная по умолчанию.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">До какого возраста ребёнка?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">До 24 лет, пока он учится очно. Для подопечных — до 18 лет, а после окончания опеки вычет сохраняется до 24 лет при очном обучении.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Детский сад, кружки, автошкола — подходят?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да, если у организации есть лицензия на образовательную деятельность: платные занятия в саду, музыкальная и спортивная школы, курсы, автошкола. Питание и присмотр в саду в расходы не входят — нужна выделенная сумма за обучение.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Платил муж, а договор на жену. Кто получит вычет?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Супруги могут заявить вычет независимо от того, на кого оформлены документы: расходы в браке общие. Но проще, когда плательщик и заявитель — один человек.</div></div></div></div></section><section class="cta"><div class="cta__inner container"><h2 class="cta__title">Вернуть до 14&nbsp;300&nbsp;₽ за каждого ребёнка</h2><p class="cta__text">Нужны договор, чеки и справка об очной форме. Декларация — 199&nbsp;₽.</p><div class="cta__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=obuchenie">Начать заполнение</a><a href="https://t.me/+79208379193" class="btn btn--light btn--lg">Спросить в Telegram</a></div></div></section></main><footer class="footer"><div class="container"><div class="footer__grid"><div><a class="footer__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r1-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r1-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r1-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg>Налог-сервис</a><p class="footer__tagline">Онлайн-сервис профессиональной помощи по заполнению декларации 3-НДФЛ и оформлению налогового вычета.</p></div><nav class="footer__col"><h4 class="footer__title">Разделы</h4><a href="/">Виды вычетов</a><a href="/">Как работаем</a><a href="/deklaraciya/vychet-za-kvartiru">Вычет за квартиру</a><a href="/deklaraciya/vychet-za-ipoteku">Вычет по ипотеке</a><a href="/deklaraciya/vychet-za-lechenie">Вычет за лечение</a><a href="/deklaraciya/vychet-za-obuchenie">Вычет за обучение</a><a href="/deklaraciya/nalog-s-prodazhi-kvartiry">Налог с продажи квартиры</a><a href="/deklaraciya/nalog-s-prodazhi-avtomobilya">Налог с продажи авто</a><a href="/deklaraciya/vychet-na-detey">Вычет на детей</a><a href="/deklaraciya/vychet-za-sport">Вычет за спорт</a><a href="/deklaraciya/vychet-po-iis">Вычет по ИИС</a><a href="/deklaraciya/vychet-za-strahovanie-zhizni">Вычет за страхование</a><a href="/deklaraciya/vychet-po-pds">Вычет по ПДС</a><a href="/deklaraciya/utochnennaya-deklaraciya">Уточнённая декларация</a><a href="/deklaraciya/nalog-nerezidenta-s-prodazhi">Налог нерезидента</a><a href="/deklaraciya/vychet-za-lechenie-zubov">Вычет за лечение зубов</a><a href="/deklaraciya/vychet-suprugam">Вычет супругам</a><a href="/deklaraciya/vychet-pensioneram">Вычет пенсионерам</a><a href="/deklaraciya/vychet-za-tri-goda">Вычет за три года</a><a href="/deklaraciya/nalog-s-prodazhi-uchastka">Налог с продажи участка</a><a href="/deklaraciya/vychet-za-obuchenie-rebenka">Обучение ребёнка</a><a href="/deklaraciya/dorogostoyashchee-lechenie">Дорогостоящее лечение</a><a href="/deklaraciya/vychet-za-lechenie-blizkih">Лечение родных</a><a href="/deklaraciya/vychet-za-novostroyku">Вычет за новостройку</a><a href="/deklaraciya/ostatok-imushchestvennogo-vycheta">Остаток вычета</a><a href="/deklaraciya/nalog-s-prodazhi-podarennoy">Продажа подарка и наследства</a><a href="/deklaraciya/vychet-cherez-rabotodatelya">Вычет у работодателя</a><a href="/deklaraciya/sroki-vozvrata-naloga">Сроки возврата</a><a href="/deklaraciya/shtraf-za-nepodachu-deklaracii">Штраф за неподачу</a><a href="/deklaraciya/otkaz-nalogovoy">Отказ в вычете</a><a href="/deklaraciya/vychet-samozanyatym">Вычет самозанятым</a><a href="/deklaraciya/instrukciya">Инструкция</a><a href="/deklaraciya/kalkulyator-naloga-s-prodazhi">Калькулятор налога</a><a href="/deklaraciya/tarify">Тарифы</a><a href="/deklaraciya/kontakty">Контакты</a></nav><nav class="footer__col"><h4 class="footer__title">Документы</h4><a href="/politika-konfidencialnosti">Политика конфиденциальности</a><a href="/publichnaya-oferta">Публичная оферта</a></nav><div class="footer__col"><h4 class="footer__title">Контакты</h4><a href="tel:+79208379193">+7 (920) 837-91-93</a><a href="mailto:NALOG-SERVICE@INTERNET.RU">nalog-service@internet.ru</a><div class="messengers" style="margin-top: 8px;"><a class="messenger messenger--tg" href="https://t.me/+79208379193" target="_blank" rel="noreferrer">Telegram</a><a class="messenger messenger--max" href="https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA" target="_blank" rel="noreferrer">Max</a></div></div></div></div><div class="footer__disclaimer"><div class="container">ООО «Информкарт» · ИНН 7420010847 · ОГРН 1067420016168 · 456404, Челябинская обл., Чебаркульский р-он, п. Тимирязевский, ул. Чайковского, д. 11. Услуги оказываются на основании <a href="/publichnaya-oferta" style="text-decoration: underline;">Публичной оферты</a>. Сайт носит информационный характер и не является публичной офертой в части индивидуальных условий.</div></div><div class="footer__bottom container"><span>© 2026 Налог-сервис. Все права защищены.</span><span>Возврат налоговых вычетов НДФЛ по всей России<span style="opacity: 0.45; margin-left: 10px; font-size: 11px;">сборка 2026-10-16 20:10 UTC</span></span></div></footer><div class="cookie" role="dialog" aria-label="Использование файлов cookie"><p>ООО «Информкарт» использует файлы cookie для персонализации сервисов и удобства пользования сайтом. Подробнее — в <a href="/politika-konfidencialnosti">Политике конфиденциальности</a>.</p><button class="btn btn--primary">Принять</button></div><div class="chatw"><button type="button" class="chatw__fab" aria-label="Открыть чат помощи" aria-expanded="false">💬</button></div><div class="mobile-cta"><a href="tel:+79208379193" class="btn btn--ghost">Позвонить</a><a class="btn btn--primary" href="/deklaraciya/anketa">Заполнить</a></div></div></div>
+    <noscript>
+      Для работы сайта включите JavaScript. Налог-сервис — возврат налоговых
+      вычетов НДФЛ под ключ. Телефон: +7 (920) 837-91-93.
+    </noscript>
+  
+
+</body></html>
