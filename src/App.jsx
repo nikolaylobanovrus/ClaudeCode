@@ -32,6 +32,14 @@ const SelfServiceInstrukciya = lazy(() => import("./pages/SelfServiceInstrukciya
 const SelfServiceVychetKvartira = lazy(() => import("./pages/SelfServiceVychetKvartira.jsx"));
 const SelfServiceVychetIpoteka = lazy(() => import("./pages/SelfServiceVychetIpoteka.jsx"));
 const SelfServiceVychetLechenie = lazy(() => import("./pages/SelfServiceVychetLechenie.jsx"));
+const SelfServiceVychetObuchenie = lazy(() => import("./pages/SelfServiceVychetObuchenie.jsx"));
+const SelfServiceNalogProdazhaRealty = lazy(() => import("./pages/SelfServiceNalogProdazhaRealty.jsx"));
+const SelfServiceNalogProdazhaAuto = lazy(() => import("./pages/SelfServiceNalogProdazhaAuto.jsx"));
+const SelfServiceVychetDeti = lazy(() => import("./pages/SelfServiceVychetDeti.jsx"));
+const SelfServiceVychetSport = lazy(() => import("./pages/SelfServiceVychetSport.jsx"));
+const SelfServiceVychetIis = lazy(() => import("./pages/SelfServiceVychetIis.jsx"));
+const SelfServiceVychetStrahovanie = lazy(() => import("./pages/SelfServiceVychetStrahovanie.jsx"));
+const SelfServiceVychetSberezheniya = lazy(() => import("./pages/SelfServiceVychetSberezheniya.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -92,6 +100,23 @@ export default function App() {
           path="deklaraciya/vychet-za-lechenie"
           element={lazyPage(<SelfServiceVychetLechenie />)}
         />
+        <Route
+          path="deklaraciya/vychet-za-obuchenie"
+          element={lazyPage(<SelfServiceVychetObuchenie />)}
+        />
+        <Route
+          path="deklaraciya/nalog-s-prodazhi-kvartiry"
+          element={lazyPage(<SelfServiceNalogProdazhaRealty />)}
+        />
+        <Route
+          path="deklaraciya/nalog-s-prodazhi-avtomobilya"
+          element={lazyPage(<SelfServiceNalogProdazhaAuto />)}
+        />
+        <Route path="deklaraciya/vychet-na-detey" element={lazyPage(<SelfServiceVychetDeti />)} />
+        <Route path="deklaraciya/vychet-za-sport" element={lazyPage(<SelfServiceVychetSport />)} />
+        <Route path="deklaraciya/vychet-po-iis" element={lazyPage(<SelfServiceVychetIis />)} />
+        <Route path="deklaraciya/vychet-za-strahovanie-zhizni" element={lazyPage(<SelfServiceVychetStrahovanie />)} />
+        <Route path="deklaraciya/vychet-po-pds" element={lazyPage(<SelfServiceVychetSberezheniya />)} />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"
           element={lazyPage(<SelfServiceKalkulyator />)}

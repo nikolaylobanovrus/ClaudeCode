@@ -12,18 +12,21 @@ import {
   clearDraft,
 } from "../wizard/WizardContext.jsx";
 import WizardShell from "../wizard/WizardShell.jsx";
-import { paymentStepFor, SALE_SLUGS } from "../data/wizard.js";
+import { paymentStepFor, SALE_SLUGS, wizardDeductions } from "../data/wizard.js";
 import { SALE_REALTY_BASES, SALE_OBJECTS } from "../lib/ndfl/refs.js";
 import { decodeDraftLink } from "../lib/draftLink.js";
 import { ymGoal } from "../lib/metrika.js";
 
-// Ситуации, которые объявление может передать в ссылке (?s=… до решётки):
-// клик по «вычет за лечение» открывает анкету с уже выбранной плиткой —
-// на телефоне это убирает скролл пятнадцати плиток до кнопки «Далее».
-const PRESELECT_SLUGS = [
-  "kvartira", "ipoteka", "lechenie", "obuchenie", "iis", "strahovanie", "sport",
-  ...SALE_SLUGS,
-];
+// Ситуации, которые ссылка может передать параметром ?s=… (до решётки):
+// клик по «вычет за лечение» открывает анкету с уже выбранной плиткой — на
+// телефоне это убирает скролл пятнадцати плиток до кнопки «Далее». Так ходят
+// и объявления Директа, и кнопки «Рассчитать мой вычет» на лендингах.
+//
+// Список БЕРЁТСЯ ИЗ ПЛИТОК, а не перечисляется руками: раньше он был отдельным
+// и успел отстать — «Есть дети» и «Долгосрочные сбережения» в него не попали,
+// и ссылки на эти ситуации молча открывали пустую анкету (найдено 16.10.2026
+// проверкой лендингов).
+const PRESELECT_SLUGS = [...wizardDeductions.map((d) => d.slug), ...SALE_SLUGS];
 
 // Цифры из калькулятора налога с продажи (?price=&exp=&cad=&acq=&sold=&basis=).
 // Переносим только то, что человек там уже ввёл: пустые параметры не должны

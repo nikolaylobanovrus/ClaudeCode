@@ -264,14 +264,30 @@ export default function SelfService() {
             Подробные разборы с примерами и документами:{" "}
             <Link to="/deklaraciya/vychet-za-kvartiru">вычет за квартиру</Link>,{" "}
             <Link to="/deklaraciya/vychet-za-ipoteku">по процентам ипотеки</Link>,{" "}
-            <Link to="/deklaraciya/vychet-za-lechenie">за лечение</Link>.
+            <Link to="/deklaraciya/vychet-za-lechenie">за лечение</Link>,{" "}
+            <Link to="/deklaraciya/vychet-za-obuchenie">за обучение</Link>,{" "}
+            <Link to="/deklaraciya/vychet-za-sport">за спорт</Link>,{" "}
+            <Link to="/deklaraciya/vychet-po-iis">по ИИС</Link>,{" "}
+            <Link to="/deklaraciya/vychet-za-strahovanie-zhizni">
+              за страхование жизни
+            </Link>
+            , <Link to="/deklaraciya/vychet-po-pds">по ПДС</Link> и{" "}
+            <Link to="/deklaraciya/vychet-na-detey">на детей</Link>.
           </p>
           <p className="sd-grid__note">
             Продали квартиру или машину и не знаете, будет ли налог?{" "}
             <Link to="/deklaraciya/kalkulyator-naloga-s-prodazhi">
               Посчитайте на калькуляторе
             </Link>{" "}
-            — бесплатно, с проверкой срока владения.
+            — бесплатно, с проверкой срока владения. Разборы правил:{" "}
+            <Link to="/deklaraciya/nalog-s-prodazhi-kvartiry">
+              налог с продажи квартиры
+            </Link>{" "}
+            и{" "}
+            <Link to="/deklaraciya/nalog-s-prodazhi-avtomobilya">
+              с продажи машины
+            </Link>
+            .
           </p>
         </div>
       </section>

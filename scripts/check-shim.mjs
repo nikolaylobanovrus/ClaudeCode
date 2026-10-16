@@ -123,6 +123,14 @@ for (const [path, tile] of [
   ["/deklaraciya/vychet-za-kvartiru", "Купили квартиру"],
   ["/deklaraciya/vychet-za-ipoteku", "Платили за ипотеку"],
   ["/deklaraciya/vychet-za-lechenie", "Платили за лечение"],
+  ["/deklaraciya/vychet-za-obuchenie", "Платили за обучение"],
+  ["/deklaraciya/nalog-s-prodazhi-kvartiry", "Продал недвижимость"],
+  ["/deklaraciya/nalog-s-prodazhi-avtomobilya", "Продал автомобиль"],
+  ["/deklaraciya/vychet-na-detey", "Есть дети"],
+  ["/deklaraciya/vychet-za-sport", "Платили за спорт"],
+  ["/deklaraciya/vychet-po-iis", "Открыли инвестиционный счёт"],
+  ["/deklaraciya/vychet-za-strahovanie-zhizni", "Платили за страхование жизни"],
+  ["/deklaraciya/vychet-po-pds", "Программа долгосрочных сбережений"],
 ]) {
   // ОТДЕЛЬНЫЙ контекст, а не общий: предыдущие сценарии оставили в хранилище
   // черновик, а он намеренно важнее параметра ?s= — человеку не затирают
