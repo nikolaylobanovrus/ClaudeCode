@@ -46,15 +46,26 @@ TOKENS_FILE = "/root/.ndfl-tokens"
 DAYS = 28
 
 
+def clean(v):
+    """Убираем кавычки и УГЛОВЫЕ СКОБКИ.
+
+    В инструкции образец был написан как «<токен>», и 16.10.2026 токен так и
+    уехал в файл вместе со скобками: авторизация падала с 401, а причина была
+    не видна. В настоящем токене Яндекса «<» и «>» не встречаются, так что
+    снимать их безопасно.
+    """
+    return (v or "").strip().strip("\"'").strip("<>").strip()
+
+
 def token():
-    v = (os.environ.get("YANDEX_WEBMASTER_OAUTH") or "").strip().strip("\"'")
+    v = clean(os.environ.get("YANDEX_WEBMASTER_OAUTH"))
     if v:
         return v
     try:
         with open(TOKENS_FILE) as f:
             for line in f:
                 if line.startswith("YANDEX_WEBMASTER_OAUTH="):
-                    v = line.split("=", 1)[1].strip().strip("\"'")
+                    v = clean(line.split("=", 1)[1])
                     if v:
                         return v
     except OSError:
@@ -67,6 +78,11 @@ def token():
 
 
 TOKEN = token()
+# Токен Яндекса начинается с «y0_». Если пришло что-то другое — скажем сразу,
+# а не после непонятного 401 из API.
+if not TOKEN.startswith("y0"):
+    print("Предупреждение: значение YANDEX_WEBMASTER_OAUTH не похоже на токен "
+          "Яндекса (ожидается начало «y0_»). Если API ответит 401 — дело в этом.")
 
 
 def api(path, params=None, method="GET", body=None):
