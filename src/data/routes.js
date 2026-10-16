@@ -44,6 +44,11 @@ export const ROUTES = [
   // говорит это прямо. Приоритет у него ниже остальных именно поэтому.
   { path: "/deklaraciya/utochnennaya-deklaraciya", index: true, changefreq: "monthly", priority: "0.8" },
   { path: "/deklaraciya/nalog-nerezidenta-s-prodazhi", index: true, changefreq: "monthly", priority: "0.7" },
+  { path: "/deklaraciya/vychet-za-lechenie-zubov", index: true, changefreq: "monthly", priority: "0.9" },
+  { path: "/deklaraciya/vychet-suprugam", index: true, changefreq: "monthly", priority: "0.9" },
+  { path: "/deklaraciya/vychet-pensioneram", index: true, changefreq: "monthly", priority: "0.8" },
+  { path: "/deklaraciya/vychet-za-tri-goda", index: true, changefreq: "monthly", priority: "0.8" },
+  { path: "/deklaraciya/nalog-s-prodazhi-uchastka", index: true, changefreq: "monthly", priority: "0.9" },
   // Служебные страницы раздела: живой контент, но дублируют главную по смыслу.
   { path: "/deklaraciya/tarify", index: false },
   { path: "/deklaraciya/kontakty", index: false },

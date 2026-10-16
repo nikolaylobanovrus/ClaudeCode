@@ -131,6 +131,10 @@ for (const [path, tile] of [
   ["/deklaraciya/vychet-po-iis", "Открыли инвестиционный счёт"],
   ["/deklaraciya/vychet-za-strahovanie-zhizni", "Платили за страхование жизни"],
   ["/deklaraciya/vychet-po-pds", "Программа долгосрочных сбережений"],
+  ["/deklaraciya/vychet-za-lechenie-zubov", "Платили за лечение"],
+  ["/deklaraciya/vychet-suprugam", "Купили квартиру"],
+  ["/deklaraciya/vychet-pensioneram", "Купили квартиру"],
+  ["/deklaraciya/nalog-s-prodazhi-uchastka", "Продал недвижимость"],
 ]) {
   // ОТДЕЛЬНЫЙ контекст, а не общий: предыдущие сценарии оставили в хранилище
   // черновик, а он намеренно важнее параметра ?s= — человеку не затирают
@@ -173,6 +177,11 @@ for (const [path, label, expectUrl] of [
     "/deklaraciya/nalog-nerezidenta-s-prodazhi",
     "Проверить срок владения",
     /\/deklaraciya\/kalkulyator-naloga-s-prodazhi/,
+  ],
+  [
+    "/deklaraciya/vychet-za-tri-goda",
+    "Выбрать год и посчитать",
+    /\/deklaraciya\/anketa(\?|$|#)/,
   ],
 ]) {
   const fresh = await browser.newContext({ viewport: { width: 1280, height: 900 } });

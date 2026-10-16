@@ -42,6 +42,11 @@ const SelfServiceVychetStrahovanie = lazy(() => import("./pages/SelfServiceVyche
 const SelfServiceVychetSberezheniya = lazy(() => import("./pages/SelfServiceVychetSberezheniya.jsx"));
 const SelfServiceUtochnennaya = lazy(() => import("./pages/SelfServiceUtochnennaya.jsx"));
 const SelfServiceNalogNerezidenta = lazy(() => import("./pages/SelfServiceNalogNerezidenta.jsx"));
+const SelfServiceVychetZuby = lazy(() => import("./pages/SelfServiceVychetZuby.jsx"));
+const SelfServiceVychetSuprugam = lazy(() => import("./pages/SelfServiceVychetSuprugam.jsx"));
+const SelfServiceVychetPensioneram = lazy(() => import("./pages/SelfServiceVychetPensioneram.jsx"));
+const SelfServiceVychetZaTriGoda = lazy(() => import("./pages/SelfServiceVychetZaTriGoda.jsx"));
+const SelfServiceNalogProdazhaUchastka = lazy(() => import("./pages/SelfServiceNalogProdazhaUchastka.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -132,6 +137,17 @@ export default function App() {
           path="deklaraciya/nalog-nerezidenta-s-prodazhi"
           element={lazyPage(<SelfServiceNalogNerezidenta />)}
         />
+        {/* Вторая очередь лендингов: темы с живым поисковым спросом, которые
+            анкета умеет обслужить. Зубы — потому что про имплантацию
+            спрашивают отдельно от лечения; супруги — потому что лимит
+            персональный и семья возвращает вдвое больше; пенсионеры — из-за
+            переноса остатка на прошлые годы; три года — про срок, а не про
+            вид вычета; участок — свои правила раздела и дома на земле. */}
+        <Route path="deklaraciya/vychet-za-lechenie-zubov" element={lazyPage(<SelfServiceVychetZuby />)} />
+        <Route path="deklaraciya/vychet-suprugam" element={lazyPage(<SelfServiceVychetSuprugam />)} />
+        <Route path="deklaraciya/vychet-pensioneram" element={lazyPage(<SelfServiceVychetPensioneram />)} />
+        <Route path="deklaraciya/vychet-za-tri-goda" element={lazyPage(<SelfServiceVychetZaTriGoda />)} />
+        <Route path="deklaraciya/nalog-s-prodazhi-uchastka" element={lazyPage(<SelfServiceNalogProdazhaUchastka />)} />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"
           element={lazyPage(<SelfServiceKalkulyator />)}

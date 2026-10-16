@@ -38,6 +38,11 @@ const PAGES = [
   "/deklaraciya/vychet-po-pds",
   "/deklaraciya/utochnennaya-deklaraciya",
   "/deklaraciya/nalog-nerezidenta-s-prodazhi",
+  "/deklaraciya/vychet-za-lechenie-zubov",
+  "/deklaraciya/vychet-suprugam",
+  "/deklaraciya/vychet-pensioneram",
+  "/deklaraciya/vychet-za-tri-goda",
+  "/deklaraciya/nalog-s-prodazhi-uchastka",
   "/deklaraciya/tarify",
   "/vychety",
   "/tarify",
@@ -119,6 +124,22 @@ for (const width of WIDTHS) {
       });
       for (const where of torn)
         problems.push(`${width}px, шрифт ×${scale}, ${path} — «3-НДФЛ» разорвано переносом: «${where}…»`);
+      // Марка в шапке, сжатая флексом уже своего текста. Горизонтального
+      // скролла при этом нет — текст просто вылезает из коробки и ложится
+      // поверх соседнего пункта меню, и «Налог-сервис» читается как брак
+      // вёрстки. Так на десктопе жило всё время, пока в меню раздела было
+      // пять пунктов: ширина контейнера не менялась, а правило плотной
+      // шапки действовало только до 1270px.
+      const squeezed = await page.evaluate(() => {
+        const el = document.querySelector(".navbar__brand");
+        if (!el) return 0;
+        if (getComputedStyle(el).overflow !== "visible") return 0; // текст обрезан многоточием — так задумано
+        return Math.round(el.scrollWidth - el.getBoundingClientRect().width);
+      });
+      if (squeezed > 1)
+        problems.push(
+          `${width}px, шрифт ×${scale}, ${path} — название в шапке сжато на ${squeezed}px и наезжает на меню`
+        );
     }
   }
   await ctx.close();

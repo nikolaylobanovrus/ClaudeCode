@@ -273,7 +273,10 @@ export default function SelfService() {
               за страхование жизни
             </Link>
             , <Link to="/deklaraciya/vychet-po-pds">по ПДС</Link> и{" "}
-            <Link to="/deklaraciya/vychet-na-detey">на детей</Link>.
+            <Link to="/deklaraciya/vychet-na-detey">на детей</Link>. Отдельно:{" "}
+            <Link to="/deklaraciya/vychet-za-lechenie-zubov">лечение зубов</Link>,{" "}
+            <Link to="/deklaraciya/vychet-suprugam">вычет на двоих супругов</Link>{" "}
+            и <Link to="/deklaraciya/vychet-pensioneram">вычет пенсионерам</Link>.
           </p>
           <p className="sd-grid__note">
             Продали квартиру или машину и не знаете, будет ли налог?{" "}
@@ -288,6 +291,10 @@ export default function SelfService() {
             <Link to="/deklaraciya/nalog-s-prodazhi-avtomobilya">
               с продажи машины
             </Link>
+            ,{" "}
+            <Link to="/deklaraciya/nalog-s-prodazhi-uchastka">
+              с продажи участка и дачи
+            </Link>
             . Продавал{" "}
             <Link to="/deklaraciya/nalog-nerezidenta-s-prodazhi">нерезидент</Link>{" "}
             — там свои правила и ставка 30%.
@@ -300,7 +307,12 @@ export default function SelfService() {
             <Link to="/deklaraciya/utochnennaya-deklaraciya">
               Уточнённая декларация
             </Link>{" "}
-            — как исправить и не получить штраф.
+            — как исправить и не получить штраф. А если налог не возвращали
+            несколько лет —{" "}
+            <Link to="/deklaraciya/vychet-za-tri-goda">
+              вернуть можно сразу за три года
+            </Link>
+            .
           </p>
         </div>
       </section>
