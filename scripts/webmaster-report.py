@@ -75,23 +75,45 @@ def clean(v):
     return (v or "").strip().strip("\"'").strip("<>").strip()
 
 
+def token_files():
+    """Где ищем файл с токеном — по порядку.
+
+    Скрипт запускают и на сервере, и с домашнего компьютера (API Вебмастера
+    закрыт для адресов дата-центров — проверено 16.10.2026 и в среде
+    разработки, и на VPS: TCP 443 к api.webmaster.yandex.net не открывается,
+    при живом API Метрики с того же адреса). Поэтому кроме серверного пути
+    смотрим домашний каталог и путь из --token-file: на Windows «/root» нет.
+    """
+    out = []
+    if "--token-file" in sys.argv:
+        i = sys.argv.index("--token-file")
+        if i + 1 < len(sys.argv):
+            out.append(sys.argv[i + 1])
+    out.append(TOKENS_FILE)
+    out.append(os.path.join(os.path.expanduser("~"), ".ndfl-tokens"))
+    return out
+
+
 def token():
     v = clean(os.environ.get("YANDEX_WEBMASTER_OAUTH"))
     if v:
         return v
-    try:
-        with open(TOKENS_FILE) as f:
-            for line in f:
-                if line.startswith("YANDEX_WEBMASTER_OAUTH="):
-                    v = clean(line.split("=", 1)[1])
-                    if v:
-                        return v
-    except OSError:
-        pass
+    for path in token_files():
+        try:
+            with open(path) as f:
+                for line in f:
+                    if line.startswith("YANDEX_WEBMASTER_OAUTH="):
+                        v = clean(line.split("=", 1)[1])
+                        if v:
+                            return v
+        except OSError:
+            continue
     sys.exit(
-        "не найден YANDEX_WEBMASTER_OAUTH: ни в переменных окружения, ни в "
-        + TOKENS_FILE
-        + "\nПоложите токен туда и запустите снова."
+        "не найден YANDEX_WEBMASTER_OAUTH.\n"
+        "Искал: переменную окружения и файлы:\n  "
+        + "\n  ".join(token_files())
+        + "\n\nНа сервере:  umask 077 && printf 'YANDEX_WEBMASTER_OAUTH=ТОКЕН\\n' > /root/.ndfl-tokens"
+        + "\nНа Windows:  $env:YANDEX_WEBMASTER_OAUTH=\"ТОКЕН\"  (в том же окне PowerShell)"
     )
 
 
