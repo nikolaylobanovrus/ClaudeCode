@@ -33,10 +33,10 @@ const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
 
-// Редирект с сохранением запроса: <Navigate to="/"> отбрасывает search.
-function RedirectHome() {
+// Редирект с сохранением запроса: <Navigate to="..."> отбрасывает search.
+function RedirectTo({ to }) {
   const { search } = useLocation();
-  return <Navigate to={{ pathname: "/", search }} replace />;
+  return <Navigate to={{ pathname: to, search }} replace />;
 }
 
 export default function App() {
@@ -70,7 +70,7 @@ export default function App() {
             и редирект их не касался, а теперь они в запросе пути — обычный
             <Navigate to="/"> выбросил бы utm у восьми из десяти платных
             визитов, и вся атрибуция в Метрике поехала бы. */}
-        <Route path="deklaraciya" element={<RedirectHome />} />
+        <Route path="deklaraciya" element={<RedirectTo to="/" />} />
         <Route path="deklaraciya/tarify" element={lazyPage(<SelfServiceTariffs />)} />
         <Route path="deklaraciya/kontakty" element={lazyPage(<SelfServiceContacts />)} />
         <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />
@@ -80,6 +80,14 @@ export default function App() {
           element={lazyPage(<SelfServiceKalkulyator />)}
         />
         <Route path="deklaraciya/oferta" element={lazyPage(<SelfServiceOffer />)} />
+        {/* Вход оператора лежит на /operator, но набирают его по-разному.
+            «/deklaraciya/operator» — по аналогии с остальным разделом (за
+            месяц один такой заход в Метрике), «/mama» — короткий адрес,
+            который легко продиктовать и набрать с телефона. До этапа C оба
+            молча отдавали главную с кодом 200, теперь отдавали бы честный
+            404 — поэтому их надо обслужить явно. */}
+        <Route path="deklaraciya/operator" element={<RedirectTo to="/operator" />} />
+        <Route path="mama" element={<RedirectTo to="/operator" />} />
         <Route path="politika-konfidencialnosti" element={<Privacy />} />
         <Route path="publichnaya-oferta" element={<Offer />} />
         <Route path="*" element={<NotFound />} />

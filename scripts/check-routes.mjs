@@ -53,6 +53,6 @@ const problems = missing.length + extra.length + bad.length;
 console.log(
   problems
     ? `\nРАСХОЖДЕНИЙ: ${problems}`
-    : `Списки сошлись: ${ROUTES.length} страниц (${ROUTES.filter((r) => r.index).length} индексируемых) + ${REDIRECTS.length} редирект.`
+    : `Списки сошлись: ${ROUTES.length} страниц (${ROUTES.filter((r) => r.index).length} индексируемых) + редиректов: ${REDIRECTS.length}.`
 );
 process.exit(problems ? 1 : 0);

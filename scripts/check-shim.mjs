@@ -52,6 +52,13 @@ const CASES = [
   // лежать файл — иначе nginx видит каталог deklaraciya/ без index.html и
   // отдаёт 403 Forbidden (так и случилось на боевом 28.09.2026).
   ["чистый /deklaraciya", "/deklaraciya?utm_source=yandex", "/?utm_source=yandex"],
+  // Вход оператора. Набирают по-разному: «/deklaraciya/operator» по аналогии
+  // с разделом (за месяц один такой заход в Метрике) и «/mama» — короткий
+  // адрес, который легко продиктовать. После этапа C неизвестный адрес —
+  // честный 404, поэтому оба обслуживаются явно: файл-оболочка на диске плюс
+  // редирект роутером.
+  ["оператор по привычному адресу", "/deklaraciya/operator", "/operator"],
+  ["короткий адрес оператора", "/mama", "/operator"],
   ["чистый адрес не трогаем", "/deklaraciya/instrukciya", "/deklaraciya/instrukciya"],
   ["чистый адрес с метками", "/deklaraciya/anketa?utm_source=x", "/deklaraciya/anketa?utm_source=x"],
 ];
