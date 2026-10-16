@@ -16,3 +16,7 @@ preview-*.png
 
 # локальный кэш supabase CLI (появляется после functions deploy) — не исходники
 /supabase/.temp/
+
+# Кэш питоновских скриптов проверок (py_compile, импорты)
+__pycache__/
+*.pyc
