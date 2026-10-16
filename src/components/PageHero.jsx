@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import nbr from "../lib/nowrap.jsx";
 
 // Шапка внутренних страниц с хлебными крошками (важно для SEO и навигации).
 // compact — шапка ужимается на узких экранах (см. .page-hero--compact).
@@ -20,8 +21,8 @@ export default function PageHero({ eyebrow, title, subtitle, crumbs = [], compac
           ))}
         </nav>
         {eyebrow && <span className="eyebrow hero__eyebrow">{eyebrow}</span>}
-        <h1 className="page-hero__title">{title}</h1>
-        {subtitle && <p className="page-hero__subtitle">{subtitle}</p>}
+        <h1 className="page-hero__title">{nbr(title)}</h1>
+        {subtitle && <p className="page-hero__subtitle">{nbr(subtitle)}</p>}
       </div>
     </section>
   );

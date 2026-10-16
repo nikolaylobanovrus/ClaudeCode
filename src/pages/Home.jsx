@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import nbr from "../lib/nowrap.jsx";
 import Seo from "../components/Seo.jsx";
 import Calculator from "../components/Calculator.jsx";
 import LeadForm from "../components/LeadForm.jsx";
@@ -80,7 +81,8 @@ export default function Home() {
               очередей и ошибок
             </h1>
             <p className="hero__subtitle">
-              Оставьте заявку онлайн — подготовим декларацию 3-НДФЛ и вернём ваши
+              Оставьте заявку онлайн — подготовим декларацию{" "}
+              <span className="nowrap">3-НДФЛ</span> и вернём ваши
               деньги. Гарантия качества услуг, оплата только по факту готовности
               документов.
             </p>
@@ -172,7 +174,7 @@ export default function Home() {
                 <div className="step__num">{s.num}</div>
                 <span className="step__who">{s.who}</span>
                 <h3 className="step__title">{s.title}</h3>
-                <p className="step__text">{s.text}</p>
+                <p className="step__text">{nbr(s.text)}</p>
               </div>
             ))}
           </div>
@@ -198,7 +200,7 @@ export default function Home() {
                   {a.icon}
                 </div>
                 <h3 className="card__title">{a.title}</h3>
-                <p className="card__text">{a.text}</p>
+                <p className="card__text">{nbr(a.text)}</p>
               </article>
             ))}
           </div>

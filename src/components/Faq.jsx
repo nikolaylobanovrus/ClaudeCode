@@ -1,4 +1,5 @@
 import { useState } from "react";
+import nbr from "../lib/nowrap.jsx";
 
 // FAQ-аккордеон. JSON-LD FAQPage добавляется на странице через Seo,
 // здесь — только визуальная часть.
@@ -14,12 +15,12 @@ export default function Faq({ items }) {
             onClick={() => setOpen(open === i ? -1 : i)}
             aria-expanded={open === i}
           >
-            {item.q}
+            {nbr(item.q)}
             <span className="faq__icon" aria-hidden="true">
               +
             </span>
           </button>
-          <div className="faq__a">{item.a}</div>
+          <div className="faq__a">{nbr(item.a)}</div>
         </div>
       ))}
     </div>

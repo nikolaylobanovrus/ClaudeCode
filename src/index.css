@@ -98,6 +98,11 @@ h4 {
 }
 
 /* Layout helpers */
+/* Неразрывный кусок текста: «3-НДФЛ» не должно разваливаться по дефису на
+   две строки. Класс ставит src/lib/nowrap.jsx при отрисовке. */
+.nowrap {
+  white-space: nowrap;
+}
 .container {
   width: 100%;
   max-width: var(--container);

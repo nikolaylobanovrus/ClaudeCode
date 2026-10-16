@@ -169,7 +169,8 @@ export default function SelfService() {
             </span>
             <h1 className="hero__title hero__title--long">
               Верните свои 13% налога — готовая{" "}
-              <span className="hero__accent">3-НДФЛ</span> за 10 минут и 199 ₽
+              <span className="hero__accent nowrap">3-НДФЛ</span> за 10 минут и
+              199 ₽
             </h1>
             <p className="hero__subtitle">
               Отвечаете на простые вопросы — получаете готовую декларацию, файл

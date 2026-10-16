@@ -1,6 +1,7 @@
 // Шаг 1: отчётный год и виды вычетов. Несколько вычетов объединяются
 // в одну декларацию — так и требует ФНС (одна 3-НДФЛ на год).
 import { useWizard, clearDraft } from "../WizardContext.jsx";
+import nbr from "../../lib/nowrap.jsx";
 import AutofillTeaser from "../AutofillTeaser.jsx";
 import { wizardDeductions, HINTS, SALE_SLUGS, modeOf, saleKindOf } from "../../data/wizard.js";
 import {
@@ -323,11 +324,11 @@ export default function StepDeductions({ errors }) {
       </div>
 
       <p className="wiz__note">
-        {saleActive
+        {nbr(saleActive
           ? "Продажа имущества — декларация с налогом к уплате. Если за этот же год вы хотите заявить вычет, отметьте его выше: всё уйдёт одной декларацией."
           : mixed
             ? "Продажа и вычеты попадут в ОДНУ декларацию — так и требует налоговая: одна 3-НДФЛ на год. Налог с продажи и возврат по вычетам она сведёт между собой."
-            : "Все выбранные вычеты попадут в одну декларацию — так требует налоговая: одна 3-НДФЛ на один год."}
+            : "Все выбранные вычеты попадут в одну декларацию — так требует налоговая: одна 3-НДФЛ на один год.")}
       </p>
       {!saleActive && <AutofillTeaser />}
     </div>

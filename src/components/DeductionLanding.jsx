@@ -22,6 +22,7 @@
 //   children   — карточки разбора.
 import { Link } from "react-router-dom";
 import Seo from "./Seo.jsx";
+import nbr from "../lib/nowrap.jsx";
 import Faq from "./Faq.jsx";
 import { company } from "../data/content.js";
 
@@ -95,8 +96,8 @@ export default function DeductionLanding({
             <Link to="/">Заполнить самому</Link>
             <span>/ {crumb}</span>
           </nav>
-          <h1 className="page-hero__title">{h1}</h1>
-          <p className="page-hero__subtitle">{lead}</p>
+          <h1 className="page-hero__title">{nbr(h1)}</h1>
+          <p className="page-hero__subtitle">{nbr(lead)}</p>
           {/* Мягкий вход вместо «купите декларацию»: человек пришёл из поиска
               с вопросом «сколько мне вернут», и первой кнопкой логично
               отвечать именно на него. Анкета считает сумму по ходу и
@@ -112,7 +113,7 @@ export default function DeductionLanding({
       </section>
 
       <section className="section">
-        <div className="container instr">{children}</div>
+        <div className="container instr">{nbr(children)}</div>
       </section>
 
       {faq.length > 0 && (
@@ -129,8 +130,8 @@ export default function DeductionLanding({
 
       <section className="cta">
         <div className="cta__inner container">
-          <h2 className="cta__title">{ctaTitle}</h2>
-          <p className="cta__text">{ctaText}</p>
+          <h2 className="cta__title">{nbr(ctaTitle)}</h2>
+          <p className="cta__text">{nbr(ctaText)}</p>
           <div className="cta__actions">
             <Link to={href} className="btn btn--green btn--lg">
               {ctaLabelBottom}

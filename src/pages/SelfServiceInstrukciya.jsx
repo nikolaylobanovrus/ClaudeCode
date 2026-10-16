@@ -2,6 +2,7 @@
 // ЛК ФНС / почта / лично. Дублируется персональным PDF в комплекте
 // документов (src/lib/ndfl/instrukciya.js) — правки вносить в оба места.
 import { Link } from "react-router-dom";
+import { NoBreak } from "../lib/nowrap.jsx";
 import Seo from "../components/Seo.jsx";
 import { PROOF_DOCS } from "../lib/ndfl/instrukciya.js";
 
@@ -17,7 +18,8 @@ const PROOF_TITLES = {
 
 export default function SelfServiceInstrukciya() {
   return (
-    <>
+    // Вся страница — через NoBreak: «3-НДФЛ» не разрывается по дефису.
+    <NoBreak>
       <Seo
         title="Как подать декларацию 3-НДФЛ: ЛК ФНС, почтой, лично | Налог-сервис"
         description="Пошаговая инструкция подачи 3-НДФЛ: через Личный кабинет ФНС с электронной подписью, ценным письмом с описью вложения или лично в инспекции и МФЦ. Список подтверждающих документов по каждому вычету."
@@ -202,6 +204,6 @@ export default function SelfServiceInstrukciya() {
           </div>
         </div>
       </section>
-    </>
+    </NoBreak>
   );
 }

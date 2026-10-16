@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
+import nbr from "../lib/nowrap.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { deductions } from "../data/content.js";
 
@@ -39,7 +40,7 @@ export default function Deductions() {
                   {d.icon}
                 </div>
                 <h2 className="deduction__title">{d.title}</h2>
-                <p className="deduction__text">{d.text}</p>
+                <p className="deduction__text">{nbr(d.text)}</p>
                 <span className="deduction__limit">Вернём {d.limit}</span>
                 <Link to="/kontakty" className="deduction__link">
                   Оформить вычет →

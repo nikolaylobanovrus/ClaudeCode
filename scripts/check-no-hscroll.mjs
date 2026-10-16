@@ -97,6 +97,28 @@ for (const width of WIDTHS) {
         problems.push(
           `${width}px, шрифт ×${scale}, ${path} — документ шире экрана на ${found.over}px; виновник: ${found.culprit}`
         );
+      // «3-НДФЛ», разорванное по дефису: «3-» в конце строки, «НДФЛ» в начале
+      // следующей. Владелец увидел это в первом же абзаце лендинга. CSS от
+      // такого переноса не спасает (ни hyphens, ни word-break), помогает
+      // только отдельный span с nowrap — его расставляет src/lib/nowrap.jsx
+      // в общих частях страниц. Проверяем по факту отрисовки: у текстового
+      // диапазона «X-НДФЛ» должен быть ровно один прямоугольник.
+      const torn = await page.evaluate(() => {
+        const out = [];
+        const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+          const text = n.nodeValue;
+          for (let i = text.indexOf("-НДФЛ"); i > 0; i = text.indexOf("-НДФЛ", i + 1)) {
+            const r = document.createRange();
+            r.setStart(n, i - 1);
+            r.setEnd(n, i + 5);
+            if (r.getClientRects().length > 1) out.push(text.trim().slice(0, 50));
+          }
+        }
+        return out;
+      });
+      for (const where of torn)
+        problems.push(`${width}px, шрифт ×${scale}, ${path} — «3-НДФЛ» разорвано переносом: «${where}…»`);
     }
   }
   await ctx.close();
@@ -109,5 +131,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `Горизонтального скролла нет: ${PAGES.length} страниц × ${WIDTHS.length} ширин × ${FONT_SCALES.length} размера шрифта.`
+  `Вёрстка в порядке (скролл и перенос «3-НДФЛ»): ${PAGES.length} страниц × ${WIDTHS.length} ширин × ${FONT_SCALES.length} размера шрифта.`
 );

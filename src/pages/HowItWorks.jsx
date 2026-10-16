@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
+import nbr from "../lib/nowrap.jsx";
 import PageHero from "../components/PageHero.jsx";
 import { steps, advantages } from "../data/content.js";
 
@@ -39,7 +40,7 @@ export default function HowItWorks() {
                 <div className="step__num">{s.num}</div>
                 <span className="step__who">{s.who}</span>
                 <h2 className="step__title">{s.title}</h2>
-                <p className="step__text">{s.text}</p>
+                <p className="step__text">{nbr(s.text)}</p>
               </div>
             ))}
           </div>
@@ -59,7 +60,7 @@ export default function HowItWorks() {
                   {a.icon}
                 </div>
                 <h3 className="card__title">{a.title}</h3>
-                <p className="card__text">{a.text}</p>
+                <p className="card__text">{nbr(a.text)}</p>
               </article>
             ))}
           </div>
