@@ -30,11 +30,29 @@ API Директа). С российского адреса VPS всё рабо�
 """
 import json
 import os
+import socket
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, timedelta
+
+# ТОЛЬКО IPv4.
+#
+# 16.10.2026 на VPS скрипт падал с «[Errno 101] Network is unreachable»: у
+# api.webmaster.yandex.net есть AAAA-запись, python берёт её первой, а у
+# сервера маршрута IPv6 нет — соединение не устанавливается вообще, хотя по
+# IPv4 всё доступно. Запрещаем IPv6 на уровне разрешения имён: и сайт, и API
+# по IPv4 работают, терять нечего.
+_getaddrinfo = socket.getaddrinfo
+
+
+def _ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
+    return _getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+
+
+if "--any-ip" not in sys.argv:  # на случай сети, где IPv4 вдруг нет
+    socket.getaddrinfo = _ipv4_only
 
 # Адрес API можно подменить переменной WEBMASTER_API — этим скрипт
 # проверяется на поддельном сервере там, где настоящий недоступен (в среде
