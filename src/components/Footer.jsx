@@ -27,6 +27,8 @@ const SELF_SECTIONS = [
   { to: "/deklaraciya/vychet-po-iis", label: "Вычет по ИИС" },
   { to: "/deklaraciya/vychet-za-strahovanie-zhizni", label: "Вычет за страхование" },
   { to: "/deklaraciya/vychet-po-pds", label: "Вычет по ПДС" },
+  { to: "/deklaraciya/utochnennaya-deklaraciya", label: "Уточнённая декларация" },
+  { to: "/deklaraciya/nalog-nerezidenta-s-prodazhi", label: "Налог нерезидента" },
   { to: "/deklaraciya/instrukciya", label: "Инструкция" },
   { to: "/deklaraciya/kalkulyator-naloga-s-prodazhi", label: "Калькулятор налога" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },

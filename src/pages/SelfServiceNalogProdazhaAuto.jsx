@@ -195,6 +195,13 @@ export default function SelfServiceNalogProdazhaAuto() {
           >
             Заполнить декларацию — {fmtRub(selfService.price)}
           </Link>
+          <p>
+            Живёте за границей и провели в России меньше 183 дней?{" "}
+            <Link to="/deklaraciya/nalog-nerezidenta-s-prodazhi">
+              Налог нерезидента
+            </Link>{" "}
+            считается иначе: 30% со всей цены продажи, без вычета и расходов.
+          </p>
         </div>
       </LandingBlock>
     </DeductionLanding>

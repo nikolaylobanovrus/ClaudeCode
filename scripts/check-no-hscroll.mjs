@@ -36,6 +36,8 @@ const PAGES = [
   "/deklaraciya/vychet-po-iis",
   "/deklaraciya/vychet-za-strahovanie-zhizni",
   "/deklaraciya/vychet-po-pds",
+  "/deklaraciya/utochnennaya-deklaraciya",
+  "/deklaraciya/nalog-nerezidenta-s-prodazhi",
   "/deklaraciya/tarify",
   "/vychety",
   "/tarify",

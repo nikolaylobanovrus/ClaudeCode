@@ -38,6 +38,12 @@ export const ROUTES = [
   { path: "/deklaraciya/vychet-po-iis", index: true, changefreq: "monthly", priority: "0.8" },
   { path: "/deklaraciya/vychet-za-strahovanie-zhizni", index: true, changefreq: "monthly", priority: "0.8" },
   { path: "/deklaraciya/vychet-po-pds", index: true, changefreq: "monthly", priority: "0.8" },
+  // Перенос тем из Дзена. Уточнёнка — обычный лендинг под спрос, а разбор про
+  // нерезидента НЕ продаёт: декларации для нерезидентов мы не делаем (код
+  // статуса на титульном листе зашит резидентом, CODES.status), и страница
+  // говорит это прямо. Приоритет у него ниже остальных именно поэтому.
+  { path: "/deklaraciya/utochnennaya-deklaraciya", index: true, changefreq: "monthly", priority: "0.8" },
+  { path: "/deklaraciya/nalog-nerezidenta-s-prodazhi", index: true, changefreq: "monthly", priority: "0.7" },
   // Служебные страницы раздела: живой контент, но дублируют главную по смыслу.
   { path: "/deklaraciya/tarify", index: false },
   { path: "/deklaraciya/kontakty", index: false },

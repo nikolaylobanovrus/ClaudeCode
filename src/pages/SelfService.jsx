@@ -287,7 +287,19 @@ export default function SelfService() {
             <Link to="/deklaraciya/nalog-s-prodazhi-avtomobilya">
               с продажи машины
             </Link>
-            .
+            . Продавал{" "}
+            <Link to="/deklaraciya/nalog-nerezidenta-s-prodazhi">нерезидент</Link>{" "}
+            — там свои правила и ставка 30%.
+          </p>
+          {/* Уточнёнку ищут отдельно и в панике: «подал с ошибкой, что
+              будет». Ссылка с главной нужна именно поэтому — человек попадает
+              на разбор, а не в анкету, в которой ещё не разобрался. */}
+          <p className="sd-grid__note">
+            Уже подали декларацию и нашли ошибку?{" "}
+            <Link to="/deklaraciya/utochnennaya-deklaraciya">
+              Уточнённая декларация
+            </Link>{" "}
+            — как исправить и не получить штраф.
           </p>
         </div>
       </section>

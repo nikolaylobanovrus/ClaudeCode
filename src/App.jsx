@@ -40,6 +40,8 @@ const SelfServiceVychetSport = lazy(() => import("./pages/SelfServiceVychetSport
 const SelfServiceVychetIis = lazy(() => import("./pages/SelfServiceVychetIis.jsx"));
 const SelfServiceVychetStrahovanie = lazy(() => import("./pages/SelfServiceVychetStrahovanie.jsx"));
 const SelfServiceVychetSberezheniya = lazy(() => import("./pages/SelfServiceVychetSberezheniya.jsx"));
+const SelfServiceUtochnennaya = lazy(() => import("./pages/SelfServiceUtochnennaya.jsx"));
+const SelfServiceNalogNerezidenta = lazy(() => import("./pages/SelfServiceNalogNerezidenta.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -117,6 +119,19 @@ export default function App() {
         <Route path="deklaraciya/vychet-po-iis" element={lazyPage(<SelfServiceVychetIis />)} />
         <Route path="deklaraciya/vychet-za-strahovanie-zhizni" element={lazyPage(<SelfServiceVychetStrahovanie />)} />
         <Route path="deklaraciya/vychet-po-pds" element={lazyPage(<SelfServiceVychetSberezheniya />)} />
+        {/* Темы, перенесённые из Дзена: там статьи за три месяца собрали ноль
+            показов, а запросы живут в поиске постоянно. Своей «ситуации» в
+            анкете у этих страниц нет — уточнёнка это переключатель, а
+            нерезидентам мы декларации не делаем вовсе и говорим об этом на
+            самой странице. */}
+        <Route
+          path="deklaraciya/utochnennaya-deklaraciya"
+          element={lazyPage(<SelfServiceUtochnennaya />)}
+        />
+        <Route
+          path="deklaraciya/nalog-nerezidenta-s-prodazhi"
+          element={lazyPage(<SelfServiceNalogNerezidenta />)}
+        />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"
           element={lazyPage(<SelfServiceKalkulyator />)}

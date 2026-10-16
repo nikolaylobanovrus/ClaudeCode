@@ -24,6 +24,10 @@ import {
 // с 2025 года доход от продажи облагается по двум ставкам (13% до 2,4 млн и
 // 15% выше, п. 1.1 ст. 224 НК), и плоские 13% в примере занизили бы налог на
 // десятки тысяч — ровно та ошибка, за которую человек потом платит пени.
+// 0,7 кадастровой печатаем по-русски, с запятой: в тексте «0.7» читается как
+// опечатка, а число всё равно должно остаться из справочника.
+const COEF = SALE_CADASTRAL_COEF.toLocaleString("ru-RU");
+
 const YEAR = YEARS[0];
 const EX = { bought: 4_200_000, sold: 4_500_000 };
 const exByCost = taxOn(EX.sold - EX.bought, YEAR, "sale");
@@ -94,7 +98,7 @@ export default function SelfServiceNalogProdazhaRealty() {
         </>
       }
       seoTitle="Налог с продажи квартиры: когда платить и как уменьшить до нуля | Налог-сервис"
-      seoDescription={`Продали квартиру: нужно ли платить НДФЛ. Минимальный срок владения ${SALE_MIN_HOLDING.realtyDefault} и ${SALE_MIN_HOLDING.realtyPrivileged} лет, вычет ${fmtRub(SALE_DEDUCTION.realty)} или расходы на покупку, правило ${SALE_CADASTRAL_COEF} кадастровой стоимости. Бесплатный калькулятор и декларация 3-НДФЛ за ${fmtRub(selfService.price)}.`}
+      seoDescription={`Продали квартиру: нужно ли платить НДФЛ. Минимальный срок владения ${SALE_MIN_HOLDING.realtyDefault} и ${SALE_MIN_HOLDING.realtyPrivileged} лет, вычет ${fmtRub(SALE_DEDUCTION.realty)} или расходы на покупку, правило ${COEF} кадастровой стоимости. Бесплатный калькулятор и декларация 3-НДФЛ за ${fmtRub(selfService.price)}.`}
       howTo={{
         name: "Как отчитаться о продаже квартиры",
         steps: [
@@ -171,13 +175,12 @@ export default function SelfServiceNalogProdazhaRealty() {
       <LandingBlock title="Правило кадастровой стоимости">
         <p>
           Занизить цену в договоре не получится: если она меньше{" "}
-          {SALE_CADASTRAL_COEF} кадастровой стоимости на 1 января года продажи,
-          доходом считается именно {SALE_CADASTRAL_COEF} кадастровой (п. 2 ст. 214.10
-          НК).
+          {COEF} кадастровой стоимости на 1 января года продажи, доходом
+          считается именно {COEF} кадастровой (п. 2 ст. 214.10 НК).
         </p>
         <p>
           <strong>Пример.</strong> Продали за 2 000 000 ₽ при кадастровой
-          3 500 000 ₽. Доходом признают 2 450 000 ₽ — {SALE_CADASTRAL_COEF} от
+          3 500 000 ₽. Доходом признают 2 450 000 ₽ — {COEF} от
           кадастровой, а не сумму из договора. Кадастровую стоимость можно посмотреть
           бесплатно на сайте Росреестра.
         </p>
@@ -241,6 +244,13 @@ export default function SelfServiceNalogProdazhaRealty() {
             Покупали жильё в том же году?{" "}
             <Link to="/deklaraciya/vychet-za-kvartiru">Вычет за покупку</Link>{" "}
             уменьшит налог с продажи — обе ситуации идут в одной декларации.
+          </p>
+          <p>
+            Провели в России меньше 183 дней за год?{" "}
+            <Link to="/deklaraciya/nalog-nerezidenta-s-prodazhi">
+              У нерезидента правила другие
+            </Link>
+            : ставка 30% и ни вычета, ни расходов.
           </p>
         </div>
       </LandingBlock>

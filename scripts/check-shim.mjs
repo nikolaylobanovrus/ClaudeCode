@@ -157,6 +157,42 @@ for (const [path, tile] of [
   await fresh.close();
 }
 
+// Лендинги БЕЗ «своей» ситуации в анкете: уточнёнка — это переключатель, а
+// декларации нерезидентов мы не делаем вовсе. Предвыбора у таких страниц нет,
+// зато есть обещание кнопки — и оно легко расходится с правдой: достаточно
+// забыть ctaHref, и кнопка молча поведёт в пустую анкету (а со страницы про
+// нерезидента — ещё и в анкету, которая ему не подходит).
+console.log("\n=== лендинги без предвыбора ведут туда, куда обещают ===");
+for (const [path, label, expectUrl] of [
+  [
+    "/deklaraciya/utochnennaya-deklaraciya",
+    "Сделать уточнённую декларацию",
+    /\/deklaraciya\/anketa(\?|$|#)/,
+  ],
+  [
+    "/deklaraciya/nalog-nerezidenta-s-prodazhi",
+    "Проверить срок владения",
+    /\/deklaraciya\/kalkulyator-naloga-s-prodazhi/,
+  ],
+]) {
+  const fresh = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await blockExternals(fresh);
+  const page = await fresh.newPage();
+  await page.goto(base + path, { waitUntil: "load", timeout: 20000 });
+  const btn = page.locator("a", { hasText: label }).first();
+  if (!(await btn.count())) {
+    failures++;
+    console.log(`✗ ${path} — нет кнопки «${label}»`);
+  } else {
+    await btn.click();
+    await page.waitForURL(expectUrl, { timeout: 20000 }).catch(() => {});
+    const ok = expectUrl.test(page.url());
+    if (!ok) failures++;
+    console.log(`${ok ? "✓" : "✗"} ${path} → «${label}» ведёт на ${page.url().replace(base, "")}`);
+  }
+  await fresh.close();
+}
+
 await browser.close();
 await close();
 console.log(failures ? `\nПРОВАЛОВ: ${failures}` : "\nВсе старые ссылки работают.");

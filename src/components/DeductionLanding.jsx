@@ -13,6 +13,9 @@
 //   h1, lead   — заголовок и первый абзац (lead — JSX, в нём есть <strong>);
 //   preselect  — слаг ситуации для анкеты: кнопка ведёт на
 //                /deklaraciya/anketa?s=<slug>, и человеку на шаг меньше;
+//   ctaHref, ctaLabel, ctaLabelBottom, note — для страниц без «своей» ситуации
+//                в анкете (уточнёнка, нерезидент): куда ведёт кнопка и что
+//                написано под ней;
 //   seoTitle, seoDescription — то, что увидит человек в выдаче;
 //   howTo      — шаги для разметки HowTo (schema.org), можно не передавать;
 //   faq        — [{q, a}], идёт и в видимый блок, и в разметку FAQPage;
@@ -27,7 +30,19 @@ export default function DeductionLanding({
   crumb,
   h1,
   lead,
-  preselect,
+  // Слаг ситуации для анкеты: кнопка ведёт на /deklaraciya/anketa?s=<slug>.
+  // Нужен не всем: у страниц про уточнёнку и про нерезидента своей «ситуации»
+  // в анкете нет — там кнопка ведёт просто в анкету или на калькулятор
+  // (ctaHref), а обещать несуществующий предвыбор нельзя.
+  preselect = null,
+  ctaHref = null,
+  ctaLabel = "Рассчитать мой вычет",
+  ctaLabelBottom = "Начать заполнение",
+  // Строка под кнопкой. По умолчанию — обещание «сумма видна до оплаты», но
+  // оно верно не для всякой страницы: на разборе про нерезидента кнопка ведёт
+  // в калькулятор, который считает по ставке резидента, и обещать там «вашу
+  // сумму» нельзя.
+  note = "Бесплатно и без регистрации: сумма к возврату видна до оплаты.",
   seoTitle,
   seoDescription,
   howTo = null,
@@ -40,6 +55,9 @@ export default function DeductionLanding({
   ctaText,
   children,
 }) {
+  // Куда ведут обе кнопки страницы.
+  const href = ctaHref || (preselect ? `/deklaraciya/anketa?s=${preselect}` : "/deklaraciya/anketa");
+
   const jsonLd = [
     faq.length && {
       "@context": "https://schema.org",
@@ -85,16 +103,11 @@ export default function DeductionLanding({
               показывает её ДО оплаты — платят только за готовые документы,
               так что обещание кнопки выполняется буквально. */}
           <div className="hero__actions">
-            <Link
-              to={`/deklaraciya/anketa?s=${preselect}`}
-              className="btn btn--green btn--lg"
-            >
-              Рассчитать мой вычет
+            <Link to={href} className="btn btn--green btn--lg">
+              {ctaLabel}
             </Link>
           </div>
-          <p className="page-hero__note">
-            Бесплатно и без регистрации: сумма к возврату видна до оплаты.
-          </p>
+          <p className="page-hero__note">{note}</p>
         </div>
       </section>
 
@@ -119,8 +132,8 @@ export default function DeductionLanding({
           <h2 className="cta__title">{ctaTitle}</h2>
           <p className="cta__text">{ctaText}</p>
           <div className="cta__actions">
-            <Link to={`/deklaraciya/anketa?s=${preselect}`} className="btn btn--green btn--lg">
-              Начать заполнение
+            <Link to={href} className="btn btn--green btn--lg">
+              {ctaLabelBottom}
             </Link>
             <a href={company.telegram} className="btn btn--light btn--lg">
               Спросить в Telegram
