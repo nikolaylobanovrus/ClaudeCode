@@ -1,16 +1,8 @@
 import { Helmet } from "react-helmet-async";
 import { company } from "../data/content.js";
+import { ogImageFor } from "../data/routes.js";
 
 const BASE = company.site;
-
-// Картинка превью ссылок. Размеры здесь обязаны совпадать с файлом —
-// это сверяет check:og. Перерисовать: node scripts/build-og-image.mjs.
-const OG_IMAGE = {
-  src: "/og-image.png",
-  width: 1200,
-  height: 630,
-  alt: "Налог-сервис — налоговый вычет под ключ",
-};
 
 // Универсальный SEO-компонент: заголовок, описание, canonical,
 // Open Graph и произвольные JSON-LD блоки (для Google, Яндекс и ИИ-поиска).
@@ -29,6 +21,9 @@ export default function Seo({
 }) {
   const url = BASE + path;
   const blocks = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
+  // Какая из двух картинок превью — решает путь (см. routes.js): страницы
+  // «под ключ» показывают свою карточку, самозаполнение — свою.
+  const og = ogImageFor(path);
 
   return (
     <Helmet>
@@ -46,14 +41,14 @@ export default function Seo({
       {/* Растр, а не SVG: превью в формате SVG не показывает ни один
           мессенджер и ни одна соцсеть. Размеры — теми же тегами, площадка
           строит карточку по ним. Файл: node scripts/build-og-image.mjs. */}
-      <meta property="og:image" content={`${BASE}${OG_IMAGE.src}`} />
+      <meta property="og:image" content={`${BASE}${og.src}`} />
       <meta property="og:image:type" content="image/png" />
-      <meta property="og:image:width" content={String(OG_IMAGE.width)} />
-      <meta property="og:image:height" content={String(OG_IMAGE.height)} />
-      <meta property="og:image:alt" content={OG_IMAGE.alt} />
+      <meta property="og:image:width" content={String(og.width)} />
+      <meta property="og:image:height" content={String(og.height)} />
+      <meta property="og:image:alt" content={og.alt} />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:image" content={`${BASE}${OG_IMAGE.src}`} />
-      <meta name="twitter:image:alt" content={OG_IMAGE.alt} />
+      <meta name="twitter:image" content={`${BASE}${og.src}`} />
+      <meta name="twitter:image:alt" content={og.alt} />
 
       {blocks.map((b, i) => (
         <script type="application/ld+json" key={i}>

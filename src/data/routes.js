@@ -77,6 +77,52 @@ export const ROUTES = [
 // Пререндерить нечего — страницы как таковой нет.
 export const REDIRECTS = [["/deklaraciya", "/"]];
 
+// --- Картинка превью ссылок (og:image) --------------------------------------
+//
+// На сайте два разных предложения, и до 16.10.2026 обе половины показывали
+// одну карточку — «Налоговый вычет под ключ». То есть человек, пересылающий
+// ссылку на анкету за 199 ₽, рекламировал другую услугу.
+//
+// Поэтому картинок две, и выбирает их ПУТЬ, а не каждая страница сама:
+// страниц много, передавать параметр в каждый <Seo> — значит однажды забыть.
+// Тот же выбор делает проверка (check-prerender), читая готовый HTML.
+//
+// Размеры обязаны совпадать с файлами public/og-*.png; перерисовать:
+// node scripts/build-og-image.mjs
+const OG_SAM = {
+  src: "/og-sam.png",
+  width: 1200,
+  height: 630,
+  alt: "Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽",
+};
+const OG_POD_KLYUCH = {
+  src: "/og-pod-klyuch.png",
+  width: 1200,
+  height: 630,
+  alt: "Налог-сервис: налоговый вычет под ключ",
+};
+
+// Страницы услуги «под ключ». Всё остальное — самозаполнение: главная и
+// весь /deklaraciya, а также юридические страницы, общие для обеих половин
+// (их почти не пересылают, а главная у сайта одна — самозаполнение).
+const POD_KLYUCH = [
+  "/pod-klyuch",
+  "/vychety",
+  "/tarify",
+  "/kak-rabotaem",
+  "/kontakty",
+  "/registraciya",
+  "/vhod",
+  "/kabinet",
+  "/vyberite-situaciyu",
+  "/situaciya",
+];
+
+export const ogImageFor = (path = "/") =>
+  POD_KLYUCH.some((p) => path === p || path.startsWith(p + "/"))
+    ? OG_POD_KLYUCH
+    : OG_SAM;
+
 export const indexableRoutes = () => ROUTES.filter((r) => r.index);
 
 // Путь → файл в dist. Корень живёт в самом dist/index.html, остальные — в

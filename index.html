@@ -30,14 +30,17 @@
     <meta property="og:url" content="https://налог-сервис.рф/" />
     <!-- Картинка превью — ТОЛЬКО растр. SVG в этом месте не понимает ни один
          мессенджер и ни одна соцсеть (проверено 15.10.2026: ссылка
-         пересылалась без картинки). Файл рисуется из того же og-image.svg
-         командой node scripts/build-og-image.mjs. Размеры дублируются
-         тегами: по ним площадка строит карточку, не дожидаясь загрузки. -->
-    <meta property="og:image" content="https://налог-сервис.рф/og-image.png" />
+         пересылалась без картинки). Файлы рисуются из одноимённых SVG
+         командой node scripts/build-og-image.mjs. Здесь — карточка
+         самозаполнения: корень сайта это оно. Страницы «под ключ» подставят
+         свою через <Seo> (выбор по пути — ogImageFor в routes.js). Размеры
+         дублируются тегами: по ним площадка строит карточку, не дожидаясь
+         загрузки файла. -->
+    <meta property="og:image" content="https://налог-сервис.рф/og-sam.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Налог-сервис — налоговый вычет под ключ" />
+    <meta property="og:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" />
     <meta property="og:locale" content="ru_RU" />
 
     <!-- Twitter -->
@@ -47,8 +50,8 @@
       name="twitter:description"
       content="Вернём ваш налоговый вычет быстро и без очередей. Оплата за результат."
     />
-    <meta name="twitter:image" content="https://налог-сервис.рф/og-image.png" />
-    <meta name="twitter:image:alt" content="Налог-сервис — налоговый вычет под ключ" />
+    <meta name="twitter:image" content="https://налог-сервис.рф/og-sam.png" />
+    <meta name="twitter:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" />
 
     <!-- Structured data: Organization (базовое, для краулеров и ИИ-поиска) -->
     <script type="application/ld+json">

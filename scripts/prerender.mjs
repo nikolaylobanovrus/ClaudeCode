@@ -20,7 +20,7 @@
 // пререндера здесь — краулер и первая отрисовка, а не серверный рендеринг.
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { ROUTES, REDIRECTS, routeFile } from "../src/data/routes.js";
+import { ROUTES, REDIRECTS, routeFile, ogImageFor } from "../src/data/routes.js";
 import { serveDist, launchChromium, blockExternals } from "./_serve-dist.mjs";
 
 const DIST = new URL("../dist/", import.meta.url).pathname;
@@ -69,13 +69,25 @@ const shell = await readFile(join(DIST, "index.html"), "utf8");
 // Что ставим: noindex (как в routes.js) и НИ ОДНОГО canonical. Канонический
 // адрес не нужен там, где индексации нет, а на клиенте react-helmet добавит
 // свой — так в живом DOM остаётся ровно один. Та же логика, что у 404.
-const gatedShell = shell
-  .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex, follow" />')
-  .replace(/<link rel="canonical"[^>]*>\s*/, "");
+//
+// Картинка превью тоже своя: в index.html лежит карточка самозаполнения, а
+// страницы за логином относятся к «под ключ» (см. ogImageFor в routes.js).
+// Снимок им не делается, значит Seo свою карточку не подставит — делаем это
+// здесь, иначе ссылка на /kabinet показывала бы чужое предложение.
+const gatedShellFor = (path) => {
+  const og = ogImageFor(path);
+  return shell
+    .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex, follow" />')
+    .replace(/<link rel="canonical"[^>]*>\s*/, "")
+    .replace(/(<meta property="og:image" content=")[^"]*/, `$1${SITE}${og.src}`)
+    .replace(/(<meta property="og:image:alt" content=")[^"]*/, `$1${og.alt}`)
+    .replace(/(<meta name="twitter:image" content=")[^"]*/, `$1${SITE}${og.src}`)
+    .replace(/(<meta name="twitter:image:alt" content=")[^"]*/, `$1${og.alt}`);
+};
 
 for (const route of ROUTES) {
   if (route.gated) {
-    rendered.push([routeFile(route.path), gatedShell]);
+    rendered.push([routeFile(route.path), gatedShellFor(route.path)]);
     console.log(`   · ${route.path.padEnd(44)} за логином, кладём оболочку (noindex)`);
     continue;
   }

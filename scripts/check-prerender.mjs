@@ -13,7 +13,7 @@
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { ROUTES, REDIRECTS, routeFile } from "../src/data/routes.js";
+import { ROUTES, REDIRECTS, routeFile, ogImageFor } from "../src/data/routes.js";
 
 const DIST = new URL("../dist/", import.meta.url).pathname;
 const SITE = "https://налог-сервис.рф";
@@ -30,20 +30,30 @@ const one = (html, re) => (html.match(re) || []).length;
 // только переслав её себе. Поэтому проверяем не наличие файла, а пригодность:
 // растровый формат, файл на диске и размеры, совпадающие с мета-тегами.
 const RASTER = /\.(png|jpe?g)$/i;
-let ogSize = null; // настоящие размеры картинки, из самого файла
-try {
-  const png = await readFile(join(DIST, "og-image.png"));
-  // IHDR лежит в первых 24 байтах PNG — внешних библиотек не нужно.
-  if (png.subarray(1, 4).toString() === "PNG")
-    ogSize = { w: png.readUInt32BE(16), h: png.readUInt32BE(20), bytes: png.length };
-  else problems.push("og-image.png — это не PNG");
-} catch {
-  problems.push("og-image.png — нет файла в сборке (node scripts/build-og-image.mjs)");
+// Настоящие размеры каждой картинки — из самих файлов. Картинок две:
+// самозаполнение и «под ключ» (ogImageFor в routes.js).
+const sizes = new Map();
+for (const src of new Set(ROUTES.map((r) => ogImageFor(r.path).src))) {
+  const name = src.replace(/^\//, "");
+  try {
+    const png = await readFile(join(DIST, name));
+    // IHDR лежит в первых 24 байтах PNG — внешних библиотек не нужно.
+    if (png.subarray(1, 4).toString() !== "PNG") {
+      problems.push(`${name} — это не PNG`);
+      continue;
+    }
+    sizes.set(src, { w: png.readUInt32BE(16), h: png.readUInt32BE(20) });
+    if (png.length > 5 * 1024 * 1024)
+      problems.push(`${name} — ${(png.length / 1048576).toFixed(1)} МБ, площадки режут больше 5 МБ`);
+  } catch {
+    problems.push(`${name} — нет файла в сборке (node scripts/build-og-image.mjs)`);
+  }
 }
-if (ogSize && ogSize.bytes > 5 * 1024 * 1024)
-  problems.push(`og-image.png — ${(ogSize.bytes / 1048576).toFixed(1)} МБ, площадки режут больше 5 МБ`);
 
-function checkOg(html, label) {
+// expected — какую из двух карточек страница обязана показывать. Половины
+// сайта продают РАЗНОЕ: ссылка на анкету за 199 ₽ не должна рекламировать
+// услугу «под ключ», и наоборот.
+function checkOg(html, label, expected) {
   const n = one(html, /<meta[^>]+property="og:image"[^>]*>/g);
   if (n !== 1) {
     problems.push(`${label} — og:image ${n} шт., нужен ровно один`);
@@ -54,6 +64,11 @@ function checkOg(html, label) {
     problems.push(`${label} — og:image ведёт на ${src}: превью показывают только растр (PNG/JPEG)`);
     return;
   }
+  if (expected && src !== SITE + expected.src)
+    problems.push(`${label} — показывает ${src}, а должна ${SITE}${expected.src}`);
+  const alt = (html.match(/<meta[^>]+property="og:image:alt"[^>]+content="([^"]+)"/) || [])[1];
+  if (expected && alt !== expected.alt)
+    problems.push(`${label} — og:image:alt не от своей карточки: «${alt}»`);
   // Файл обязан лежать в сборке: ссылка на картинку, которой нет, выглядит
   // в точности как рабочая — до первой пересылки ссылки.
   const path = src.replace(SITE, "").replace(/^\//, "");
@@ -64,10 +79,12 @@ function checkOg(html, label) {
   const h = (html.match(/<meta[^>]+property="og:image:height"[^>]+content="(\d+)"/) || [])[1];
   if (!w || !h) {
     problems.push(`${label} — у og:image нет размеров (og:image:width/height)`);
-  } else if (ogSize && (Number(w) !== ogSize.w || Number(h) !== ogSize.h)) {
-    problems.push(
-      `${label} — в тегах ${w}×${h}, а в файле ${ogSize.w}×${ogSize.h}: площадка покажет обрезанную карточку`
-    );
+  } else {
+    const real = sizes.get(src.replace(SITE, ""));
+    if (real && (Number(w) !== real.w || Number(h) !== real.h))
+      problems.push(
+        `${label} — в тегах ${w}×${h}, а в файле ${real.w}×${real.h}: площадка покажет обрезанную карточку`
+      );
   }
   const tw = (html.match(/<meta[^>]+name="twitter:image"[^>]+content="([^"]+)"/) || [])[1];
   if (tw && !RASTER.test(tw)) problems.push(`${label} — twitter:image ведёт на ${tw}, нужен растр`);
@@ -85,7 +102,7 @@ for (const route of ROUTES) {
 
   // Картинка превью — у всех страниц, включая оболочки за логином: ссылку
   // пересылают на любую из них.
-  checkOg(html, route.path);
+  checkOg(html, route.path, ogImageFor(route.path));
 
   // Страницы за логином кладутся оболочкой сознательно: содержимого там нет
   // и быть не должно. Но голова у оболочки обязана быть своя: до 15.10.2026
@@ -196,7 +213,7 @@ try {
 
   const m = one(html, /mc\.yandex\.ru\/metrika/g);
   if (m > 1) problems.push(`404.html — счётчик Метрики продублирован (${m} раз)`);
-  checkOg(html, "404.html");
+  checkOg(html, "404.html", ogImageFor("/404"));
   if (html.includes("127.0.0.1")) problems.push("404.html — в HTML попал адрес стенда 127.0.0.1");
 } catch {
   problems.push("404.html — нет файла");
@@ -210,7 +227,7 @@ for (const [from] of REDIRECTS) {
     if (r !== 1) problems.push(`${from} — robots встречается ${r} раз, нужен ровно один`);
     const c = one(html, /<link[^>]+rel="canonical"/g);
     if (c !== 1) problems.push(`${from} — canonical встречается ${c} раз, нужен ровно один`);
-    checkOg(html, from);
+    checkOg(html, from, ogImageFor(from));
   } catch {
     /* отсутствие файла уже сообщено выше */
   }
