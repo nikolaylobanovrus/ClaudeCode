@@ -111,6 +111,40 @@ console.log("\n=== параметры доезжают до приложения
   await page.close();
 }
 
+// Кнопка лендинга «Рассчитать мой вычет» ведёт в анкету с уже отмеченной
+// ситуацией. Проверяется целиком, от нажатия: ссылка с параметром легко
+// переживает правку вёрстки и так же легко теряет параметр — а вместе с ним
+// и шаг, который мы обещали человеку сэкономить.
+{
+  // ОТДЕЛЬНЫЙ контекст, а не общий: предыдущие сценарии оставили в хранилище
+  // черновик, а он намеренно важнее параметра ?s= — человеку не затирают
+  // начатую анкету ради предвыбора. Проверять надо путь нового посетителя.
+  const fresh = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await blockExternals(fresh);
+  const page = await fresh.newPage();
+  await page.goto(base + "/deklaraciya/vychet-za-kvartiru", { waitUntil: "load", timeout: 20000 });
+  const btn = page.locator("a", { hasText: "Рассчитать мой вычет" }).first();
+  if (!(await btn.count())) {
+    failures++;
+    console.log("✗ на лендинге нет кнопки «Рассчитать мой вычет»");
+  } else {
+    await btn.click();
+    await page.waitForURL(/deklaraciya\/anketa/, { timeout: 20000 }).catch(() => {});
+    await page.waitForSelector(".wiz__heading", { timeout: 20000 }).catch(() => {});
+    // Плитка отмечается эффектом ПОСЛЕ монтирования — считать сразу рано.
+    await page.waitForSelector(".wiz__type.is-active", { timeout: 20000 }).catch(() => {});
+    const active = await page
+      .locator(".wiz__type.is-active", { hasText: "Купили квартиру" })
+      .count();
+    const good = active === 1;
+    if (!good) failures++;
+    console.log(
+      `${good ? "✓" : "✗"} кнопка лендинга открыла анкету с отмеченной покупкой жилья`
+    );
+  }
+  await fresh.close();
+}
+
 await browser.close();
 await close();
 console.log(failures ? `\nПРОВАЛОВ: ${failures}` : "\nВсе старые ссылки работают.");

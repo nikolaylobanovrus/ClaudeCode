@@ -1786,6 +1786,11 @@ h4 {
   font-size: 18px;
   max-width: 640px;
 }
+.page-hero__note {
+  margin-top: 12px;
+  color: #a9c1f0;
+  font-size: 15px;
+}
 .breadcrumbs {
   font-size: 14px;
   color: #a9c1f0;
