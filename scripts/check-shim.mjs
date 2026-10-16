@@ -135,6 +135,12 @@ for (const [path, tile] of [
   ["/deklaraciya/vychet-suprugam", "Купили квартиру"],
   ["/deklaraciya/vychet-pensioneram", "Купили квартиру"],
   ["/deklaraciya/nalog-s-prodazhi-uchastka", "Продал недвижимость"],
+  ["/deklaraciya/vychet-za-obuchenie-rebenka", "Платили за обучение"],
+  ["/deklaraciya/dorogostoyashchee-lechenie", "Платили за лечение"],
+  ["/deklaraciya/vychet-za-lechenie-blizkih", "Платили за лечение"],
+  ["/deklaraciya/vychet-za-novostroyku", "Купили квартиру"],
+  ["/deklaraciya/ostatok-imushchestvennogo-vycheta", "Купили квартиру"],
+  ["/deklaraciya/nalog-s-prodazhi-podarennoy", "Продал недвижимость"],
 ]) {
   // ОТДЕЛЬНЫЙ контекст, а не общий: предыдущие сценарии оставили в хранилище
   // черновик, а он намеренно важнее параметра ?s= — человеку не затирают
@@ -183,6 +189,15 @@ for (const [path, label, expectUrl] of [
     "Выбрать год и посчитать",
     /\/deklaraciya\/anketa(\?|$|#)/,
   ],
+  ["/deklaraciya/sroki-vozvrata-naloga", "Заполнить декларацию", /\/deklaraciya\/anketa(\?|$|#)/],
+  ["/deklaraciya/otkaz-nalogovoy", "Сделать декларацию заново", /\/deklaraciya\/anketa(\?|$|#)/],
+  ["/deklaraciya/shtraf-za-nepodachu-deklaracii", "Сделать декларацию сейчас", /\/deklaraciya\/anketa(\?|$|#)/],
+  [
+    "/deklaraciya/vychet-cherez-rabotodatelya",
+    "Посчитать возврат по декларации",
+    /\/deklaraciya\/anketa(\?|$|#)/,
+  ],
+  ["/deklaraciya/vychet-samozanyatym", "Проверить, что вернут", /\/deklaraciya\/anketa(\?|$|#)/],
 ]) {
   const fresh = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await blockExternals(fresh);

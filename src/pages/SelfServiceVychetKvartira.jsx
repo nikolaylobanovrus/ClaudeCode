@@ -222,6 +222,18 @@ export default function SelfServiceVychetKvartira() {
           </li>
         </ol>
         <div className="instr__cta">
+          <p>
+            Частные случаи разобраны отдельно:{" "}
+            <Link to="/deklaraciya/vychet-za-novostroyku">новостройка и ДДУ</Link>,{" "}
+            <Link to="/deklaraciya/ostatok-imushchestvennogo-vycheta">
+              остаток вычета с прошлых лет
+            </Link>{" "}
+            и{" "}
+            <Link to="/deklaraciya/vychet-cherez-rabotodatelya">
+              вычет через работодателя
+            </Link>
+            .
+          </p>
           <p>Вся анкета — около десяти минут, черновик сохраняется автоматически.</p>
           <Link to="/deklaraciya/anketa?s=kvartira" className="btn btn--green btn--lg">
             Заполнить декларацию — {fmtRub(selfService.price)}

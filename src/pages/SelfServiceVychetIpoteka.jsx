@@ -213,6 +213,13 @@ export default function SelfServiceVychetIpoteka() {
         </ol>
         <div className="instr__cta">
           <p>
+            Квартира в строящемся доме?{" "}
+            <Link to="/deklaraciya/vychet-za-novostroyku">
+              У новостройки свои даты и расходы на отделку
+            </Link>
+            .
+          </p>
+          <p>
             Если основной вычет вы уже получали, в анкете можно указать только
             проценты — расчёт учтёт остаток.
           </p>

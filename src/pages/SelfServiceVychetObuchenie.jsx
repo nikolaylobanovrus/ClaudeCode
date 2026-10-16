@@ -206,6 +206,13 @@ export default function SelfServiceVychetObuchenie() {
         </ol>
         <div className="instr__cta">
           <p>
+            Платили за ребёнка?{" "}
+            <Link to="/deklaraciya/vychet-za-obuchenie-rebenka">
+              У детского обучения отдельный лимит
+            </Link>{" "}
+            — он не уменьшается лечением и своим обучением.
+          </p>
+          <p>
             Лечились в том же году?{" "}
             <Link to="/deklaraciya/vychet-za-lechenie">Вычет за лечение</Link> идёт
             в том же общем лимите — анкета учтёт оба сразу.

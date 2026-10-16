@@ -240,6 +240,13 @@ export default function SelfServiceUtochnennaya() {
           <Link to="/deklaraciya/anketa" className="btn btn--green btn--lg">
             Заполнить уточнённую — {fmtRub(selfService.price)}
           </Link>
+          <p>
+            Уточнёнка нужна после отказа?{" "}
+            <Link to="/deklaraciya/otkaz-nalogovoy">
+              Сначала посмотрите причину и сроки обжалования
+            </Link>
+            .
+          </p>
         </div>
       </LandingBlock>
     </DeductionLanding>

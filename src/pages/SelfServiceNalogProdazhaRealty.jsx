@@ -228,6 +228,17 @@ export default function SelfServiceNalogProdazhaRealty() {
         </ol>
         <div className="instr__cta">
           <p>
+            Квартира досталась даром?{" "}
+            <Link to="/deklaraciya/nalog-s-prodazhi-podarennoy">
+              Подарок и наследство считаются иначе
+            </Link>
+            . Опоздали с декларацией —{" "}
+            <Link to="/deklaraciya/shtraf-za-nepodachu-deklaracii">
+              сколько будет штраф
+            </Link>
+            .
+          </p>
+          <p>
             Продали ещё и машину?{" "}
             <Link to="/deklaraciya/nalog-s-prodazhi-avtomobilya">
               Там свои правила и свой вычет

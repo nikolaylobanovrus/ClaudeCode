@@ -314,6 +314,25 @@ export default function SelfService() {
             </Link>
             .
           </p>
+          {/* Вопросы, которые возникают вокруг декларации, а не вместо неё:
+              человек ищет их отдельно, и отвечать на них — работа сайта. */}
+          <p className="sd-grid__note">
+            Ответы на частые вопросы:{" "}
+            <Link to="/deklaraciya/sroki-vozvrata-naloga">когда придут деньги</Link>,{" "}
+            <Link to="/deklaraciya/vychet-cherez-rabotodatelya">
+              вычет через работодателя
+            </Link>
+            ,{" "}
+            <Link to="/deklaraciya/otkaz-nalogovoy">если налоговая отказала</Link>,{" "}
+            <Link to="/deklaraciya/shtraf-za-nepodachu-deklaracii">
+              штраф за неподачу
+            </Link>{" "}
+            и{" "}
+            <Link to="/deklaraciya/vychet-samozanyatym">
+              вычет для самозанятых
+            </Link>
+            .
+          </p>
         </div>
       </section>
 

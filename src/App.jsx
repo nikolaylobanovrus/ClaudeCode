@@ -47,6 +47,17 @@ const SelfServiceVychetSuprugam = lazy(() => import("./pages/SelfServiceVychetSu
 const SelfServiceVychetPensioneram = lazy(() => import("./pages/SelfServiceVychetPensioneram.jsx"));
 const SelfServiceVychetZaTriGoda = lazy(() => import("./pages/SelfServiceVychetZaTriGoda.jsx"));
 const SelfServiceNalogProdazhaUchastka = lazy(() => import("./pages/SelfServiceNalogProdazhaUchastka.jsx"));
+const SelfServiceVychetObuchenieRebenka = lazy(() => import("./pages/SelfServiceVychetObuchenieRebenka.jsx"));
+const SelfServiceDorogostoyashcheeLechenie = lazy(() => import("./pages/SelfServiceDorogostoyashcheeLechenie.jsx"));
+const SelfServiceVychetLechenieBlizkih = lazy(() => import("./pages/SelfServiceVychetLechenieBlizkih.jsx"));
+const SelfServiceVychetNovostroyka = lazy(() => import("./pages/SelfServiceVychetNovostroyka.jsx"));
+const SelfServiceOstatokVycheta = lazy(() => import("./pages/SelfServiceOstatokVycheta.jsx"));
+const SelfServiceNalogProdazhaPodarennoy = lazy(() => import("./pages/SelfServiceNalogProdazhaPodarennoy.jsx"));
+const SelfServiceVychetCherezRabotodatelya = lazy(() => import("./pages/SelfServiceVychetCherezRabotodatelya.jsx"));
+const SelfServiceSrokiVozvrata = lazy(() => import("./pages/SelfServiceSrokiVozvrata.jsx"));
+const SelfServiceShtrafZaNepodachu = lazy(() => import("./pages/SelfServiceShtrafZaNepodachu.jsx"));
+const SelfServiceOtkazNalogovoy = lazy(() => import("./pages/SelfServiceOtkazNalogovoy.jsx"));
+const SelfServiceVychetSamozanyatym = lazy(() => import("./pages/SelfServiceVychetSamozanyatym.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -148,6 +159,22 @@ export default function App() {
         <Route path="deklaraciya/vychet-pensioneram" element={lazyPage(<SelfServiceVychetPensioneram />)} />
         <Route path="deklaraciya/vychet-za-tri-goda" element={lazyPage(<SelfServiceVychetZaTriGoda />)} />
         <Route path="deklaraciya/nalog-s-prodazhi-uchastka" element={lazyPage(<SelfServiceNalogProdazhaUchastka />)} />
+        {/* Третья очередь: статьи-ответы на вопросы, которые возникают ВОКРУГ
+            декларации — сроки возврата, отказ, штраф, способ через
+            работодателя, остаток вычета. Часть из них ничего не продаёт
+            напрямую, и это нормально: человек приходит с вопросом, а не с
+            намерением купить. */}
+        <Route path="deklaraciya/vychet-za-obuchenie-rebenka" element={lazyPage(<SelfServiceVychetObuchenieRebenka />)} />
+        <Route path="deklaraciya/dorogostoyashchee-lechenie" element={lazyPage(<SelfServiceDorogostoyashcheeLechenie />)} />
+        <Route path="deklaraciya/vychet-za-lechenie-blizkih" element={lazyPage(<SelfServiceVychetLechenieBlizkih />)} />
+        <Route path="deklaraciya/vychet-za-novostroyku" element={lazyPage(<SelfServiceVychetNovostroyka />)} />
+        <Route path="deklaraciya/ostatok-imushchestvennogo-vycheta" element={lazyPage(<SelfServiceOstatokVycheta />)} />
+        <Route path="deklaraciya/nalog-s-prodazhi-podarennoy" element={lazyPage(<SelfServiceNalogProdazhaPodarennoy />)} />
+        <Route path="deklaraciya/vychet-cherez-rabotodatelya" element={lazyPage(<SelfServiceVychetCherezRabotodatelya />)} />
+        <Route path="deklaraciya/sroki-vozvrata-naloga" element={lazyPage(<SelfServiceSrokiVozvrata />)} />
+        <Route path="deklaraciya/shtraf-za-nepodachu-deklaracii" element={lazyPage(<SelfServiceShtrafZaNepodachu />)} />
+        <Route path="deklaraciya/otkaz-nalogovoy" element={lazyPage(<SelfServiceOtkazNalogovoy />)} />
+        <Route path="deklaraciya/vychet-samozanyatym" element={lazyPage(<SelfServiceVychetSamozanyatym />)} />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"
           element={lazyPage(<SelfServiceKalkulyator />)}

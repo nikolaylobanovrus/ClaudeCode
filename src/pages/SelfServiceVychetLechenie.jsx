@@ -209,6 +209,18 @@ export default function SelfServiceVychetLechenie() {
         </ol>
         <div className="instr__cta">
           <p>
+            Подробнее по случаям:{" "}
+            <Link to="/deklaraciya/dorogostoyashchee-lechenie">
+              дорогостоящее лечение без лимита
+            </Link>
+            , <Link to="/deklaraciya/vychet-za-lechenie-zubov">лечение зубов</Link>{" "}
+            и{" "}
+            <Link to="/deklaraciya/vychet-za-lechenie-blizkih">
+              лечение родителей и супруга
+            </Link>
+            .
+          </p>
+          <p>
             В одну декларацию можно собрать все вычеты за год — лечение, обучение,
             спорт и покупку жилья вместе.
           </p>
