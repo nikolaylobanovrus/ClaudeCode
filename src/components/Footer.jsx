@@ -16,6 +16,7 @@ const SELF_SECTIONS = [
   // Две индексируемые страницы раздела: инструкция и калькулятор. Подвал
   // есть на каждой странице, поэтому ссылка отсюда — самый дешёвый способ
   // дать им входящие (до 16.10.2026 у инструкции их не было вовсе).
+  { to: "/deklaraciya/vychet-za-kvartiru", label: "Вычет за квартиру" },
   { to: "/deklaraciya/instrukciya", label: "Инструкция" },
   { to: "/deklaraciya/kalkulyator-naloga-s-prodazhi", label: "Калькулятор налога" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },

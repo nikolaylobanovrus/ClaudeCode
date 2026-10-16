@@ -25,6 +25,9 @@ export const ROUTES = [
   { path: "/", index: true, changefreq: "weekly", priority: "1.0" },
   { path: "/deklaraciya/instrukciya", index: true, changefreq: "monthly", priority: "0.8" },
   { path: "/deklaraciya/kalkulyator-naloga-s-prodazhi", index: true, changefreq: "monthly", priority: "0.8" },
+  // Лендинг под поисковый запрос, а не служебная страница раздела: priority
+  // выше остальных внутренних, обновляться будет по мере изменений лимитов.
+  { path: "/deklaraciya/vychet-za-kvartiru", index: true, changefreq: "monthly", priority: "0.9" },
   // Служебные страницы раздела: живой контент, но дублируют главную по смыслу.
   { path: "/deklaraciya/tarify", index: false },
   { path: "/deklaraciya/kontakty", index: false },

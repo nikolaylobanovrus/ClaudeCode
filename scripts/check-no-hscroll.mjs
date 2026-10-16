@@ -25,6 +25,7 @@ const PAGES = [
   "/deklaraciya/anketa",
   "/deklaraciya/instrukciya",
   "/deklaraciya/kalkulyator-naloga-s-prodazhi",
+  "/deklaraciya/vychet-za-kvartiru",
   "/deklaraciya/tarify",
   "/vychety",
   "/tarify",

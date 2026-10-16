@@ -29,6 +29,7 @@ const SelfServiceTariffs = lazy(() => import("./pages/SelfServiceTariffs.jsx"));
 const SelfServiceContacts = lazy(() => import("./pages/SelfServiceContacts.jsx"));
 const Wizard = lazy(() => import("./pages/Wizard.jsx"));
 const SelfServiceInstrukciya = lazy(() => import("./pages/SelfServiceInstrukciya.jsx"));
+const SelfServiceVychetKvartira = lazy(() => import("./pages/SelfServiceVychetKvartira.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -75,6 +76,12 @@ export default function App() {
         <Route path="deklaraciya/kontakty" element={lazyPage(<SelfServiceContacts />)} />
         <Route path="deklaraciya/anketa" element={lazyPage(<Wizard />)} />
         <Route path="deklaraciya/instrukciya" element={lazyPage(<SelfServiceInstrukciya />)} />
+        {/* Лендинг под поисковый спрос «вычет за квартиру»: сайт находят
+            только по названию, страниц-ответов на вопросы людей нет. */}
+        <Route
+          path="deklaraciya/vychet-za-kvartiru"
+          element={lazyPage(<SelfServiceVychetKvartira />)}
+        />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"
           element={lazyPage(<SelfServiceKalkulyator />)}
