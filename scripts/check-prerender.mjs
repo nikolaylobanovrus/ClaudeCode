@@ -30,23 +30,41 @@ const one = (html, re) => (html.match(re) || []).length;
 // только переслав её себе. Поэтому проверяем не наличие файла, а пригодность:
 // растровый формат, файл на диске и размеры, совпадающие с мета-тегами.
 const RASTER = /\.(png|jpe?g)$/i;
-// Настоящие размеры каждой картинки — из самих файлов. Картинок две:
-// самозаполнение и «под ключ» (ogImageFor в routes.js).
+// Выше этого WhatsApp может молча не показать картинку.
+const OG_LIMIT = 300 * 1024;
+
+// Размеры берём из самих файлов: JPEG — из маркера SOF, PNG — из IHDR.
+function imageSize(buf) {
+  if (buf.subarray(1, 4).toString() === "PNG")
+    return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
+  let i = 2;
+  while (i < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const m = buf[i + 1];
+    if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m))
+      return [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return [0, 0];
+}
+
+// Картинок две: самозаполнение и «под ключ» (ogImageFor в routes.js).
 const sizes = new Map();
-for (const src of new Set(ROUTES.map((r) => ogImageFor(r.path).src))) {
-  const name = src.replace(/^\//, "");
+for (const og of new Set(ROUTES.map((r) => ogImageFor(r.path)))) {
   try {
-    const png = await readFile(join(DIST, name));
-    // IHDR лежит в первых 24 байтах PNG — внешних библиотек не нужно.
-    if (png.subarray(1, 4).toString() !== "PNG") {
-      problems.push(`${name} — это не PNG`);
+    const buf = await readFile(join(DIST, og.file));
+    const [w, h] = imageSize(buf);
+    if (!w || !h) {
+      problems.push(`${og.file} — не похоже на картинку: размеры не читаются`);
       continue;
     }
-    sizes.set(src, { w: png.readUInt32BE(16), h: png.readUInt32BE(20) });
-    if (png.length > 5 * 1024 * 1024)
-      problems.push(`${name} — ${(png.length / 1048576).toFixed(1)} МБ, площадки режут больше 5 МБ`);
+    sizes.set(og.src, { w, h });
+    if (buf.length > OG_LIMIT)
+      problems.push(
+        `${og.file} — ${(buf.length / 1024).toFixed(0)} КБ: тяжелее ${OG_LIMIT / 1024} КБ, WhatsApp может не показать`
+      );
   } catch {
-    problems.push(`${name} — нет файла в сборке (node scripts/build-og-image.mjs)`);
+    problems.push(`${og.file} — нет файла в сборке (node scripts/build-og-image.mjs)`);
   }
 }
 
@@ -64,14 +82,18 @@ function checkOg(html, label, expected) {
     problems.push(`${label} — og:image ведёт на ${src}: превью показывают только растр (PNG/JPEG)`);
     return;
   }
-  if (expected && src !== SITE + expected.src)
-    problems.push(`${label} — показывает ${src}, а должна ${SITE}${expected.src}`);
+  if (expected && src !== expected.src)
+    problems.push(`${label} — показывает ${src}, а должна ${expected.src}`);
+  // Кириллический адрес в теге — отдельный риск: сторонний HTTP-клиент не
+  // обязан приводить домен к punycode (см. комментарий в routes.js).
+  if (/[^\x00-\x7F]/.test(src))
+    problems.push(`${label} — адрес картинки не в ASCII: ${src}`);
   const alt = (html.match(/<meta[^>]+property="og:image:alt"[^>]+content="([^"]+)"/) || [])[1];
   if (expected && alt !== expected.alt)
     problems.push(`${label} — og:image:alt не от своей карточки: «${alt}»`);
   // Файл обязан лежать в сборке: ссылка на картинку, которой нет, выглядит
   // в точности как рабочая — до первой пересылки ссылки.
-  const path = src.replace(SITE, "").replace(/^\//, "");
+  const path = src.replace(/^https?:\/\/[^/]+\//, "");
   if (!path) problems.push(`${label} — og:image пустой`);
   else if (!existsSync(join(DIST, path)))
     problems.push(`${label} — og:image ведёт на ${src}, а файла в сборке нет`);
@@ -80,7 +102,7 @@ function checkOg(html, label, expected) {
   if (!w || !h) {
     problems.push(`${label} — у og:image нет размеров (og:image:width/height)`);
   } else {
-    const real = sizes.get(src.replace(SITE, ""));
+    const real = sizes.get(src);
     if (real && (Number(w) !== real.w || Number(h) !== real.h))
       problems.push(
         `${label} — в тегах ${w}×${h}, а в файле ${real.w}×${real.h}: площадка покажет обрезанную карточку`

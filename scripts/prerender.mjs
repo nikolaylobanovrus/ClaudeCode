@@ -79,9 +79,9 @@ const gatedShellFor = (path) => {
   return shell
     .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex, follow" />')
     .replace(/<link rel="canonical"[^>]*>\s*/, "")
-    .replace(/(<meta property="og:image" content=")[^"]*/, `$1${SITE}${og.src}`)
+    .replace(/(<meta property="og:image" content=")[^"]*/, `$1${og.src}`)
     .replace(/(<meta property="og:image:alt" content=")[^"]*/, `$1${og.alt}`)
-    .replace(/(<meta name="twitter:image" content=")[^"]*/, `$1${SITE}${og.src}`)
+    .replace(/(<meta name="twitter:image" content=")[^"]*/, `$1${og.src}`)
     .replace(/(<meta name="twitter:image:alt" content=")[^"]*/, `$1${og.alt}`);
 };
 

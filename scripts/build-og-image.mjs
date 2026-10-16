@@ -28,6 +28,22 @@ import { launchChromium } from "./_serve-dist.mjs";
 const PUBLIC = new URL("../public/", import.meta.url).pathname;
 const W = 1200;
 const H = 630; // 1200×630 — размер, который ждут все площадки (OG, 1.91:1)
+const LIMIT = 300 * 1024; // выше этого WhatsApp может не показать картинку
+
+// Размер JPEG — из маркера SOF: внешних библиотек в проекте нет, а верить
+// браузеру на слово тут нельзя (см. ниже).
+function jpegSize(buf) {
+  let i = 2;
+  while (i < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const marker = buf[i + 1];
+    // SOF0..SOF15, кроме DHT(c4), JPG(c8) и DAC(cc) — в них размеров нет.
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+      return [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return [0, 0];
+}
 
 const names = (await readdir(PUBLIC))
   .filter((n) => /^og-.*\.svg$/.test(n))
@@ -55,21 +71,29 @@ for (const name of names) {
     { waitUntil: "load" }
   );
   await page.evaluateHandle("document.fonts.ready");
-  const png = await page.screenshot({ type: "png" });
+  // JPEG, а не PNG. Картинка — градиент с текстом: PNG весит на ней 320 КБ,
+  // JPEG — около сотни при той же чёткости. Для превью это важно: WhatsApp
+  // тихо отбрасывает тяжёлые картинки (граница, о которой пишут, ~300 КБ —
+  // наш PNG был прямо над ней), а мобильный интернет у половины людей.
+  const img = await page.screenshot({ type: "jpeg", quality: 90 });
 
-  // Размер проверяем по самому файлу (IHDR в первых 24 байтах), а не по тому,
-  // что мы просили у браузера: мета-теги og:image:width/height обязаны
-  // совпадать с настоящим файлом, иначе площадка покажет обрезанную карточку.
-  const w = png.readUInt32BE(16);
-  const h = png.readUInt32BE(20);
+  // Размер проверяем по самому файлу, а не по тому, что мы просили у
+  // браузера: мета-теги og:image:width/height обязаны совпадать с настоящим
+  // файлом, иначе площадка покажет обрезанную карточку.
+  const [w, h] = jpegSize(img);
   if (w !== W || h !== H) {
     console.error(`✗ ${name}: получилось ${w}×${h}, ожидалось ${W}×${H}`);
     bad++;
     continue;
   }
-  const out = name.replace(/\.svg$/, ".png");
-  await writeFile(PUBLIC + out, png);
-  console.log(`✓ public/${out} — ${w}×${h}, ${(png.length / 1024).toFixed(0)} КБ`);
+  if (img.length > LIMIT) {
+    console.error(`✗ ${name}: ${(img.length / 1024).toFixed(0)} КБ — больше ${LIMIT / 1024} КБ`);
+    bad++;
+    continue;
+  }
+  const out = name.replace(/\.svg$/, ".jpg");
+  await writeFile(PUBLIC + out, img);
+  console.log(`✓ public/${out} — ${w}×${h}, ${(img.length / 1024).toFixed(0)} КБ`);
 }
 
 await browser.close();

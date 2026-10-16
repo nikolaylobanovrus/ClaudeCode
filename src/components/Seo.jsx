@@ -41,13 +41,13 @@ export default function Seo({
       {/* Растр, а не SVG: превью в формате SVG не показывает ни один
           мессенджер и ни одна соцсеть. Размеры — теми же тегами, площадка
           строит карточку по ним. Файл: node scripts/build-og-image.mjs. */}
-      <meta property="og:image" content={`${BASE}${og.src}`} />
-      <meta property="og:image:type" content="image/png" />
+      <meta property="og:image" content={og.src} />
+      <meta property="og:image:type" content={og.type} />
       <meta property="og:image:width" content={String(og.width)} />
       <meta property="og:image:height" content={String(og.height)} />
       <meta property="og:image:alt" content={og.alt} />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:image" content={`${BASE}${og.src}`} />
+      <meta name="twitter:image" content={og.src} />
       <meta name="twitter:image:alt" content={og.alt} />
 
       {blocks.map((b, i) => (

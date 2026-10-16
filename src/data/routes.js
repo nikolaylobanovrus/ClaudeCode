@@ -89,14 +89,27 @@ export const REDIRECTS = [["/deklaraciya", "/"]];
 //
 // Размеры обязаны совпадать с файлами public/og-*.png; перерисовать:
 // node scripts/build-og-image.mjs
+//
+// Адрес картинки — АБСОЛЮТНЫЙ и в punycode, а не «https://налог-сервис.рф/…».
+// Домен кириллический, и браузер приводит его к ASCII сам, а вот сторонний
+// HTTP-клиент — не обязательно: в этой же среде curl с кириллическим адресом
+// не достучался до сайта, хотя punycode-адрес открыл. Краулеры мессенджеров
+// проверить отсюда нельзя, но ставить картинку в зависимость от их обработки
+// IDN незачем — punycode понимают все, а человеку этот адрес не виден.
+const ASCII = "https://xn----7sbhcltqolxje.xn--p1ai";
+
 const OG_SAM = {
-  src: "/og-sam.png",
+  src: ASCII + "/og-sam.jpg",
+  file: "og-sam.jpg",
+  type: "image/jpeg",
   width: 1200,
   height: 630,
   alt: "Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽",
 };
 const OG_POD_KLYUCH = {
-  src: "/og-pod-klyuch.png",
+  src: ASCII + "/og-pod-klyuch.jpg",
+  file: "og-pod-klyuch.jpg",
+  type: "image/jpeg",
   width: 1200,
   height: 630,
   alt: "Налог-сервис: налоговый вычет под ключ",
