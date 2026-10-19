@@ -187,10 +187,33 @@ apply_nginx
 python3 - "$WWW/deploy-status.json" "$HEAD" "$NGINX_RESULT" "$NGINX_APPLIED" <<'PY'
 import json, pathlib, sys, datetime
 path, head, result, applied = sys.argv[1:5]
-pathlib.Path(path).write_text(json.dumps({
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+f = pathlib.Path(path)
+
+prev = {}
+try:
+    prev = json.loads(f.read_text())
+except Exception:
+    pass                      # файла нет или он битый — начинаем историю заново
+
+# История последних проходов. Без неё статус хранил только последний запуск,
+# и запись об успешно применённой правке затирал следующий проход через пять
+# минут: 19.10.2026 из-за этого было не понять, кто поставил X-Frame-Options.
+# Пишем в историю только СОБЫТИЯ — новую сборку и всё, что случилось с
+# nginx; иначе 288 одинаковых «ничего не произошло» в сутки вытеснят всё
+# полезное за час.
+history = prev.get("history", [])
+event = prev.get("dist") != head or not result.startswith(("в сборке нет правок", "нечего делать"))
+if event:
+    history = [{"at": now, "dist": head, "nginx": result,
+                "patches": [x for x in applied.split("\n") if x]}] + history
+    history = history[:10]
+
+f.write_text(json.dumps({
     "dist": head,
-    "applied_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "applied_at": now,
     "nginx": {"result": result, "patches": [x for x in applied.split("\n") if x]},
+    "history": history,
 }, ensure_ascii=False, indent=2) + "\n")
 PY
 
