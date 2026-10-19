@@ -263,6 +263,18 @@ try {
   for (const w of want) if (!locs.includes(w)) problems.push(`sitemap — нет ${w}`);
   for (const l of locs) if (!want.includes(l)) problems.push(`sitemap — лишний ${l}`);
   if (!/^<\?xml/.test(xml)) problems.push("sitemap — нет XML-заголовка");
+
+  // lastmod обязан быть честным: дата последней правки страницы, а не дата
+  // сборки. Проверяем двумя признаками — формат и то, что НЕ все даты
+  // одинаковы. Совпадение всех дат означает, что разбор App.jsx перестал
+  // находить файлы страниц и мы молча вернулись к дате сборки: карта снова
+  // кричит роботу «изменился весь сайт», и настоящее обновление в этом шуме
+  // теряется.
+  const mods = [...xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]);
+  const badFormat = mods.filter((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (badFormat.length) problems.push(`sitemap — кривые даты: ${badFormat.slice(0, 3).join(", ")}`);
+  if (mods.length > 5 && new Set(mods).size === 1)
+    problems.push(`sitemap — у всех ${mods.length} страниц одна дата ${mods[0]}: lastmod снова по дате сборки`);
 } catch {
   problems.push("sitemap.xml — нет файла");
 }

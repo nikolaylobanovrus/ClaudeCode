@@ -19,6 +19,7 @@
 // баннером cookies даёт расхождения и мигание хуже нынешнего. Задача
 // пререндера здесь — краулер и первая отрисовка, а не серверный рендеринг.
 import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { execSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { ROUTES, REDIRECTS, routeFile, ogImageFor } from "../src/data/routes.js";
 import { serveDist, launchChromium, blockExternals } from "./_serve-dist.mjs";
@@ -220,13 +221,65 @@ for (const [file, html] of rendered) {
 }
 
 // Карта сайта из того же списка: разъехаться они физически не могут.
+//
+// lastmod — ЧЕСТНЫЙ, по дате последнего коммита, который трогал файл
+// страницы. Раньше во всех 38 записях стояла дата сборки, и после каждой
+// выкладки карта утверждала, что изменился весь сайт разом. Для робота это
+// шум: сигнал «вот эта страница правда обновилась» в нём тонет, а в нашем
+// случае как раз он и нужен — свежие статьи ждут первого обхода.
+//
+// Файл страницы ищем по маршруту (src/App.jsx связывает путь и компонент),
+// поэтому карта соответствия короткая и живёт рядом со списком маршрутов.
+// Не нашли файл или git промолчал — откатываемся на дату сборки: лучше
+// грубая дата, чем пустой lastmod.
 const today = new Date().toISOString().slice(0, 10);
+
+// Путь страницы → файл её компонента. Разбираем App.jsx, а не держим
+// отдельный список: список пришлось бы помнить при каждой новой странице, а
+// забытая запись молча вернула бы дату сборки — то самое, от чего уходим.
+const appSrc = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+// Компоненты приезжают в App.jsx двумя способами: ленивым import() и
+// обычным import сверху файла. Учитываем оба — иначе половина страниц
+// («под ключ», тарифы, контакты) молча получала бы дату сборки.
+const lazyFiles = new Map([
+  ...[...appSrc.matchAll(/const\s+(\w+)\s*=\s*lazy\(\s*\(\)\s*=>\s*import\("\.\/(.+?)"\)/g)]
+    .map((m) => [m[1], "src/" + m[2]]),
+  ...[...appSrc.matchAll(/^import\s+(\w+)\s+from\s+"\.\/(pages\/.+?)"/gm)]
+    .map((m) => [m[1], "src/" + m[2]]),
+]);
+const routeComponent = new Map([
+  ...[...appSrc.matchAll(/<Route\s+path="([^"]+)"[\s\S]{0,120}?<(\w+)\s*\/>/g)]
+    .map((m) => ["/" + m[1].replace(/^\//, ""), m[2]]),
+  // Главная описана как <Route index …> — без path. Без этой строки самая
+  // важная страница сайта единственная получала дату сборки.
+  ...[...appSrc.matchAll(/<Route\s+index[\s\S]{0,120}?<(\w+)\s*\/>/g)]
+    .map((m) => ["/", m[1]]),
+]);
+const pageFile = (path) => {
+  const comp = routeComponent.get(path === "/" ? "/" : path);
+  return comp && lazyFiles.get(comp);
+};
+
+const gitDate = (file) => {
+  try {
+    const out = execSync(`git log -1 --format=%cs -- ${JSON.stringify(file)}`, {
+      cwd: new URL("..", import.meta.url).pathname,
+      encoding: "utf8",
+    }).trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(out) ? out : today;
+  } catch {
+    return today;
+  }
+};
 const urls = ROUTES.filter((r) => r.index)
-  .map(
-    (r) =>
-      `  <url>\n    <loc>${SITE}${r.path}</loc>\n    <lastmod>${today}</lastmod>\n` +
+  .map((r) => {
+    const src = pageFile(r.path);
+    const lastmod = src ? gitDate(src) : today;
+    return (
+      `  <url>\n    <loc>${SITE}${r.path}</loc>\n    <lastmod>${lastmod}</lastmod>\n` +
       `    <changefreq>${r.changefreq}</changefreq>\n    <priority>${r.priority}</priority>\n  </url>`
-  )
+    );
+  })
   .join("\n");
 await writeFile(
   join(DIST, "sitemap.xml"),
