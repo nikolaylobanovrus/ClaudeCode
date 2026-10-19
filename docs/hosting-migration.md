@@ -203,6 +203,49 @@ bash -n /opt/nalog-servis/nalog-servis-pull.sh && /opt/nalog-servis/nalog-servis
 после `publish-dist.sh` сайт обновится сам. Форсировать:
 `systemctl start nalog-servis-pull.service`.
 
+## Правки nginx едут тем же каналом (с 19.10.2026)
+
+Раньше любая правка боевого nginx означала поход на сервер: скачать скрипт,
+посмотреть, что он делает, запустить (так ставился этап C). Теперь правка —
+это файл в `deploy/nginx.d/`, который уезжает в сборку и применяется
+сервером самостоятельно.
+
+Что происходит на сервере при каждом запуске выкладки:
+
+1. правки читаются из `_server/nginx.d/*.json` (в веб-корень этот каталог
+   не попадает — `rsync --exclude _server`);
+2. уже применённые пропускаются по `done_marker`, остальные применяются к
+   `/etc/nginx/sites-available/nalog-servis` на копии;
+3. делается резервная копия, файл записывается, `nginx -t`;
+4. `systemctl reload nginx`, затем проверка: главная обязана отдать 200, а
+   несуществующий адрес — 404;
+5. любой сбой — откат к резервной копии и перезагрузка обратно; хранится
+   десять последних копий.
+
+**Что каналом нельзя.** Применятель отказывается от правки, где есть
+`ssl_certificate`, `proxy_pass`, `server_name`, `listen`, `include`,
+`alias`, `root` и подобное: TLS, домен и соседний проект на том же сервере
+через git не управляются. Репозиторий публичный, поэтому сервер исполняет
+только свой установленный скрипт, а из репозитория принимает ОПИСАНИЕ
+правки, а не код.
+
+**Как посмотреть результат, не заходя на сервер:**
+`https://налог-сервис.рф/deploy-status.json` — какая сборка разложена, какие
+правки применены и чем кончилось.
+
+**Разовая установка нового скрипта выкладки** (после неё правки пойдут сами):
+
+```
+cp /opt/nalog-servis/nalog-servis-pull.sh /opt/nalog-servis/nalog-servis-pull.sh.bak
+curl -fsSL -o /opt/nalog-servis/nalog-servis-pull.sh \
+  https://raw.githubusercontent.com/nikolaylobanovrus/ClaudeCode/claude/tax-deduction-declaration-site-dfit30/deploy/nalog-servis-pull.sh
+chmod +x /opt/nalog-servis/nalog-servis-pull.sh
+bash -n /opt/nalog-servis/nalog-servis-pull.sh && /opt/nalog-servis/nalog-servis-pull.sh
+```
+
+Откат — `cp /opt/nalog-servis/nalog-servis-pull.sh.bak /opt/nalog-servis/nalog-servis-pull.sh`.
+Таймер подхватит новый скрипт сам, systemd перезапускать не надо.
+
 ## Проверка после переезда
 
 1. `dig налог-сервис.рф` — адреса больше не 185.199.108–111.153.

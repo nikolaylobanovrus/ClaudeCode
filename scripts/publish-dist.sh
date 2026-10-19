@@ -29,6 +29,14 @@ cd "$ROOT"
 echo "==> сверка списка страниц"
 node scripts/check-routes.mjs
 
+# Правки nginx едут этим же артефактом (deploy/nginx.d → _server/nginx.d) и
+# применяются сервером без нашего участия. Единственное место, где ошибку в
+# них ещё можно поймать, — здесь: проверка прогоняет сам серверный
+# применятель на копии боевого конфига и требует, чтобы он отказался от
+# заведомо плохих правок.
+echo "==> правки nginx"
+python3 scripts/check-nginx-patches.py
+
 echo "==> сборка (боевая конфигурация)"
 # БЕЗ VITE_HASH_ROUTER: с 24.09.2026 боевой сайт живёт на чистых URL, хеш
 # остаётся только на резервной площадке GitHub Pages (deploy-pages.yml), где
@@ -91,6 +99,14 @@ test -s "$ROOT/dist/404.html"   || { echo "ОШИБКА: нет dist/404.html" >
 SRC_HEAD=$(git -C "$ROOT" rev-parse --short HEAD)
 REMOTE=$(git -C "$ROOT" remote get-url origin)
 cp -r "$ROOT/dist/." "$WORK/"
+
+# Серверная часть артефакта: правки nginx. В веб-корень не попадёт — скрипт
+# выкладки исключает _server из rsync (deploy/nalog-servis-pull.sh).
+if compgen -G "$ROOT/deploy/nginx.d/*.json" > /dev/null; then
+    mkdir -p "$WORK/_server/nginx.d"
+    cp "$ROOT"/deploy/nginx.d/*.json "$WORK/_server/nginx.d/"
+    echo "==> в сборку вложены правки nginx: $(ls -1 "$ROOT"/deploy/nginx.d/*.json | wc -l)"
+fi
 
 cd "$WORK"
 git init -q
