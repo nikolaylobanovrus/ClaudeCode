@@ -16,6 +16,7 @@
     "prerender": "node scripts/prerender.mjs",
     "check:shim": "vite build && node scripts/prerender.mjs && node scripts/check-shim.mjs",
     "check:prerender": "node scripts/check-prerender.mjs",
+    "check:live": "node scripts/check-live.mjs",
     "check:wizard": "VITE_SB_URL=http://127.0.0.1:9 vite build && node scripts/check-wizard.mjs",
     "check:yookassa": "VITE_PAY_PROVIDER=yookassa VITE_SB_URL=https://sb.stand.test VITE_SB_ANON=stand-anon vite build && node scripts/check-yookassa-flow.mjs",
     "check:invariants": "node --loader ./scripts/_url-loader.mjs scripts/check-invariants.mjs",
