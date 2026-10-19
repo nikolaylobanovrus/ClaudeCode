@@ -1722,7 +1722,9 @@ h4 {
 }
 .footer__grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+  /* Пять колонок: марка, разделы, широкая колонка статей, документы,
+     контакты. До появления «Полезных статей» их было четыре. */
+  grid-template-columns: 1.1fr 0.85fr 2.8fr 1fr 1.05fr;
   gap: 32px;
   padding-bottom: 40px;
 }
@@ -1751,6 +1753,23 @@ h4 {
   gap: 10px;
   align-content: start;
   font-size: 14.5px;
+}
+/* Колонка «Полезные статьи»: 29 разборов. Списком в один столбец это
+   полотно на пол-экрана, поэтому раскладываем газетными колонками — ширина
+   колонки задана, число браузер выбирает сам по месту. На телефоне
+   получается две узкие колонки, на десктопе — три. */
+.footer__articles {
+  /* Ширина колонки и зазор подобраны под самую длинную подпись («Налог с
+     продажи квартиры»): если колонка ýже, браузер молча схлопывает список
+     в один столбец — так и вышло при первой попытке. */
+  column-width: 165px;
+  column-gap: 20px;
+}
+.footer__articles a {
+  display: block;
+  margin-bottom: 10px;
+  /* Ссылка не должна разрываться между колонками пополам. */
+  break-inside: avoid;
 }
 .footer__req {
   font-size: 13px;
@@ -2095,6 +2114,9 @@ h4 {
   .footer__grid {
     grid-template-columns: 1fr 1fr;
   }
+  .footer__col--articles {
+    grid-column: span 2;
+  }
 }
 
 /* Плотная шапка — на ВСЕХ десктопах, а не только на узких.
@@ -2213,6 +2235,17 @@ h4 {
   .footer__grid {
     grid-template-columns: 1fr;
     gap: 26px;
+  }
+  .footer__articles {
+    column-width: 140px;
+    column-gap: 14px;
+    font-size: 13.5px;
+  }
+  /* Пальцу нужна площадь: в две колонки ссылки стоят близко, и без
+     вертикальных полей промахнуться легко. */
+  .footer__articles a {
+    padding: 4px 0;
+    margin-bottom: 4px;
   }
   .hero__actions .btn {
     width: 100%;
