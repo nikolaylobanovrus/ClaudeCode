@@ -142,7 +142,7 @@ def run_server_applier():
         r = run()
         if r.returncode != 0:
             return [f"применятель с сервера отказался: {r.stdout.strip()} {r.stderr.strip()}"]
-        if r.stdout.strip() == "NONE":
+        if "APPLY " not in r.stdout:
             out.append("применятель с сервера: все правки уже стоят в эталоне — нечего проверять")
             return []
         applied = result_file.read_text()
@@ -157,8 +157,10 @@ def run_server_applier():
         r2 = run()
         if r2.returncode != 0:
             return [f"повторный проход упал: {r2.stdout.strip()} {r2.stderr.strip()}"]
-        if r2.stdout.strip() != "NONE":
+        if "APPLY " in r2.stdout:
             return ["повторный проход снова применяет правки — они не идемпотентны"]
+        if "SKIP " not in r2.stdout:
+            return ["повторный проход не сообщил, что правки уже стоят — в статусе будет «правок нет»"]
         print("  ✓ применятель с сервера: правки встали, TLS на месте, повтор ничего не делает")
     return guards_hold(body)
 
@@ -196,7 +198,7 @@ def guards_hold(applier_body):
                 [sys.executable, str(tmp / "applier.py"), str(tmp / "conf"),
                  str(tmp / "patches"), str(tmp / "out.conf")],
                 capture_output=True, text=True)
-            if r.returncode == 0 or (tmp / "out.conf").exists():
+            if r.returncode == 0 or (tmp / "out.conf").exists():  # плохая правка обязана остановить применятель
                 problems.append(f"применятель НЕ отказался от плохой правки «{name}»")
     if not problems:
         print(f"  ✓ защита держит: применятель отказался от всех {len(cases)} плохих правок")

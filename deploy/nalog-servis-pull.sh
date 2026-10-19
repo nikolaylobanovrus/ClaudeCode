@@ -69,7 +69,7 @@ find "$WWW" -mindepth 1 -type d -empty -delete
 # приходит описание правки (JSON), а не код: репозиторий публичный, и
 # выполнять присланное оттуда на боевой машине нельзя. Набор действий узкий —
 # найти кусок текста в одном файле и заменить его.
-NGINX_RESULT=none
+NGINX_RESULT="в сборке нет правок"
 NGINX_APPLIED=""
 
 apply_nginx() {
@@ -94,7 +94,7 @@ FORBIDDEN = ["ssl_certificate", "proxy_pass", "fastcgi_pass", "server_name",
 REQUIRED = ("id", "why", "done_marker", "find", "expect", "replace")
 
 conf = pathlib.Path(conf_path).read_text()
-applied = []
+applied, skipped = [], []
 for f in sorted(pathlib.Path(patch_dir).glob("*.json")):
     p = json.loads(f.read_text())
     if any(k not in p for k in REQUIRED):
@@ -103,7 +103,11 @@ for f in sorted(pathlib.Path(patch_dir).glob("*.json")):
     if bad:
         sys.exit(f"{f.name}: запрещённые директивы — {', '.join(bad)}")
     if p["done_marker"] in conf:
-        continue                      # уже стоит — правка идемпотентна
+        # Уже стоит. Раньше такие правки молчали, и в статусе было «none» —
+        # неотличимо от «в сборке правок нет». 19.10.2026 из-за этого было не
+        # понять, кто поставил X-Frame-Options: наш канал или конфиг до него.
+        skipped.append(p["id"])
+        continue
     found = conf.count(p["find"])
     if found != p["expect"]:
         sys.exit(f"{f.name}: кусок find встречается {found} раз, ожидалось {p['expect']} — правка НЕ применена")
@@ -114,11 +118,14 @@ for f in sorted(pathlib.Path(patch_dir).glob("*.json")):
 
 if conf.count("{") != conf.count("}"):
     sys.exit("после правок разъехались скобки — конфиг не записан")
-if not applied:
-    print("NONE")
-else:
+for sid in skipped:
+    print(f"SKIP {sid}")
+if applied:
     pathlib.Path(out_path).write_text(conf)
-    print("\n".join(applied))
+    for line in applied:
+        print(f"APPLY {line}")
+else:
+    print("NOTHING")
 PY
     ); then
         NGINX_RESULT="правка отклонена: $out"
@@ -127,7 +134,15 @@ PY
         return 0
     fi
 
-    if [ "$out" = "NONE" ]; then
+    NGINX_APPLIED=$(echo "$out" | grep -E '^(SKIP|APPLY) ' || true)
+    if ! echo "$out" | grep -q '^APPLY '; then
+        # Новых правок нет. Разделяем два случая: в сборке правок не было
+        # вовсе или все они уже стоят в конфиге — это разные новости.
+        if echo "$out" | grep -q '^SKIP '; then
+            NGINX_RESULT="нечего делать: все правки уже стоят"
+        else
+            NGINX_RESULT="в сборке нет правок"
+        fi
         rm -f "$tmp"
         return 0
     fi
@@ -136,7 +151,6 @@ PY
     cp -a "$CONF" "$bak"
     cat "$tmp" > "$CONF"
     rm -f "$tmp"
-    NGINX_APPLIED=$out
 
     restore() {
         cp -a "$bak" "$CONF"
