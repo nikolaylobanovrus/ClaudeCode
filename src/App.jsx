@@ -58,6 +58,7 @@ const SelfServiceSrokiVozvrata = lazy(() => import("./pages/SelfServiceSrokiVozv
 const SelfServiceShtrafZaNepodachu = lazy(() => import("./pages/SelfServiceShtrafZaNepodachu.jsx"));
 const SelfServiceOtkazNalogovoy = lazy(() => import("./pages/SelfServiceOtkazNalogovoy.jsx"));
 const SelfServiceVychetSamozanyatym = lazy(() => import("./pages/SelfServiceVychetSamozanyatym.jsx"));
+const SelfServiceStati = lazy(() => import("./pages/SelfServiceStati.jsx"));
 const SelfServiceKalkulyator = lazy(() => import("./pages/SelfServiceKalkulyator.jsx"));
 const SelfServiceOffer = lazy(() => import("./pages/SelfServiceOffer.jsx"));
 const lazyPage = (el) => <Suspense fallback={null}>{el}</Suspense>;
@@ -175,6 +176,9 @@ export default function App() {
         <Route path="deklaraciya/shtraf-za-nepodachu-deklaracii" element={lazyPage(<SelfServiceShtrafZaNepodachu />)} />
         <Route path="deklaraciya/otkaz-nalogovoy" element={lazyPage(<SelfServiceOtkazNalogovoy />)} />
         <Route path="deklaraciya/vychet-samozanyatym" element={lazyPage(<SelfServiceVychetSamozanyatym />)} />
+        {/* Оглавление разборов: одна ссылка в подвале вместо 29 (19.10.2026).
+            Входящие ссылки у статей остаются — теперь через хаб. */}
+        <Route path="deklaraciya/stati" element={lazyPage(<SelfServiceStati />)} />
         <Route
           path="deklaraciya/kalkulyator-naloga-s-prodazhi"
           element={lazyPage(<SelfServiceKalkulyator />)}

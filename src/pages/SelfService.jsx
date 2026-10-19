@@ -317,7 +317,9 @@ export default function SelfService() {
           {/* Вопросы, которые возникают вокруг декларации, а не вместо неё:
               человек ищет их отдельно, и отвечать на них — работа сайта. */}
           <p className="sd-grid__note">
-            Ответы на частые вопросы:{" "}
+            Все разборы собраны в одном месте —{" "}
+            <Link to="/deklaraciya/stati">полезные статьи</Link> (29 штук, по
+            темам). Самые частые вопросы:{" "}
             <Link to="/deklaraciya/sroki-vozvrata-naloga">когда придут деньги</Link>,{" "}
             <Link to="/deklaraciya/vychet-cherez-rabotodatelya">
               вычет через работодателя

@@ -60,6 +60,7 @@ export const ROUTES = [
   { path: "/deklaraciya/shtraf-za-nepodachu-deklaracii", index: true, changefreq: "monthly", priority: "0.8" },
   { path: "/deklaraciya/otkaz-nalogovoy", index: true, changefreq: "monthly", priority: "0.8" },
   { path: "/deklaraciya/vychet-samozanyatym", index: true, changefreq: "monthly", priority: "0.7" },
+  { path: "/deklaraciya/stati", index: true, changefreq: "weekly", priority: "0.8" },
   // Служебные страницы раздела: живой контент, но дублируют главную по смыслу.
   { path: "/deklaraciya/tarify", index: false },
   { path: "/deklaraciya/kontakty", index: false },

@@ -54,6 +54,7 @@ const PAGES = [
   "/deklaraciya/shtraf-za-nepodachu-deklaracii",
   "/deklaraciya/otkaz-nalogovoy",
   "/deklaraciya/vychet-samozanyatym",
+  "/deklaraciya/stati",
   "/deklaraciya/tarify",
   "/vychety",
   "/tarify",

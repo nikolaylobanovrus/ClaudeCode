@@ -10,60 +10,25 @@ const MAIN_SECTIONS = [
   { to: "/tarify", label: "Тарифы" },
   { to: "/kontakty", label: "Контакты" },
 ];
-// Подвал раздела самозаполнения: служебные ссылки отдельно, разборы
-// отдельно. Пока список был один, в «Разделах» подряд висели 29 пунктов —
-// владелец справедливо сказал, что это некрасиво (19.10.2026). Разборы
-// переехали в свою колонку «Полезные статьи», она верстается в несколько
-// газетных колонок и потому занимает немного места.
+// Подвал раздела самозаполнения: шесть служебных ссылок, и среди них одна
+// на оглавление разборов (/deklaraciya/stati).
 //
-// Ссылки из подвала — не косметика: подвал есть на каждой странице, и это
-// самый дешёвый способ дать входящие ссылки всем 29 разборам. Проверка
-// check-links требует, чтобы у каждой индексируемой страницы была хотя бы
-// одна входящая, так что выкидывать их отсюда нельзя — только
-// перекладывать.
+// Сначала все 29 разборов висели прямо здесь — ради входящих ссылок, без
+// которых поиск страницу не находит. Выглядело громоздко, и 19.10.2026 мы
+// заменили список одной ссылкой на хаб: входящие у статей остались (теперь
+// с хаба), а подвал стал читаемым. Для поиска это даже лучше — сквозные
+// ссылки в подвале считаются шаблонными и ценятся ниже, чем ссылка со
+// страницы по теме.
 const SELF_SECTIONS = [
   { to: "/", scrollTo: "sd-vychety", label: "Виды вычетов" },
   { to: "/", scrollTo: "sd-kak-rabotaem", label: "Как работаем" },
   { to: "/deklaraciya/instrukciya", label: "Как подать декларацию" },
+  { to: "/deklaraciya/stati", label: "Полезные статьи" },
   { to: "/deklaraciya/kalkulyator-naloga-s-prodazhi", label: "Калькулятор налога" },
   { to: "/deklaraciya/tarify", label: "Тарифы" },
   { to: "/deklaraciya/kontakty", label: "Контакты" },
 ];
 
-// Разборы по ситуациям и статьи-ответы. Порядок — от самого частого спроса
-// к редкому, внутри тем: покупка жилья, лечение, обучение, прочие вычеты,
-// продажа, и в конце — вопросы вокруг декларации.
-const SELF_ARTICLES = [
-  { to: "/deklaraciya/vychet-za-kvartiru", label: "Вычет за квартиру" },
-  { to: "/deklaraciya/vychet-za-ipoteku", label: "Вычет по ипотеке" },
-  { to: "/deklaraciya/vychet-za-novostroyku", label: "Вычет за новостройку" },
-  { to: "/deklaraciya/vychet-suprugam", label: "Вычет супругам" },
-  { to: "/deklaraciya/ostatok-imushchestvennogo-vycheta", label: "Остаток вычета" },
-  { to: "/deklaraciya/vychet-pensioneram", label: "Вычет пенсионерам" },
-  { to: "/deklaraciya/vychet-za-lechenie", label: "Вычет за лечение" },
-  { to: "/deklaraciya/vychet-za-lechenie-zubov", label: "Лечение зубов" },
-  { to: "/deklaraciya/dorogostoyashchee-lechenie", label: "Дорогостоящее лечение" },
-  { to: "/deklaraciya/vychet-za-lechenie-blizkih", label: "Лечение родных" },
-  { to: "/deklaraciya/vychet-za-obuchenie", label: "Вычет за обучение" },
-  { to: "/deklaraciya/vychet-za-obuchenie-rebenka", label: "Обучение ребёнка" },
-  { to: "/deklaraciya/vychet-na-detey", label: "Вычет на детей" },
-  { to: "/deklaraciya/vychet-za-sport", label: "Вычет за спорт" },
-  { to: "/deklaraciya/vychet-po-iis", label: "Вычет по ИИС" },
-  { to: "/deklaraciya/vychet-za-strahovanie-zhizni", label: "Страхование жизни" },
-  { to: "/deklaraciya/vychet-po-pds", label: "Вычет по ПДС" },
-  { to: "/deklaraciya/vychet-za-tri-goda", label: "Вычет за три года" },
-  { to: "/deklaraciya/vychet-cherez-rabotodatelya", label: "Вычет у работодателя" },
-  { to: "/deklaraciya/vychet-samozanyatym", label: "Вычет самозанятым" },
-  { to: "/deklaraciya/nalog-s-prodazhi-kvartiry", label: "Налог с продажи квартиры" },
-  { to: "/deklaraciya/nalog-s-prodazhi-avtomobilya", label: "Налог с продажи авто" },
-  { to: "/deklaraciya/nalog-s-prodazhi-uchastka", label: "Продажа участка и дачи" },
-  { to: "/deklaraciya/nalog-s-prodazhi-podarennoy", label: "Продажа подарка" },
-  { to: "/deklaraciya/nalog-nerezidenta-s-prodazhi", label: "Налог нерезидента" },
-  { to: "/deklaraciya/utochnennaya-deklaraciya", label: "Уточнённая декларация" },
-  { to: "/deklaraciya/sroki-vozvrata-naloga", label: "Сроки возврата" },
-  { to: "/deklaraciya/otkaz-nalogovoy", label: "Отказ в вычете" },
-  { to: "/deklaraciya/shtraf-za-nepodachu-deklaracii", label: "Штраф за неподачу" },
-];
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -109,19 +74,6 @@ export default function Footer() {
               </Link>
             ))}
           </nav>
-
-          {isSelf && (
-            <nav className="footer__col footer__col--articles">
-              <h4 className="footer__title">Полезные статьи</h4>
-              <div className="footer__articles">
-                {SELF_ARTICLES.map((l) => (
-                  <Link key={l.to} to={l.to}>
-                    {l.label}
-                  </Link>
-                ))}
-              </div>
-            </nav>
-          )}
 
           <nav className="footer__col">
             <h4 className="footer__title">Документы</h4>
