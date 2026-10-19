@@ -261,79 +261,24 @@ export default function SelfService() {
               страница-ответ. Ссылка стоит прямо в списке вычетов, а не в
               подвале: человек читает «какие вычеты можно оформить» ровно
               тогда, когда ищет свой случай. */}
+          {/* Две строки вместо четырёх абзацев со ссылками.
+              Сначала здесь перечислялись все 29 разборов подряд — владелец
+              справедливо сказал, что такой объём путает (19.10.2026). Для
+              поиска потери нет: статьи доступны с оглавления, из sitemap.xml
+              и по контекстным ссылкам внутри самих разборов, а сквозные
+              перечисления поисковики и так ценят ниже. Прятать ссылки от
+              людей, оставляя их роботу, нельзя — это поисковый спам, за него
+              фильтруют весь сайт. */}
           <p className="sd-grid__note">
-            Подробные разборы с примерами и документами:{" "}
-            <Link to="/deklaraciya/vychet-za-kvartiru">вычет за квартиру</Link>,{" "}
-            <Link to="/deklaraciya/vychet-za-ipoteku">по процентам ипотеки</Link>,{" "}
-            <Link to="/deklaraciya/vychet-za-lechenie">за лечение</Link>,{" "}
-            <Link to="/deklaraciya/vychet-za-obuchenie">за обучение</Link>,{" "}
-            <Link to="/deklaraciya/vychet-za-sport">за спорт</Link>,{" "}
-            <Link to="/deklaraciya/vychet-po-iis">по ИИС</Link>,{" "}
-            <Link to="/deklaraciya/vychet-za-strahovanie-zhizni">
-              за страхование жизни
-            </Link>
-            , <Link to="/deklaraciya/vychet-po-pds">по ПДС</Link> и{" "}
-            <Link to="/deklaraciya/vychet-na-detey">на детей</Link>. Отдельно:{" "}
-            <Link to="/deklaraciya/vychet-za-lechenie-zubov">лечение зубов</Link>,{" "}
-            <Link to="/deklaraciya/vychet-suprugam">вычет на двоих супругов</Link>{" "}
-            и <Link to="/deklaraciya/vychet-pensioneram">вычет пенсионерам</Link>.
-          </p>
-          <p className="sd-grid__note">
-            Продали квартиру или машину и не знаете, будет ли налог?{" "}
+            Не знаете, будет ли налог после продажи?{" "}
             <Link to="/deklaraciya/kalkulyator-naloga-s-prodazhi">
               Посчитайте на калькуляторе
             </Link>{" "}
-            — бесплатно, с проверкой срока владения. Разборы правил:{" "}
-            <Link to="/deklaraciya/nalog-s-prodazhi-kvartiry">
-              налог с продажи квартиры
-            </Link>{" "}
-            и{" "}
-            <Link to="/deklaraciya/nalog-s-prodazhi-avtomobilya">
-              с продажи машины
-            </Link>
-            ,{" "}
-            <Link to="/deklaraciya/nalog-s-prodazhi-uchastka">
-              с продажи участка и дачи
-            </Link>
-            . Продавал{" "}
-            <Link to="/deklaraciya/nalog-nerezidenta-s-prodazhi">нерезидент</Link>{" "}
-            — там свои правила и ставка 30%.
+            — бесплатно, с проверкой срока владения.
           </p>
-          {/* Уточнёнку ищут отдельно и в панике: «подал с ошибкой, что
-              будет». Ссылка с главной нужна именно поэтому — человек попадает
-              на разбор, а не в анкету, в которой ещё не разобрался. */}
           <p className="sd-grid__note">
-            Уже подали декларацию и нашли ошибку?{" "}
-            <Link to="/deklaraciya/utochnennaya-deklaraciya">
-              Уточнённая декларация
-            </Link>{" "}
-            — как исправить и не получить штраф. А если налог не возвращали
-            несколько лет —{" "}
-            <Link to="/deklaraciya/vychet-za-tri-goda">
-              вернуть можно сразу за три года
-            </Link>
-            .
-          </p>
-          {/* Вопросы, которые возникают вокруг декларации, а не вместо неё:
-              человек ищет их отдельно, и отвечать на них — работа сайта. */}
-          <p className="sd-grid__note">
-            Все разборы собраны в одном месте —{" "}
-            <Link to="/deklaraciya/stati">полезные статьи</Link> (29 штук, по
-            темам). Самые частые вопросы:{" "}
-            <Link to="/deklaraciya/sroki-vozvrata-naloga">когда придут деньги</Link>,{" "}
-            <Link to="/deklaraciya/vychet-cherez-rabotodatelya">
-              вычет через работодателя
-            </Link>
-            ,{" "}
-            <Link to="/deklaraciya/otkaz-nalogovoy">если налоговая отказала</Link>,{" "}
-            <Link to="/deklaraciya/shtraf-za-nepodachu-deklaracii">
-              штраф за неподачу
-            </Link>{" "}
-            и{" "}
-            <Link to="/deklaraciya/vychet-samozanyatym">
-              вычет для самозанятых
-            </Link>
-            .
+            По каждой ситуации есть разбор с лимитами, документами и примерами —{" "}
+            <Link to="/deklaraciya/stati">29 полезных статей</Link>.
           </p>
         </div>
       </section>
