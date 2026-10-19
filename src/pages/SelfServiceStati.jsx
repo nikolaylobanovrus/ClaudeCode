@@ -15,6 +15,7 @@
 // а не три, и новая статья не может остаться без ссылки.
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
+import { NoBreak } from "../lib/nowrap.jsx";
 import { ARTICLE_GROUPS, ALL_ARTICLES } from "../data/articles.js";
 import { selfService } from "../data/content.js";
 import { fmtRub } from "../lib/format.js";
@@ -35,7 +36,9 @@ export default function SelfServiceStati() {
   ];
 
   return (
-    <>
+    // Через NoBreak: «3-НДФЛ» не должно разрываться по дефису (проверка
+    // check-hscroll поймала это на 360px).
+    <NoBreak>
       <Seo
         title="Полезные статьи о налоговых вычетах и декларации 3-НДФЛ | Налог-сервис"
         description={`${ALL_ARTICLES.length} разборов: вычеты за квартиру, ипотеку, лечение, обучение и детей, налог с продажи имущества, сроки возврата и частые отказы. Простым языком, с лимитами и документами.`}
@@ -103,6 +106,6 @@ export default function SelfServiceStati() {
           </div>
         </div>
       </section>
-    </>
+    </NoBreak>
   );
 }
