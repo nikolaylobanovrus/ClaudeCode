@@ -1815,7 +1815,9 @@ h4 {
   padding: 0;
   margin: 14px 0 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  /* min(290px, 100%) вместо 290px: на экране 320px доступно 280, и жёсткая
+     минимальная ширина распирала страницу на 19px (поймано check-hscroll). */
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
   gap: 16px 28px;
 }
 .stati__list li {
