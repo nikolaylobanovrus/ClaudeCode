@@ -1,0 +1,8 @@
+{
+  "id": "010-x-frame-options",
+  "why": "Запрет показывать сайт в чужом фрейме: анкету с паспортными данными и кнопкой оплаты нельзя подсовывать внутри чужой страницы. Первая правка, поехавшая новым каналом — заодно проверка, что канал работает.",
+  "done_marker": "X-Frame-Options",
+  "find": "    add_header X-Content-Type-Options \"nosniff\" always;\n",
+  "expect": 1,
+  "replace": "    add_header X-Content-Type-Options \"nosniff\" always;\n    add_header X-Frame-Options \"SAMEORIGIN\" always;\n"
+}

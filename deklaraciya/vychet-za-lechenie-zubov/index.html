@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru"><head>
+    <script>/* Старые адреса с решёткой → чистые URL.
+ *
+ * Встраивается первым тегом в <head> (см. плагин в vite.config.js) и только
+ * в сборку с обычным роутером. Почему именно первым, а не в main.jsx: сразу
+ * за ним в <head> инициализируется Яндекс.Метрика с `url: location.href` —
+ * отработай шим позже, и каждый рекламный визит записался бы со старым
+ * адресом, а отчёт «страницы входа» стал бы бесполезным.
+ *
+ * Зачем вообще: 109 действующих объявлений Директа ведут на адреса вида
+ * «/?utm_source=…#/deklaraciya». Перемодерировать их ради переезда нельзя —
+ * это дни простоя. Плюс закладки людей, ссылки в уже скачанных PDF-инструкциях
+ * и статьи, которые мы будем публиковать. Шим остаётся в коде навсегда.
+ *
+ * Отдельно про склейку параметров: она сделана строками, а НЕ через
+ * URLSearchParams. Тот декодирует «+» как пробел и переэнкодит значения, а у
+ * нас через query ходят ссылка-черновик ?d=<base64 до 2000 символов> и метки
+ * Директа. Порча хотя бы одного символа означает потерянный черновик.
+ */
+(function () {
+  try {
+    var hash = window.location.hash;
+    // Обычные якоря (#faq) не трогаем — только маршруты вида #/путь.
+    if (hash.indexOf("#/") !== 0) return;
+
+    var rest = hash.slice(1); // «/deklaraciya/anketa?a=b» или «/deklaraciya&erid=x»
+
+    // Рекламные площадки дописывают свои параметры после решётки через «&»
+    // (Telega.in: «#/deklaraciya&erid=…»). Для роутера это часть пути, поэтому
+    // разделителем считаем и «?», и «&» — что встретится раньше.
+    var q = rest.indexOf("?");
+    var a = rest.indexOf("&");
+    var cut = q < 0 ? a : a < 0 ? q : Math.min(q, a);
+
+    var path = cut < 0 ? rest : rest.slice(0, cut);
+    var tail = cut < 0 ? "" : rest.slice(cut + 1);
+
+    if (!path || path.charAt(0) !== "/") return;
+
+    var search = window.location.search;
+    if (tail) search = search ? search + "&" + tail : "?" + tail;
+
+    window.history.replaceState(null, "", path + search);
+  } catch (e) {
+    /* Сломанный шим в самом начале <head> — это белый экран на всём сайте.
+       Цена ошибки должна быть «остался старый адрес», и не больше. */
+  }
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#0b5cff">
+
+    <!-- Primary SEO -->
+    <title>Налоговый вычет за лечение зубов: импланты без лимита, до 19&nbsp;500&nbsp;₽ за обычное | Налог-сервис</title>
+    
+    
+    
+    <meta name="robots" content="index, follow, max-image-preview:large">
+
+    <!-- Open Graph -->
+    
+    
+    
+    
+    
+    <!-- Картинка превью — ТОЛЬКО растр. SVG в этом месте не понимает ни один
+         мессенджер и ни одна соцсеть (проверено 15.10.2026: ссылка
+         пересылалась без картинки). Файлы рисуются из одноимённых SVG
+         командой node scripts/build-og-image.mjs. Здесь — карточка
+         самозаполнения: корень сайта это оно. Страницы «под ключ» подставят
+         свою через <Seo> (выбор по пути — ogImageFor в routes.js). Размеры
+         дублируются тегами: по ним площадка строит карточку, не дожидаясь
+         загрузки файла. -->
+    
+    
+    
+    
+    
+    
+
+    <!-- Twitter -->
+    
+    
+    
+    
+    
+
+    <!-- Structured data: Organization (базовое, для краулеров и ИИ-поиска) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Налог-сервис",
+        "url": "https://налог-сервис.рф/",
+        "logo": "https://налог-сервис.рф/favicon.svg",
+        "description": "Сервис возврата налоговых вычетов (НДФЛ) под ключ: имущественный, за лечение, обучение, ИИС.",
+        "areaServed": "RU",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+7-920-837-91-93",
+          "contactType": "customer service",
+          "availableLanguage": "Russian"
+        }
+      }
+    </script>
+
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+          m[i].l=1*new Date();
+          for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+          k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=110487569', 'ym');
+
+      // Просмотры страниц SPA шлёт ymHit в Layout (hash-роутер);
+      // trackHash не включаем, чтобы хиты не задваивались.
+      ym(110487569, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <!-- /Yandex.Metrika counter (noscript-пиксель — в body: в head он невалиден) -->
+    <script type="module" crossorigin="" src="/assets/index-B4eBbC9G.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-L3HSX6U9.css">
+  <link rel="modulepreload" as="script" crossorigin="" href="/assets/SelfServiceVychetZuby-BZ-NdBW9.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/DeductionLanding-2RsJwa9P.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/format-BgXA9SMT.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/refs-b9oNh1Z6.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/instrukciya-BR6AevEv.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/pdfPage-rxtfMFyr.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/fontkit.es-DVwqq19A.js"><link rel="canonical" href="https://налог-сервис.рф/deklaraciya/vychet-za-lechenie-zubov" data-rh="true"><meta name="description" content="Вычет за лечение зубов: 13% расходов. Имплантация — дорогостоящее лечение с кодом «2», лимита нет; обычное лечение и протезирование — в пределах 150&nbsp;000&nbsp;₽ в год. Как проверить код в справке, за кого можно вернуть и как заполнить 3-НДФЛ за 199&nbsp;₽." data-rh="true"><meta property="og:type" content="website" data-rh="true"><meta property="og:site_name" content="Налог-сервис" data-rh="true"><meta property="og:title" content="Налоговый вычет за лечение зубов: импланты без лимита, до 19&nbsp;500&nbsp;₽ за обычное | Налог-сервис" data-rh="true"><meta property="og:description" content="Вычет за лечение зубов: 13% расходов. Имплантация — дорогостоящее лечение с кодом «2», лимита нет; обычное лечение и протезирование — в пределах 150&nbsp;000&nbsp;₽ в год. Как проверить код в справке, за кого можно вернуть и как заполнить 3-НДФЛ за 199&nbsp;₽." data-rh="true"><meta property="og:url" content="https://налог-сервис.рф/deklaraciya/vychet-za-lechenie-zubov" data-rh="true"><meta property="og:locale" content="ru_RU" data-rh="true"><meta property="og:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta property="og:image:type" content="image/jpeg" data-rh="true"><meta property="og:image:width" content="1200" data-rh="true"><meta property="og:image:height" content="630" data-rh="true"><meta property="og:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><meta name="twitter:card" content="summary_large_image" data-rh="true"><meta name="twitter:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta name="twitter:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Импланты — это дорогостоящее лечение?","acceptedAnswer":{"@type":"Answer","text":"Да, операция по имплантации зубных протезов относится к дорогостоящему лечению: в справке для налоговой у неё код «2», и лимита у такого вычета нет — вернут 13% со всей суммы, сколько бы она ни была. А вот само протезирование (коронки на уже установленные импланты), лечение кариеса, чистка и брекеты идут с кодом «1» — они внутри общего социального лимита 150 000 ₽ в год."}},{"@type":"Question","name":"Кто решает, какой код поставить?","acceptedAnswer":{"@type":"Answer","text":"Клиника. Код в справке об оплате медицинских услуг ставит она, исходя из того, что именно было сделано. Налоговая считает по справке и пересматривать код не будет. Поэтому справку стоит проверить сразу: если имплантацию провели с кодом «1», в клинике её переоформят."}},{"@type":"Question","name":"Сколько вернут за обычное лечение зубов?","acceptedAnswer":{"@type":"Answer","text":"13% расходов в пределах общего социального лимита 150 000 ₽ в год — максимум 19 500 ₽. Лимит общий с лечением вообще, своим обучением, спортом и страхованием жизни: если в том же году были ещё и эти расходы, всё складывается и упирается в один потолок."}},{"@type":"Question","name":"Можно вернуть за лечение зубов жены, мужа или родителей?","acceptedAnswer":{"@type":"Answer","text":"Да: супруга, родителей и детей. Детям — до 18 лет, а с 2024 года до 24, если учатся очно. Платить должны вы, и это должно быть видно из документов: справку просите оформить на себя как на плательщика, указав, кому оказаны услуги."}},{"@type":"Question","name":"Лечился в частной клинике — вычет дадут?","acceptedAnswer":{"@type":"Answer","text":"Да, форма собственности значения не имеет. Важна лицензия российской клиники на медицинскую деятельность. За лечение за границей вычет не дают."}},{"@type":"Question","name":"Я не работаю. Можно ли вернуть налог за зубы?","acceptedAnswer":{"@type":"Answer","text":"Возвращают удержанный у вас НДФЛ, поэтому без облагаемого дохода возвращать нечего. Но вычет может заявить работающий супруг: лечение супруга — его законное основание, расходы в браке считаются общими."}}]}</script><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"HowTo","name":"Как получить вычет за лечение зубов","step":[{"@type":"HowToStep","name":"Взять справку в клинике","text":"Справка об оплате медицинских услуг для налоговой, с кодом 1 или 2."},{"@type":"HowToStep","name":"Проверить код услуги","text":"Имплантация — код 2 (без лимита), обычное лечение и протезирование — код 1."},{"@type":"HowToStep","name":"Заполнить декларацию 3-НДФЛ","text":"Суммы по кодам вносятся раздельно: лимит применяется только к коду 1."},{"@type":"HowToStep","name":"Подать в налоговую","text":"Через Личный кабинет ФНС, почтой или лично в инспекции."}]}</script></head>
+  <body>
+    <noscript><div><img src="https://mc.yandex.ru/watch/110487569" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- Пиксель VK Рекламы: JS-часть подключается из src/lib/vkpixel.js -->
+    <noscript><div><img src="https://top-fwz1.mail.ru/counter?id=3783010;js=na" style="position:absolute; left:-9999px;" alt="Top.Mail.Ru" /></div></noscript>
+    <div id="root"><div class="site"><header class="navbar"><div class="navbar__inner container"><a class="navbar__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r0-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r0-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r0-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg><span>Налог<span class="navbar__brand-accent">-сервис</span></span></a><a href="tel:+79208379193" class="navbar__phone-top" aria-label="Позвонить: +7 (920) 837-91-93"><span class="navbar__phone-top-ico" aria-hidden="true">📞</span><span class="navbar__phone-top-txt"><span class="navbar__phone-label">Помощь</span><span class="navbar__phone-top-num">+7 (920) 837-91-93</span></span></a><button class="navbar__toggle" aria-label="Меню" aria-expanded="false"><span></span><span></span><span></span></button><nav class="navbar__nav"><a class="navbar__link" href="/">Виды вычетов</a><a class="navbar__link" href="/">Как работаем</a><a class="navbar__link" href="/deklaraciya/instrukciya">Инструкция</a><a class="navbar__link" href="/deklaraciya/tarify">Тарифы</a><a class="navbar__link" href="/deklaraciya/kontakty">Контакты</a><span class="navbar__phone"><span class="navbar__phone-label">Помощь</span> <a href="tel:+79208379193">+7 (920) 837-91-93</a></span><a class="btn btn--primary navbar__cta" href="/deklaraciya/anketa">Заполнить декларацию</a></nav></div></header><main class="site__main"><section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="Хлебные крошки"><a href="/">Заполнить самому</a><span>/ Вычет за лечение зубов</span></nav><h1 class="page-hero__title">Налоговый вычет за лечение зубов</h1><p class="page-hero__subtitle">За лечение и протезирование возвращают 13% — в пределах <strong>150&nbsp;000&nbsp;₽</strong> в год, то есть до <strong>19&nbsp;500&nbsp;₽</strong>. А имплантация считается дорогостоящим лечением: там лимита нет совсем.</p><div class="hero__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=lechenie">Рассчитать мой вычет</a></div><p class="page-hero__note">Бесплатно и без регистрации: сумма к возврату видна до оплаты.</p></div></section><section class="section"><div class="container instr"><article class="card instr__block"><h2>Два кода — две разные суммы</h2><p>Всё решает код услуги в справке, которую выдаёт клиника:</p><ul class="instr__steps"><li><strong>Код «1» — обычное лечение.</strong> Кариес, чистка, удаление, коронки и брекеты. Входит в общий социальный лимит 150&nbsp;000&nbsp;₽ в год, к возврату не больше 19&nbsp;500&nbsp;₽.</li><li><strong>Код «2» — дорогостоящее лечение.</strong> Имплантация зубных протезов. Лимита нет: 13% берутся со всей суммы, а ограничивает только удержанный у вас за год НДФЛ.</li></ul><p><strong>Пример.</strong> Имплантация за 300&nbsp;000&nbsp;₽ с кодом «2» — к возврату <strong>39&nbsp;000&nbsp;₽</strong>, если за год с вас удержали столько налога. Та же сумма с кодом «1» дала бы только 19&nbsp;500&nbsp;₽ — вдвое меньше, и зависит это от одной цифры в справке.</p><p>В одной декларации можно заявить и то и другое: суммы по кодам вносятся раздельно, лимит применяется только к коду «1».</p></article><article class="card instr__block"><h2>Что проверить в справке</h2><ul class="instr__steps"><li><strong>Код услуги</strong> — «1» или «2». Если имплантацию оформили кодом «1», попросите переоформить: клиника делает это бесплатно.</li><li><strong>Плательщик — вы.</strong> Если лечили родителя или супруга, в справке плательщиком должны быть вы, а пациент указан отдельно.</li><li><strong>Год</strong> — справка выдаётся за календарный год оплаты. Лечение длилось с декабря по февраль — это два разных года и две декларации.</li></ul><p>С 2024 года действует единая форма справки, и многие клиники сами передают данные в налоговую. Это удобно, но декларацию всё равно подаёте вы: сами по себе данные вычет не дают.</p></article><article class="card instr__block"><h2>За какие годы можно подать</h2><p>За три последних года. В 2026 году открыты годы: <strong>2025, 2024, 2023</strong>. Лимит по обычному лечению у каждого года свой:</p><ul class="instr__steps"><li><strong>2025</strong> — 150&nbsp;000&nbsp;₽, к возврату до 19&nbsp;500&nbsp;₽</li><li><strong>2024</strong> — 150&nbsp;000&nbsp;₽, к возврату до 19&nbsp;500&nbsp;₽</li><li><strong>2023</strong> — 120&nbsp;000&nbsp;₽, к возврату до 15&nbsp;600&nbsp;₽</li></ul><p>На дорогостоящее лечение лимит не распространяется ни в одном из этих лет — там ограничение только по удержанному налогу.</p></article><article class="card instr__block"><h2>Какие документы понадобятся</h2><ul class="instr__steps"><li>справка об оплате медицинских услуг для налоговых органов (с кодом услуги 1 или 2)</li><li>для лекарств: рецепт по форме и чеки</li><li>если лечили родственника — документ о родстве (свидетельство о браке или о рождении);</li><li>договор с клиникой и чеки — если налоговая запросит уточнение.</li></ul></article><article class="card instr__block"><h2>Как оформить декларацию за 199&nbsp;₽</h2><ol class="instr__steps"><li>В анкете отмечаете «Платили за лечение» и вносите две суммы из справки: отдельно обычное лечение, отдельно дорогостоящее.</li><li>Получаете комплект: <span class="nowrap">3-НДФЛ</span> в PDF, XML для Личного кабинета ФНС и заявление на возврат.</li><li>Отправляете по <a href="/deklaraciya/instrukciya">пошаговой инструкции</a>.</li></ol><div class="instr__cta"><p>Лимит общий, поэтому за тот же год стоит вспомнить и про остальное: <a href="/deklaraciya/vychet-za-lechenie">лечение и лекарства</a>, <a href="/deklaraciya/vychet-za-obuchenie">обучение</a>, <a href="/deklaraciya/vychet-za-sport">спорт</a>.</p><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=lechenie">Заполнить декларацию — 199&nbsp;₽</a></div></article></div></section><section class="section section--muted"><div class="container"><div class="section__head"><span class="eyebrow">Вопросы</span><h2 class="section__title">Частые вопросы про вычет за лечение зубов</h2></div><div class="faq"><div class="faq__item is-open"><button class="faq__q" aria-expanded="true">Импланты — это дорогостоящее лечение?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да, операция по имплантации зубных протезов относится к дорогостоящему лечению: в справке для налоговой у неё код «2», и лимита у такого вычета нет — вернут 13% со всей суммы, сколько бы она ни была. А вот само протезирование (коронки на уже установленные импланты), лечение кариеса, чистка и брекеты идут с кодом «1» — они внутри общего социального лимита 150&nbsp;000&nbsp;₽ в год.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Кто решает, какой код поставить?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Клиника. Код в справке об оплате медицинских услуг ставит она, исходя из того, что именно было сделано. Налоговая считает по справке и пересматривать код не будет. Поэтому справку стоит проверить сразу: если имплантацию провели с кодом «1», в клинике её переоформят.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Сколько вернут за обычное лечение зубов?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">13% расходов в пределах общего социального лимита 150&nbsp;000&nbsp;₽ в год — максимум 19&nbsp;500&nbsp;₽. Лимит общий с лечением вообще, своим обучением, спортом и страхованием жизни: если в том же году были ещё и эти расходы, всё складывается и упирается в один потолок.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Можно вернуть за лечение зубов жены, мужа или родителей?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да: супруга, родителей и детей. Детям — до 18 лет, а с 2024 года до 24, если учатся очно. Платить должны вы, и это должно быть видно из документов: справку просите оформить на себя как на плательщика, указав, кому оказаны услуги.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Лечился в частной клинике — вычет дадут?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да, форма собственности значения не имеет. Важна лицензия российской клиники на медицинскую деятельность. За лечение за границей вычет не дают.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Я не работаю. Можно ли вернуть налог за зубы?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Возвращают удержанный у вас НДФЛ, поэтому без облагаемого дохода возвращать нечего. Но вычет может заявить работающий супруг: лечение супруга — его законное основание, расходы в браке считаются общими.</div></div></div></div></section><section class="cta"><div class="cta__inner container"><h2 class="cta__title">Вернуть налог за лечение зубов</h2><p class="cta__text">Нужна только справка из клиники. Декларация — 199&nbsp;₽, сумма к возврату видна до оплаты.</p><div class="cta__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=lechenie">Начать заполнение</a><a href="https://t.me/+79208379193" class="btn btn--light btn--lg">Спросить в Telegram</a></div></div></section></main><footer class="footer"><div class="container"><div class="footer__grid"><div><a class="footer__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r1-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r1-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r1-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg>Налог-сервис</a><p class="footer__tagline">Онлайн-сервис профессиональной помощи по заполнению декларации 3-НДФЛ и оформлению налогового вычета.</p></div><nav class="footer__col"><h4 class="footer__title">Разделы</h4><a href="/">Виды вычетов</a><a href="/">Как работаем</a><a href="/deklaraciya/instrukciya">Как подать декларацию</a><a href="/deklaraciya/stati">Полезные статьи</a><a href="/deklaraciya/kalkulyator-naloga-s-prodazhi">Калькулятор налога</a><a href="/deklaraciya/tarify">Тарифы</a><a href="/deklaraciya/kontakty">Контакты</a></nav><nav class="footer__col"><h4 class="footer__title">Документы</h4><a href="/politika-konfidencialnosti">Политика конфиденциальности</a><a href="/publichnaya-oferta">Публичная оферта</a></nav><div class="footer__col"><h4 class="footer__title">Контакты</h4><a href="tel:+79208379193">+7 (920) 837-91-93</a><a href="mailto:NALOG-SERVICE@INTERNET.RU">nalog-service@internet.ru</a><div class="messengers" style="margin-top: 8px;"><a class="messenger messenger--tg" href="https://t.me/+79208379193" target="_blank" rel="noreferrer">Telegram</a><a class="messenger messenger--max" href="https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA" target="_blank" rel="noreferrer">Max</a></div></div></div></div><div class="footer__disclaimer"><div class="container">ООО «Информкарт» · ИНН 7420010847 · ОГРН 1067420016168 · 456404, Челябинская обл., Чебаркульский р-он, п. Тимирязевский, ул. Чайковского, д. 11. Услуги оказываются на основании <a href="/publichnaya-oferta" style="text-decoration: underline;">Публичной оферты</a>. Сайт носит информационный характер и не является публичной офертой в части индивидуальных условий.</div></div><div class="footer__bottom container"><span>© 2026 Налог-сервис. Все права защищены.</span><span>Возврат налоговых вычетов НДФЛ по всей России<span style="opacity: 0.45; margin-left: 10px; font-size: 11px;">сборка 2026-10-20 07:24 UTC</span></span></div></footer><div class="cookie" role="dialog" aria-label="Использование файлов cookie"><p>ООО «Информкарт» использует файлы cookie для персонализации сервисов и удобства пользования сайтом. Подробнее — в <a href="/politika-konfidencialnosti">Политике конфиденциальности</a>.</p><button class="btn btn--primary">Принять</button></div><div class="chatw"><button type="button" class="chatw__fab" aria-label="Открыть чат помощи" aria-expanded="false">💬</button></div><div class="mobile-cta"><a href="tel:+79208379193" class="btn btn--ghost">Позвонить</a><a class="btn btn--primary" href="/deklaraciya/anketa">Заполнить</a></div></div></div>
+    <noscript>
+      Для работы сайта включите JavaScript. Налог-сервис — возврат налоговых
+      вычетов НДФЛ под ключ. Телефон: +7 (920) 837-91-93.
+    </noscript>
+  
+
+</body></html>

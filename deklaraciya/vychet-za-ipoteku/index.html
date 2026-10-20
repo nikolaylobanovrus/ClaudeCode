@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru"><head>
+    <script>/* Старые адреса с решёткой → чистые URL.
+ *
+ * Встраивается первым тегом в <head> (см. плагин в vite.config.js) и только
+ * в сборку с обычным роутером. Почему именно первым, а не в main.jsx: сразу
+ * за ним в <head> инициализируется Яндекс.Метрика с `url: location.href` —
+ * отработай шим позже, и каждый рекламный визит записался бы со старым
+ * адресом, а отчёт «страницы входа» стал бы бесполезным.
+ *
+ * Зачем вообще: 109 действующих объявлений Директа ведут на адреса вида
+ * «/?utm_source=…#/deklaraciya». Перемодерировать их ради переезда нельзя —
+ * это дни простоя. Плюс закладки людей, ссылки в уже скачанных PDF-инструкциях
+ * и статьи, которые мы будем публиковать. Шим остаётся в коде навсегда.
+ *
+ * Отдельно про склейку параметров: она сделана строками, а НЕ через
+ * URLSearchParams. Тот декодирует «+» как пробел и переэнкодит значения, а у
+ * нас через query ходят ссылка-черновик ?d=<base64 до 2000 символов> и метки
+ * Директа. Порча хотя бы одного символа означает потерянный черновик.
+ */
+(function () {
+  try {
+    var hash = window.location.hash;
+    // Обычные якоря (#faq) не трогаем — только маршруты вида #/путь.
+    if (hash.indexOf("#/") !== 0) return;
+
+    var rest = hash.slice(1); // «/deklaraciya/anketa?a=b» или «/deklaraciya&erid=x»
+
+    // Рекламные площадки дописывают свои параметры после решётки через «&»
+    // (Telega.in: «#/deklaraciya&erid=…»). Для роутера это часть пути, поэтому
+    // разделителем считаем и «?», и «&» — что встретится раньше.
+    var q = rest.indexOf("?");
+    var a = rest.indexOf("&");
+    var cut = q < 0 ? a : a < 0 ? q : Math.min(q, a);
+
+    var path = cut < 0 ? rest : rest.slice(0, cut);
+    var tail = cut < 0 ? "" : rest.slice(cut + 1);
+
+    if (!path || path.charAt(0) !== "/") return;
+
+    var search = window.location.search;
+    if (tail) search = search ? search + "&" + tail : "?" + tail;
+
+    window.history.replaceState(null, "", path + search);
+  } catch (e) {
+    /* Сломанный шим в самом начале <head> — это белый экран на всём сайте.
+       Цена ошибки должна быть «остался старый адрес», и не больше. */
+  }
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#0b5cff">
+
+    <!-- Primary SEO -->
+    <title>Налоговый вычет по процентам по ипотеке: вернуть до 390&nbsp;000&nbsp;₽ | Налог-сервис</title>
+    
+    
+    
+    <meta name="robots" content="index, follow, max-image-preview:large">
+
+    <!-- Open Graph -->
+    
+    
+    
+    
+    
+    <!-- Картинка превью — ТОЛЬКО растр. SVG в этом месте не понимает ни один
+         мессенджер и ни одна соцсеть (проверено 15.10.2026: ссылка
+         пересылалась без картинки). Файлы рисуются из одноимённых SVG
+         командой node scripts/build-og-image.mjs. Здесь — карточка
+         самозаполнения: корень сайта это оно. Страницы «под ключ» подставят
+         свою через <Seo> (выбор по пути — ogImageFor в routes.js). Размеры
+         дублируются тегами: по ним площадка строит карточку, не дожидаясь
+         загрузки файла. -->
+    
+    
+    
+    
+    
+    
+
+    <!-- Twitter -->
+    
+    
+    
+    
+    
+
+    <!-- Structured data: Organization (базовое, для краулеров и ИИ-поиска) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Налог-сервис",
+        "url": "https://налог-сервис.рф/",
+        "logo": "https://налог-сервис.рф/favicon.svg",
+        "description": "Сервис возврата налоговых вычетов (НДФЛ) под ключ: имущественный, за лечение, обучение, ИИС.",
+        "areaServed": "RU",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+7-920-837-91-93",
+          "contactType": "customer service",
+          "availableLanguage": "Russian"
+        }
+      }
+    </script>
+
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+          m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+          m[i].l=1*new Date();
+          for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+          k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+      })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=110487569', 'ym');
+
+      // Просмотры страниц SPA шлёт ymHit в Layout (hash-роутер);
+      // trackHash не включаем, чтобы хиты не задваивались.
+      ym(110487569, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    </script>
+    <!-- /Yandex.Metrika counter (noscript-пиксель — в body: в head он невалиден) -->
+    <script type="module" crossorigin="" src="/assets/index-B4eBbC9G.js"></script>
+    <link rel="stylesheet" crossorigin="" href="/assets/index-L3HSX6U9.css">
+  <link rel="modulepreload" as="script" crossorigin="" href="/assets/SelfServiceVychetIpoteka-BnjUGWPY.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/DeductionLanding-2RsJwa9P.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/format-BgXA9SMT.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/refs-b9oNh1Z6.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/instrukciya-BR6AevEv.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/pdfPage-rxtfMFyr.js"><link rel="modulepreload" as="script" crossorigin="" href="/assets/fontkit.es-DVwqq19A.js"><link rel="canonical" href="https://налог-сервис.рф/deklaraciya/vychet-za-ipoteku" data-rh="true"><meta name="description" content="Как вернуть 13% с процентов по ипотеке: лимит 3&nbsp;000&nbsp;000&nbsp;₽, до 390&nbsp;000&nbsp;₽ к возврату. За сколько лет можно заявить, что с рефинансированием и созаёмщиками, какие нужны документы и как заполнить 3-НДФЛ за 199&nbsp;₽." data-rh="true"><meta property="og:type" content="website" data-rh="true"><meta property="og:site_name" content="Налог-сервис" data-rh="true"><meta property="og:title" content="Налоговый вычет по процентам по ипотеке: вернуть до 390&nbsp;000&nbsp;₽ | Налог-сервис" data-rh="true"><meta property="og:description" content="Как вернуть 13% с процентов по ипотеке: лимит 3&nbsp;000&nbsp;000&nbsp;₽, до 390&nbsp;000&nbsp;₽ к возврату. За сколько лет можно заявить, что с рефинансированием и созаёмщиками, какие нужны документы и как заполнить 3-НДФЛ за 199&nbsp;₽." data-rh="true"><meta property="og:url" content="https://налог-сервис.рф/deklaraciya/vychet-za-ipoteku" data-rh="true"><meta property="og:locale" content="ru_RU" data-rh="true"><meta property="og:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta property="og:image:type" content="image/jpeg" data-rh="true"><meta property="og:image:width" content="1200" data-rh="true"><meta property="og:image:height" content="630" data-rh="true"><meta property="og:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><meta name="twitter:card" content="summary_large_image" data-rh="true"><meta name="twitter:image" content="https://xn----7sbhcltqolxje.xn--p1ai/og-sam.jpg" data-rh="true"><meta name="twitter:image:alt" content="Налог-сервис: декларация 3-НДФЛ за 15 минут, 199 ₽" data-rh="true"><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Вычет за квартиру и вычет по ипотеке — это одно и то же?","acceptedAnswer":{"@type":"Answer","text":"Нет, это два разных вычета, и их дают вместе. За саму покупку возвращают до 260 000 ₽ (лимит расходов 2 000 000 ₽), за уплаченные банку проценты — ещё до 390 000 ₽ (лимит 3 000 000 ₽). Обычно сначала выбирают основной вычет, а потом переходят к процентам."}},{"@type":"Question","name":"Можно ли заявить проценты сразу за несколько лет?","acceptedAnswer":{"@type":"Answer","text":"Да. Проценты накапливаются: в декларацию включают всё, что уплачено банку с самого начала кредита, а не только за один год. Но вернуть налог можно лишь за три последних года — за более ранние годы НДФЛ уже не возвращают."}},{"@type":"Question","name":"Я рефинансировал ипотеку в другом банке. Вычет сохранится?","acceptedAnswer":{"@type":"Answer","text":"Да, если в новом договоре прямо написано, что кредит выдан для рефинансирования прежнего ипотечного кредита на то же жильё. Проценты по обоим договорам суммируются в пределах общего лимита."}},{"@type":"Question","name":"Можно ли получить вычет по процентам второй ипотеки?","acceptedAnswer":{"@type":"Answer","text":"Нет. В отличие от основного вычета, который можно добирать по нескольким объектам, вычет по процентам даётся только по одному объекту за всю жизнь. Если он заявлен по первой квартире, по второй его уже не будет — поэтому при небольшой первой ипотеке иногда выгоднее приберечь его."}},{"@type":"Question","name":"Квартира куплена в браке. Кто получает вычет по процентам?","acceptedAnswer":{"@type":"Answer","text":"Оба супруга, независимо от того, на кого оформлен кредит и кто вносил платежи: ипотечная квартира — общая собственность. Проценты распределяются между супругами в любой пропорции по их заявлению, и каждый получает свой лимит до 390 000 ₽."}},{"@type":"Question","name":"Военная ипотека — вычет дадут?","acceptedAnswer":{"@type":"Answer","text":"Только с той части, которую вы заплатили собственными деньгами. Средства, перечисленные из бюджета по программе НИС, в расходы не входят — ни по основному вычету, ни по процентам."}}]}</script><script type="application/ld+json" data-rh="true">{"@context":"https://schema.org","@type":"HowTo","name":"Как получить вычет по процентам по ипотеке","step":[{"@type":"HowToStep","name":"Взять справку в банке","text":"Справка об уплаченных процентах за нужный год — в приложении банка или в отделении, обычно бесплатно."},{"@type":"HowToStep","name":"Заполнить декларацию 3-НДФЛ","text":"Анкета считает вычет за покупку и за проценты вместе и формирует файл для Личного кабинета ФНС."},{"@type":"HowToStep","name":"Подать в налоговую","text":"Через Личный кабинет ФНС, почтой или лично в инспекции."}]}</script></head>
+  <body>
+    <noscript><div><img src="https://mc.yandex.ru/watch/110487569" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- Пиксель VK Рекламы: JS-часть подключается из src/lib/vkpixel.js -->
+    <noscript><div><img src="https://top-fwz1.mail.ru/counter?id=3783010;js=na" style="position:absolute; left:-9999px;" alt="Top.Mail.Ru" /></div></noscript>
+    <div id="root"><div class="site"><header class="navbar"><div class="navbar__inner container"><a class="navbar__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r0-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r0-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r0-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg><span>Налог<span class="navbar__brand-accent">-сервис</span></span></a><a href="tel:+79208379193" class="navbar__phone-top" aria-label="Позвонить: +7 (920) 837-91-93"><span class="navbar__phone-top-ico" aria-hidden="true">📞</span><span class="navbar__phone-top-txt"><span class="navbar__phone-label">Помощь</span><span class="navbar__phone-top-num">+7 (920) 837-91-93</span></span></a><button class="navbar__toggle" aria-label="Меню" aria-expanded="false"><span></span><span></span><span></span></button><nav class="navbar__nav"><a class="navbar__link" href="/">Виды вычетов</a><a class="navbar__link" href="/">Как работаем</a><a class="navbar__link" href="/deklaraciya/instrukciya">Инструкция</a><a class="navbar__link" href="/deklaraciya/tarify">Тарифы</a><a class="navbar__link" href="/deklaraciya/kontakty">Контакты</a><span class="navbar__phone"><span class="navbar__phone-label">Помощь</span> <a href="tel:+79208379193">+7 (920) 837-91-93</a></span><a class="btn btn--primary navbar__cta" href="/deklaraciya/anketa">Заполнить декларацию</a></nav></div></header><main class="site__main"><section class="page-hero"><div class="container"><nav class="breadcrumbs" aria-label="Хлебные крошки"><a href="/">Заполнить самому</a><span>/ Вычет по ипотеке</span></nav><h1 class="page-hero__title">Налоговый вычет по процентам по ипотеке</h1><p class="page-hero__subtitle">С процентов, уплаченных банку, возвращают 13% — до <strong>390&nbsp;000&nbsp;₽</strong>. Это отдельный вычет: за саму квартиру возвращают ещё до <strong>260&nbsp;000&nbsp;₽</strong>, и оба можно заявить в одной декларации.</p><div class="hero__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=ipoteka">Рассчитать мой вычет</a></div><p class="page-hero__note">Бесплатно и без регистрации: сумма к возврату видна до оплаты.</p></div></section><section class="section"><div class="container instr"><article class="card instr__block"><h2>Сколько вернут</h2><p>Возвращают 13% от процентов, которые вы уже<strong> фактически уплатили</strong> банку. Не от суммы кредита, не от платежа целиком — только от процентной части.</p><ul class="instr__steps"><li><strong>Лимит — 3&nbsp;000&nbsp;000&nbsp;₽ процентов</strong> за всё время кредита, то есть максимум 390&nbsp;000&nbsp;₽ к возврату (п. 4 ст. 220 НК).</li><li><strong>Отдельно от вычета за покупку.</strong> Тот лимит — 2&nbsp;000&nbsp;000&nbsp;₽ расходов, до 260&nbsp;000&nbsp;₽ к возврату. Вместе по одной квартире можно вернуть до 650&nbsp;000&nbsp;₽.</li><li><strong>Больше удержанного не вернут.</strong> За год возвращают только тот НДФЛ, который с вас удержали; остаток переносится на следующие годы, пока лимит не исчерпается.</li></ul><p><strong>Пример.</strong> Ипотека 4 000 000 ₽ под 12% на 20 лет: за первый год банку уплачено около 470 000 ₽ процентов — к возврату 61 100 ₽. За вторую половину срока проценты меньше, и к концу кредита лимит 3&nbsp;000&nbsp;000&nbsp;₽ обычно выбирается целиком — это 390&nbsp;000&nbsp;₽ возврата за всё время.</p></article><article class="card instr__block"><h2>Проценты копятся — заявлять можно позже</h2><p>Вычет по процентам не привязан к году, в котором они уплачены: в декларацию включают всю сумму, накопленную с начала кредита. Многие специально ждут несколько лет, чтобы заявить сразу крупную сумму.</p><p>Ограничение одно — вернуть налог можно за три последних года (ст. 79 НК). В 2026 году это годы: <strong>2025, 2024, 2023</strong>. Проценты за более ранние годы в декларацию войдут, а вот НДФЛ за те годы уже не вернут.</p></article><article class="card instr__block"><h2>Когда вычет по процентам не дадут</h2><ul class="instr__steps"><li><strong>Кредит не целевой.</strong> Потребительский кредит, даже потраченный на квартиру, права на вычет не даёт: в договоре должно быть написано, что деньги выданы на покупку или строительство жилья.</li><li><strong>Только один объект.</strong> Вычет по процентам даётся один раз в жизни и по одной квартире — остаток лимита по второй ипотеке добрать нельзя (в отличие от основного вычета).</li><li><strong>Бюджетные деньги не считаются.</strong> Военная ипотека, материнский капитал и субсидии из расходов исключаются.</li><li><strong>Жильё куплено у близкого родственника.</strong> Сделки с супругом, родителями, детьми, братьями и сёстрами вычета не дают (п. 5 ст. 220 НК) — ни основного, ни по процентам.</li></ul></article><article class="card instr__block"><h2>Какие документы понадобятся</h2><p>По процентам:</p><ul class="instr__steps"><li>кредитный (ипотечный) договор</li><li>справка банка об уплаченных за год процентах</li></ul><p>И документы на саму квартиру — они нужны в любом случае:</p><ul class="instr__steps"><li>договор купли-продажи или ДДУ</li><li>выписка из ЕГРН (или акт приёма-передачи для ДДУ)</li><li>платёжные документы: расписка продавца, банковские платёжки, чеки</li></ul><p>Справку об уплаченных процентах банки выдают в приложении за пару минут и обычно бесплатно. Справка о доходах (бывшая <span class="nowrap">2-НДФЛ</span>) есть в Личном кабинете ФНС — просить её у работодателя не нужно.</p></article><article class="card instr__block"><h2>Как оформить декларацию за 199&nbsp;₽</h2><ol class="instr__steps"><li>В анкете отмечаете обе ситуации — «Купили квартиру» и «Платили за ипотеку». Суммы берутся из справки банка и документов на квартиру.</li><li>Получаете комплект: декларация <span class="nowrap">3-НДФЛ</span> в PDF, файл XML для Личного кабинета ФНС и заявление на возврат.</li><li>Отправляете по <a href="/deklaraciya/instrukciya">пошаговой инструкции</a> — через Личный кабинет ФНС, почтой или лично.</li></ol><div class="instr__cta"><p>Квартира в строящемся доме? <a href="/deklaraciya/vychet-za-novostroyku">У новостройки свои даты и расходы на отделку</a>.</p><p>Если основной вычет вы уже получали, в анкете можно указать только проценты — расчёт учтёт остаток.</p><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=ipoteka">Заполнить декларацию — 199&nbsp;₽</a><p>Ещё не получали вычет за саму квартиру? <a href="/deklaraciya/vychet-za-kvartiru">Разбор по основному вычету</a> — там про лимит 2&nbsp;000&nbsp;000&nbsp;₽ и документы.</p></div></article></div></section><section class="section section--muted"><div class="container"><div class="section__head"><span class="eyebrow">Вопросы</span><h2 class="section__title">Частые вопросы про вычет по ипотеке</h2></div><div class="faq"><div class="faq__item is-open"><button class="faq__q" aria-expanded="true">Вычет за квартиру и вычет по ипотеке — это одно и то же?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Нет, это два разных вычета, и их дают вместе. За саму покупку возвращают до 260&nbsp;000&nbsp;₽ (лимит расходов 2&nbsp;000&nbsp;000&nbsp;₽), за уплаченные банку проценты — ещё до 390&nbsp;000&nbsp;₽ (лимит 3&nbsp;000&nbsp;000&nbsp;₽). Обычно сначала выбирают основной вычет, а потом переходят к процентам.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Можно ли заявить проценты сразу за несколько лет?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да. Проценты накапливаются: в декларацию включают всё, что уплачено банку с самого начала кредита, а не только за один год. Но вернуть налог можно лишь за три последних года — за более ранние годы НДФЛ уже не возвращают.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Я рефинансировал ипотеку в другом банке. Вычет сохранится?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Да, если в новом договоре прямо написано, что кредит выдан для рефинансирования прежнего ипотечного кредита на то же жильё. Проценты по обоим договорам суммируются в пределах общего лимита.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Можно ли получить вычет по процентам второй ипотеки?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Нет. В отличие от основного вычета, который можно добирать по нескольким объектам, вычет по процентам даётся только по одному объекту за всю жизнь. Если он заявлен по первой квартире, по второй его уже не будет — поэтому при небольшой первой ипотеке иногда выгоднее приберечь его.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Квартира куплена в браке. Кто получает вычет по процентам?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Оба супруга, независимо от того, на кого оформлен кредит и кто вносил платежи: ипотечная квартира — общая собственность. Проценты распределяются между супругами в любой пропорции по их заявлению, и каждый получает свой лимит до 390&nbsp;000&nbsp;₽.</div></div><div class="faq__item"><button class="faq__q" aria-expanded="false">Военная ипотека — вычет дадут?<span class="faq__icon" aria-hidden="true">+</span></button><div class="faq__a">Только с той части, которую вы заплатили собственными деньгами. Средства, перечисленные из бюджета по программе НИС, в расходы не входят — ни по основному вычету, ни по процентам.</div></div></div></div></section><section class="cta"><div class="cta__inner container"><h2 class="cta__title">Вернуть до 390&nbsp;000&nbsp;₽ с процентов</h2><p class="cta__text">Анкета посчитает оба вычета сразу — за квартиру и за проценты — и соберёт их в одну декларацию.</p><div class="cta__actions"><a class="btn btn--green btn--lg" href="/deklaraciya/anketa?s=ipoteka">Начать заполнение</a><a href="https://t.me/+79208379193" class="btn btn--light btn--lg">Спросить в Telegram</a></div></div></section></main><footer class="footer"><div class="container"><div class="footer__grid"><div><a class="footer__brand" href="/"><svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true" class="navbar__logo"><defs><linearGradient id="r1-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1650b8"></stop><stop offset="1" stop-color="#1b62e0"></stop></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#r1-g)"></rect><path d="M32 10 l17 6 v13 c0 12 -7.5 20 -17 25 c-9.5 -5 -17 -13 -17 -25 v-13 z" fill="#fff"></path><path d="M32 15 l12.5 4.4 v9.8 c0 9.4 -5.6 15.8 -12.5 20 c-6.9 -4.2 -12.5 -10.6 -12.5 -20 v-9.8 z" fill="url(#r1-g)"></path><text x="32" y="33" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="800" fill="#fff">₽</text></svg>Налог-сервис</a><p class="footer__tagline">Онлайн-сервис профессиональной помощи по заполнению декларации 3-НДФЛ и оформлению налогового вычета.</p></div><nav class="footer__col"><h4 class="footer__title">Разделы</h4><a href="/">Виды вычетов</a><a href="/">Как работаем</a><a href="/deklaraciya/instrukciya">Как подать декларацию</a><a href="/deklaraciya/stati">Полезные статьи</a><a href="/deklaraciya/kalkulyator-naloga-s-prodazhi">Калькулятор налога</a><a href="/deklaraciya/tarify">Тарифы</a><a href="/deklaraciya/kontakty">Контакты</a></nav><nav class="footer__col"><h4 class="footer__title">Документы</h4><a href="/politika-konfidencialnosti">Политика конфиденциальности</a><a href="/publichnaya-oferta">Публичная оферта</a></nav><div class="footer__col"><h4 class="footer__title">Контакты</h4><a href="tel:+79208379193">+7 (920) 837-91-93</a><a href="mailto:NALOG-SERVICE@INTERNET.RU">nalog-service@internet.ru</a><div class="messengers" style="margin-top: 8px;"><a class="messenger messenger--tg" href="https://t.me/+79208379193" target="_blank" rel="noreferrer">Telegram</a><a class="messenger messenger--max" href="https://max.ru/u/f9LHodD0cOLIp0-KV0ruUarAhMwA5f5VEg7lElOPog3Zbi9MYv4py6G3TSA" target="_blank" rel="noreferrer">Max</a></div></div></div></div><div class="footer__disclaimer"><div class="container">ООО «Информкарт» · ИНН 7420010847 · ОГРН 1067420016168 · 456404, Челябинская обл., Чебаркульский р-он, п. Тимирязевский, ул. Чайковского, д. 11. Услуги оказываются на основании <a href="/publichnaya-oferta" style="text-decoration: underline;">Публичной оферты</a>. Сайт носит информационный характер и не является публичной офертой в части индивидуальных условий.</div></div><div class="footer__bottom container"><span>© 2026 Налог-сервис. Все права защищены.</span><span>Возврат налоговых вычетов НДФЛ по всей России<span style="opacity: 0.45; margin-left: 10px; font-size: 11px;">сборка 2026-10-20 07:24 UTC</span></span></div></footer><div class="cookie" role="dialog" aria-label="Использование файлов cookie"><p>ООО «Информкарт» использует файлы cookie для персонализации сервисов и удобства пользования сайтом. Подробнее — в <a href="/politika-konfidencialnosti">Политике конфиденциальности</a>.</p><button class="btn btn--primary">Принять</button></div><div class="chatw"><button type="button" class="chatw__fab" aria-label="Открыть чат помощи" aria-expanded="false">💬</button></div><div class="mobile-cta"><a href="tel:+79208379193" class="btn btn--ghost">Позвонить</a><a class="btn btn--primary" href="/deklaraciya/anketa">Заполнить</a></div></div></div>
+    <noscript>
+      Для работы сайта включите JavaScript. Налог-сервис — возврат налоговых
+      вычетов НДФЛ под ключ. Телефон: +7 (920) 837-91-93.
+    </noscript>
+  
+
+</body></html>
