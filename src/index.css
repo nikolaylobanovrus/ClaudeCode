@@ -1752,6 +1752,86 @@ h4 {
   align-content: start;
   font-size: 14.5px;
 }
+/* Блок «Полезные статьи» на главной: шесть тем карточками. Не список
+   ссылок — карточка с темой, самым спрашиваемым разбором и счётчиком
+   остальных: так видно, что внутри, и не рябит в глазах. */
+.stati-themes {
+  display: grid;
+  /* Ровно три в ряд: тем шесть, и при автоподборе выходило 4 + 2 —
+     вторая строка смотрелась обрывком. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .stati-themes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .stati-themes {
+    grid-template-columns: 1fr;
+  }
+}
+.stati-theme {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.stati-theme:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.stati-theme__title {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--ink-900);
+}
+.stati-theme__text {
+  font-size: 14.5px;
+  color: var(--blue-600);
+  font-weight: 600;
+}
+.stati-theme__more {
+  font-size: 13px;
+  color: var(--ink-500);
+}
+.stati-themes__all {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+/* Оглавление разборов (/deklaraciya/stati): ссылка и под ней строка-
+   пояснение. Две колонки на десктопе, одна на телефоне — длинные
+   пояснения в узкой колонке читать невозможно. */
+.stati__list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px 28px;
+}
+.stati__list li {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+.stati__list a {
+  font-weight: 700;
+  color: var(--blue-600);
+}
+.stati__list span {
+  color: var(--ink-700);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
 .footer__req {
   font-size: 13px;
   color: #92a1bd;

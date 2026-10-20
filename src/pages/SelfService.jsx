@@ -6,6 +6,7 @@ import { Link, useLocation } from "react-router-dom";
 import Seo from "../components/Seo.jsx";
 import Faq from "../components/Faq.jsx";
 import { company, selfService } from "../data/content.js";
+import { ARTICLE_GROUPS, ALL_ARTICLES } from "../data/articles.js";
 import { fmtRub } from "../lib/format.js";
 import { wizardDeductions } from "../data/wizard.js";
 import { useFeatureFlag } from "../lib/featureFlags.js";
@@ -261,24 +262,18 @@ export default function SelfService() {
               страница-ответ. Ссылка стоит прямо в списке вычетов, а не в
               подвале: человек читает «какие вычеты можно оформить» ровно
               тогда, когда ищет свой случай. */}
-          {/* Две строки вместо четырёх абзацев со ссылками.
-              Сначала здесь перечислялись все 29 разборов подряд — владелец
-              справедливо сказал, что такой объём путает (19.10.2026). Для
-              поиска потери нет: статьи доступны с оглавления, из sitemap.xml
-              и по контекстным ссылкам внутри самих разборов, а сквозные
-              перечисления поисковики и так ценят ниже. Прятать ссылки от
-              людей, оставляя их роботу, нельзя — это поисковый спам, за него
-              фильтруют весь сайт. */}
+          {/* Здесь остаётся ОДНО действие — калькулятор: человек на этом
+              месте выбирает свою ситуацию, и «посчитать налог» ему по пути.
+              Раньше под плитками шли четыре абзаца со ссылками на все 29
+              разборов; владелец сказал, что такой объём путает, и статьи
+              переехали отдельным блоком ниже, под частые вопросы: читать их
+              идут после того, как разобрались, а не вместо этого. */}
           <p className="sd-grid__note">
             Не знаете, будет ли налог после продажи?{" "}
             <Link to="/deklaraciya/kalkulyator-naloga-s-prodazhi">
               Посчитайте на калькуляторе
             </Link>{" "}
             — бесплатно, с проверкой срока владения.
-          </p>
-          <p className="sd-grid__note">
-            По каждой ситуации есть разбор с лимитами, документами и примерами —{" "}
-            <Link to="/deklaraciya/stati">29 полезных статей</Link>.
           </p>
         </div>
       </section>
@@ -339,6 +334,40 @@ export default function SelfService() {
             <h2 className="section__title">Частые вопросы</h2>
           </div>
           <Faq items={WIZARD_FAQ} />
+        </div>
+      </section>
+
+      {/* Полезные статьи — ПОСЛЕ частых вопросов: человек сначала решает
+          свою задачу, а читать разборы идёт, когда остались сомнения.
+          Шесть тем вместо двадцати девяти ссылок: каждая ведёт на самый
+          спрашиваемый разбор темы, а за остальными — ссылка на оглавление.
+          Темы берём из того же справочника, что питает хаб и подвал. */}
+      <section className="section section--muted" id="sd-stati">
+        <div className="container">
+          <div className="section__head">
+            <span className="eyebrow">Разобраться</span>
+            <h2 className="section__title">Полезные статьи</h2>
+            <p className="section__text">
+              Коротко и по делу: сколько вернут, какие документы собрать и чего
+              делать не стоит. Все цифры — из действующих правил.
+            </p>
+          </div>
+          <div className="stati-themes">
+            {ARTICLE_GROUPS.map((g) => (
+              <Link key={g.title} to={g.items[0].to} className="stati-theme">
+                <span className="stati-theme__title">{g.title}</span>
+                <span className="stati-theme__text">{g.items[0].title}</span>
+                <span className="stati-theme__more">
+                  и ещё {g.items.length - 1}
+                </span>
+              </Link>
+            ))}
+          </div>
+          <div className="stati-themes__all">
+            <Link to="/deklaraciya/stati" className="btn btn--ghost btn--lg">
+              Все {ALL_ARTICLES.length} статей
+            </Link>
+          </div>
         </div>
       </section>
 
