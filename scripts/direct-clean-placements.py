@@ -101,8 +101,17 @@ def placements(token, date_from, date_to):
                 if r.status == 200:
                     return r.read().decode()
         except urllib.error.HTTPError as e:
+            text = e.read().decode()
+            # Ошибка 56 — «не чаще раза в 10 секунд» на метод отчётов, общая
+            # для всех скриптов под этим логином. Ежедневная чистка запускает
+            # площадки и запросы подряд, и второй скрипт падал на первом же
+            # обращении (17.10 и 21.10.2026). Это не отказ, а очередь: ждём.
+            if e.code == 400 and '"56"' in text:
+                print("   лимит отчётов (ошибка 56), жду 11 с…")
+                time.sleep(11)
+                continue
             if e.code not in (201, 202):
-                sys.exit("отчёт не собрался: %s %s" % (e.code, e.read().decode()[:400]))
+                sys.exit("отчёт не собрался: %s %s" % (e.code, text[:400]))
         except (urllib.error.URLError, OSError) as e:
             # Обрыв связи, а не отказ API. Эндпоинт отчётов держит соединение
             # открытым, пока считает, и прокси иногда рвёт его на полуслове —
