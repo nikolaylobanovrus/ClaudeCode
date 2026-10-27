@@ -4,6 +4,8 @@
     curl -fsSL https://raw.githubusercontent.com/nikolaylobanovrus/ClaudeCode/claude/tax-deduction-declaration-site-dfit30/scripts/webmaster-report.py -o /tmp/webmaster-report.py
     python3 /tmp/webmaster-report.py              # отчёт, ничего не меняет
     python3 /tmp/webmaster-report.py --recrawl    # ещё и отправит страницы на переобход
+                                                  # (и добавит sitemap.xml, если Вебмастер
+                                                  # не знает ни одной карты сайта)
 
 ЗАЧЕМ ЗАПУСКАТЬ ИМЕННО НА СЕРВЕРЕ. Из среды разработки api.webmaster.yandex.net
 недоступен: туннель устанавливается, TLS-привет уходит, и Яндекс рвёт
@@ -192,6 +194,17 @@ if not host:
 host_id = host["host_id"]
 print("Сайт: %s" % (host.get("unicode_host_url") or host.get("ascii_host_url")))
 print("Подтверждён: %s" % ("да" if host.get("verified") else "НЕТ — часть данных закрыта"))
+# NOT_LOADED — Вебмастер ещё не загрузил данные по сайту: сводка, запросы и
+# история отвечают 404. Так было 27.10.2026, через 12 дней после
+# подтверждения (15.10). Говорим об этом сразу, чтобы череда 404 ниже не
+# читалась как поломка скрипта.
+info, _ = api("/user/%s/hosts/%s" % (user_id, host_id))
+status = (info or {}).get("host_data_status")
+if status and status != "OK":
+    print("Данные сайта в Вебмастере: %s — %s" % (status, {
+        "NOT_LOADED": "ещё не загружены, сводка и запросы будут пустыми",
+        "NOT_INDEXED": "сайт ещё не проиндексирован",
+    }.get(status, "см. интерфейс Вебмастера")))
 
 TO = date.today()
 FROM = TO - timedelta(days=DAYS)
@@ -285,7 +298,19 @@ if err:
 else:
     rows = sm.get("sitemaps") or []
     if not rows:
-        print("  Вебмастер не знает ни одной карты сайта — её стоит добавить")
+        # Строка «Sitemap:» в robots.txt есть, но пока данные сайта не
+        # загружены, Вебмастер её не видит. Добавляем карту явно — под тем же
+        # флагом, что и переобход: без флагов скрипт ничего не меняет.
+        added, _ = api("/user/%s/hosts/%s/user-added-sitemaps" % (user_id, host_id))
+        if (added or {}).get("count"):
+            print("  карта добавлена вручную, Вебмастер её ещё не обработал")
+        elif "--recrawl" in sys.argv:
+            _, e3 = api("/user/%s/hosts/%s/user-added-sitemaps" % (user_id, host_id),
+                        method="POST", body={"url": "https://%s/sitemap.xml" % SITE_ASCII})
+            print("  ✗ не удалось добавить sitemap.xml — %s" % e3 if e3
+                  else "  sitemap.xml добавлена в Вебмастер")
+        else:
+            print("  Вебмастер не знает ни одной карты сайта — добавится при запуске с --recrawl")
     for s in rows:
         print("  %s" % s.get("sitemap_url"))
         print("     обработана: %s | адресов: %s | ошибок: %s" % (
@@ -298,11 +323,14 @@ d, err = api("/user/%s/hosts/%s/diagnostics/" % (user_id, host_id))
 if err:
     fail("диагностика", err)
 else:
-    rows = [p for p in (d.get("problems") or []) if p.get("state") == "PRESENT"]
+    # API отдаёт словарь {тип: {severity, state}}, а не список: первая версия
+    # перебирала его как список и падала на первом же запуске (27.10.2026).
+    probs = d.get("problems") or {}
+    rows = [(k, v) for k, v in probs.items() if (v or {}).get("state") == "PRESENT"]
     if not rows:
         print("  проблем нет")
-    for p in rows:
-        print("  [%s] %s" % (p.get("severity"), p.get("problem_type")))
+    for k, v in rows:
+        print("  [%s] %s" % (v.get("severity"), k))
 
 # --- 8. Переобход -------------------------------------------------------------
 head("Переобход")
@@ -320,7 +348,13 @@ if "--recrawl" in sys.argv:
         with urllib.request.urlopen("https://%s/sitemap.xml" % SITE_ASCII, timeout=30) as r:
             xml = r.read().decode("utf-8", "replace")
         import re
-        urls = re.findall(r"<loc>([^<]+)</loc>", xml)
+        # Сначала самые свежие страницы (по lastmod): если квота кончится,
+        # пусть недополучат переобход старые, давно известные адреса.
+        pairs = re.findall(r"<loc>([^<]+)</loc>\s*(?:<lastmod>([^<]+)</lastmod>)?", xml)
+        urls = [u for u, _ in sorted(pairs, key=lambda x: x[1] or "", reverse=True)]
+        # В карте адреса кириллические, а сайт в API заведён в punycode —
+        # отправляем в том же написании, что и host_id.
+        urls = [u.replace("://" + SITE_HUMAN, "://" + SITE_ASCII) for u in urls]
     except Exception as e:
         urls = []
         print("  не удалось прочитать sitemap.xml: %s" % str(e)[:150])
