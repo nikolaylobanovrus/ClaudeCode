@@ -66,7 +66,10 @@ def queries(token, date_from, date_to):
                         "Values": [str(c) for c in CAMPAIGNS]}]},
         "FieldNames": ["CampaignId", "Query", "TargetingCategory",
                        "Impressions", "Clicks", "Cost"],
-        "ReportName": "junk-%s-%s-%d" % (date_from, date_to, int(time.time())),
+        # Имя отчёта — одно на сутки запуска, а не на секунду: повторный запуск
+        # подхватывает уже заказанный отчёт, а не ставит в очередь новый. Очередь
+        # у логина — 5 отчётов, и 16.11.2026 повторы забили её целиком.
+        "ReportName": "junk-%s-%s-%s" % (date_from, date_to, time.strftime("%Y%m%d")),
         "ReportType": "SEARCH_QUERY_PERFORMANCE_REPORT", "DateRangeType": "CUSTOM_DATE",
         "Format": "TSV", "IncludeVAT": "YES", "IncludeDiscount": "NO",
     }
@@ -75,7 +78,9 @@ def queries(token, date_from, date_to):
                "Content-Type": "application/json; charset=utf-8",
                "processingMode": "auto", "returnMoneyInMicros": "false",
                "skipReportHeader": "true", "skipReportSummary": "true"}
-    for _ in range(12):
+    # Отчёт в режиме offline Директ иногда собирает несколько минут (16.11.2026
+    # не уложился в минуту дважды подряд). 40 × 5 с — с запасом.
+    for _ in range(40):
         try:
             req = urllib.request.Request(API + "reports", data=body, headers=headers)
             with urllib.request.urlopen(req, timeout=120) as r:
