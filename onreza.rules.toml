@@ -1,0 +1,7 @@
+# Static React/Vite SPA routing.
+# Existing files (assets, sitemap, robots, etc.) are served normally;
+# browser-router paths fall back to the application entry point.
+[[rule]]
+id = "spa-fallback"
+when.path = { prefix = "/" }
+action.rewrite = { target = "/index.html", if_no_file = true }
