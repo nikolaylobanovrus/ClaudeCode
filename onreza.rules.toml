@@ -1,6 +1,6 @@
-# Static React/Vite SPA routing.
-# Existing files (assets, sitemap, robots, etc.) are served normally;
-# browser-router paths fall back to the application entry point.
+schema = "EDGE_RULE_SET_V1"
+
+# React Router SPA: serve existing static files first, then fall back to index.html.
 [[rule]]
 id = "spa-fallback"
 when.path = { prefix = "/" }
